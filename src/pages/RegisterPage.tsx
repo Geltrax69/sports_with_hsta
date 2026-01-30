@@ -21,23 +21,28 @@ export function RegisterPage() {
     gender: '',
     category: '',
     aadhaarNumber: '',
+    aadhaarDocument: null as File | null,
     email: '',
     password: '',
     district: '',
     certificates: [] as File[],
-    idProofType: '',
-    idProofDocument: null as File | null,
     // Passport Details
     passportNumber: '',
     passportExpiryDate: '',
     passportIssuedPlace: '',
-    passportCopy: null as File | null,
+    passportDocument: null as File | null,
+    // Kit & Performance Details
+    tShirtSize: '',
+    trackSuitSize: '',
+    shoesSize: '',
+    pantSize: '',
+    gamesPlayed: '',
   })
 
   const [profilePreview, setProfilePreview] = useState<string | null>(null)
   const [certificatePreviews, setCertificatePreviews] = useState<string[]>([])
-  const [idProofPreview, setIdProofPreview] = useState<string | null>(null)
-  const [passportCopyPreview, setPassportCopyPreview] = useState<string | null>(null)
+  const [aadhaarPreview, setAadhaarPreview] = useState<string | null>(null)
+  const [passportPreview, setPassportPreview] = useState<string | null>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -104,7 +109,7 @@ export function RegisterPage() {
     setCertificatePreviews(newPreviews)
   }
 
-  const handleIdProofChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAadhaarDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf']
@@ -116,17 +121,42 @@ export function RegisterPage() {
         alert('File size must be less than 5MB')
         return
       }
-      setFormData({ ...formData, idProofDocument: file })
+      setFormData({ ...formData, aadhaarDocument: file })
 
-      // Preview for images only, PDFs will show a document icon
       if (file.type.startsWith('image/')) {
         const reader = new FileReader()
         reader.onloadend = () => {
-          setIdProofPreview(reader.result as string)
+          setAadhaarPreview(reader.result as string)
         }
         reader.readAsDataURL(file)
       } else {
-        setIdProofPreview('pdf')
+        setAadhaarPreview('pdf')
+      }
+    }
+  }
+
+  const handlePassportDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf']
+      if (!validTypes.includes(file.type)) {
+        alert('Only image files (JPG/PNG/GIF) or PDF files are allowed.')
+        return
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB')
+        return
+      }
+      setFormData({ ...formData, passportDocument: file })
+
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          setPassportPreview(reader.result as string)
+        }
+        reader.readAsDataURL(file)
+      } else {
+        setPassportPreview('pdf')
       }
     }
   }
@@ -153,25 +183,6 @@ export function RegisterPage() {
     setFormData({ ...formData, [name]: formattedValue })
   }
 
-  const handlePassportCopyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        alert('Only image files (JPG/PNG/GIF) are allowed.')
-        return
-      }
-      if (file.size > 1 * 1024 * 1024) {
-        alert('File size must be less than 1MB')
-        return
-      }
-      setFormData({ ...formData, passportCopy: file })
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setPassportCopyPreview(reader.result as string)
-      }
-      reader.readAsDataURL(file)
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -186,25 +197,31 @@ export function RegisterPage() {
       return
     }
 
-    if (!formData.idProofType) {
-      alert('Please select an ID proof type.')
+    if (!formData.aadhaarNumber) {
+      alert('Please provide your Aadhaar number.')
       setIsSubmitting(false)
       return
     }
 
-    if (!formData.idProofDocument) {
-      alert('Please upload your ID proof document.')
+    if (!formData.aadhaarDocument) {
+      alert('Please upload your Aadhaar document.')
       setIsSubmitting(false)
       return
     }
 
-    if (registrationType === 'player' && !formData.gender) {
+    if (formData.passportNumber && !formData.passportDocument) {
+      alert('Please upload your passport copy.')
+      setIsSubmitting(false)
+      return
+    }
+
+    if (!formData.gender) {
       alert('Please select a gender.')
       setIsSubmitting(false)
       return
     }
 
-    if (registrationType === 'player' && !formData.category) {
+    if (!formData.category) {
       alert('Please select a category.')
       setIsSubmitting(false)
       return
@@ -217,26 +234,34 @@ export function RegisterPage() {
       form.append('motherName', formData.motherName)
       form.append('phone', formData.phone)
       form.append('dateOfBirth', formData.dateOfBirth)
-      if (registrationType === 'player') {
-        form.append('gender', formData.gender)
-        form.append('category', formData.category)
-      }
+      form.append('gender', formData.gender)
+      form.append('category', formData.category)
       form.append('aadhaarNumber', formData.aadhaarNumber)
+      if (formData.aadhaarDocument) {
+        form.append('aadhaarDocument', formData.aadhaarDocument)
+      }
+
+      // Email, Password, District
       form.append('email', formData.email)
       form.append('password', formData.password)
       form.append('district', formData.district)
       form.append('profilePhoto', formData.profilePhoto)
       formData.certificates.forEach((c) => form.append('certificates', c))
-      form.append('idProofType', formData.idProofType)
-      if (formData.idProofDocument) {
-        form.append('idProofDocument', formData.idProofDocument)
-      }
 
-      // Optional Passport Details
+      // Passport Details
       if (formData.passportNumber) form.append('passportNumber', formData.passportNumber)
       if (formData.passportExpiryDate) form.append('passportExpiryDate', formData.passportExpiryDate)
       if (formData.passportIssuedPlace) form.append('passportIssuedPlace', formData.passportIssuedPlace)
-      if (formData.passportCopy) form.append('passportCopy', formData.passportCopy)
+      if (formData.passportDocument) form.append('passportDocument', formData.passportDocument)
+
+      // Kit & Performance Details
+      if (registrationType === 'player') {
+        form.append('tShirtSize', formData.tShirtSize)
+        form.append('trackSuitSize', formData.trackSuitSize)
+        form.append('shoesSize', formData.shoesSize)
+        form.append('pantSize', formData.pantSize)
+        form.append('gamesPlayed', formData.gamesPlayed)
+      }
 
       const path = registrationType === 'player'
         ? '/players/register'
@@ -268,21 +293,25 @@ export function RegisterPage() {
         gender: '',
         category: '',
         aadhaarNumber: '',
+        aadhaarDocument: null,
         email: '',
         password: '',
         district: '',
         certificates: [],
-        idProofType: '',
-        idProofDocument: null,
         passportNumber: '',
         passportExpiryDate: '',
         passportIssuedPlace: '',
-        passportCopy: null,
+        passportDocument: null,
+        tShirtSize: '',
+        trackSuitSize: '',
+        shoesSize: '',
+        pantSize: '',
+        gamesPlayed: '',
       })
       setProfilePreview(null)
       setCertificatePreviews([])
-      setIdProofPreview(null)
-      setPassportCopyPreview(null)
+      setAadhaarPreview(null)
+      setPassportPreview(null)
       setShowPassword(false)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Registration failed'
@@ -441,625 +470,655 @@ export function RegisterPage() {
               </div>
             </div>
 
-            {/* Full Legal Name */}
-            <div>
-              <label htmlFor="fullName" className="block text-sm font-semibold text-gray-900 mb-2">
-                Full Legal Name
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  person
-                </span>
-                <input
-                  type="text"
-                  id="fullName"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleInputChange}
-                  placeholder="e.g. Rahul Kumar"
-                  required
-                  className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
-                />
-              </div>
-            </div>
-
-            {/* Father's Name, Mother's Name and Phone Number */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <label htmlFor="fatherName" className="block text-sm font-semibold text-gray-900 mb-2">
-                  Father's Name
-                </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    person
-                  </span>
-                  <input
-                    type="text"
-                    id="fatherName"
-                    name="fatherName"
-                    value={formData.fatherName}
-                    onChange={handleInputChange}
-                    placeholder="Father's Name"
-                    required
-                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
-                  />
-                </div>
-              </div>
-              <div>
-                <label htmlFor="motherName" className="block text-sm font-semibold text-gray-900 mb-2">
-                  Mother's Name
-                </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    person
-                  </span>
-                  <input
-                    type="text"
-                    id="motherName"
-                    name="motherName"
-                    value={formData.motherName}
-                    onChange={handleInputChange}
-                    placeholder="Mother's Name"
-                    required
-                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
-                  />
-                </div>
-              </div>
-              <div>
-                <label htmlFor="phone" className="block text-sm font-semibold text-gray-900 mb-2">
-                  Phone Number
-                </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    call
-                  </span>
-                  <input
-                    type="tel"
-                    id="phone"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    placeholder="10 digit number"
-                    required
-                    maxLength={10}
-                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Email and Aadhaar Number */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-semibold text-gray-900 mb-2">
-                  Email ID
-                </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    mail
-                  </span>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    placeholder="name@example.com"
-                    required
-                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
-                  />
-                </div>
-              </div>
-              <div>
-                <label htmlFor="aadhaarNumber" className="block text-sm font-semibold text-gray-900 mb-2">
-                  Aadhaar Number <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    fingerprint
-                  </span>
-                  <input
-                    type="text"
-                    id="aadhaarNumber"
-                    name="aadhaarNumber"
-                    value={formData.aadhaarNumber}
-                    onChange={handleInputChange}
-                    placeholder="XXXX-XXXX-XXXX"
-                    pattern="[0-9]{4}-[0-9]{4}-[0-9]{4}"
-                    maxLength={14}
-                    required
-                    inputMode="numeric"
-                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Date of Birth */}
-            <div>
-              <label htmlFor="dateOfBirth" className="block text-sm font-semibold text-gray-900 mb-2">
-                Date of Birth
-              </label>
-              <div className="max-w-xs">
-                <DatePickerField
-                  id="dateOfBirth"
-                  name="dateOfBirth"
-                  label="Select date of birth"
-                  value={formData.dateOfBirth}
-                  onChange={(date) => setFormData({ ...formData, dateOfBirth: date })}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* ID Proof Type Selection */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-3">
-                ID Proof Type <span className="text-red-500">*</span>
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <label
-                  className={`relative flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${formData.idProofType === 'passport'
-                    ? 'border-[#5a0a8f] bg-purple-50'
-                    : 'border-gray-300 hover:border-[#5a0a8f]/50'
-                    }`}
-                >
-                  <input
-                    type="radio"
-                    name="idProofType"
-                    value="passport"
-                    checked={formData.idProofType === 'passport'}
-                    onChange={handleInputChange}
-                    className="w-4 h-4 text-[#5a0a8f] focus:ring-[#5a0a8f]"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-900">Passport</div>
-                  </div>
-                </label>
-
-                <label
-                  className={`relative flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${formData.idProofType === 'aadhaar'
-                    ? 'border-[#5a0a8f] bg-purple-50'
-                    : 'border-gray-300 hover:border-[#5a0a8f]/50'
-                    }`}
-                >
-                  <input
-                    type="radio"
-                    name="idProofType"
-                    value="aadhaar"
-                    checked={formData.idProofType === 'aadhaar'}
-                    onChange={handleInputChange}
-                    className="w-4 h-4 text-[#5a0a8f] focus:ring-[#5a0a8f]"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-900">Aadhaar Card</div>
-                  </div>
-                </label>
-
-                <label
-                  className={`relative flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${formData.idProofType === 'tenth_certificate'
-                    ? 'border-[#5a0a8f] bg-purple-50'
-                    : 'border-gray-300 hover:border-[#5a0a8f]/50'
-                    }`}
-                >
-                  <input
-                    type="radio"
-                    name="idProofType"
-                    value="tenth_certificate"
-                    checked={formData.idProofType === 'tenth_certificate'}
-                    onChange={handleInputChange}
-                    className="w-4 h-4 text-[#5a0a8f] focus:ring-[#5a0a8f]"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-900">10th Certificate</div>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            {/* Passport Details Section (Optional, shown conditionally) */}
-            {formData.idProofType === 'passport' && (
-              <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 mt-4 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-                <h3 className="font-bold text-[#5a0a8f] flex items-center gap-2">
-                  <span className="material-symbols-outlined">passport</span>
-                  Passport Details (Optional)
+            <div className="space-y-8 bg-white p-6 md:p-8 rounded-2xl shadow-xl shadow-purple-900/5 border border-purple-50">
+              {/* Section 1: Personal Details */}
+              <div className="space-y-6">
+                <h3 className="font-bold text-[#5a0a8f] flex items-center gap-2 text-lg">
+                  <span className="material-symbols-outlined">person</span>
+                  Personal Information
                 </h3>
+                <div>
+                  <label htmlFor="fullName" className="block text-sm font-semibold text-gray-900 mb-2">
+                    Full Legal Name
+                  </label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                      person
+                    </span>
+                    <input
+                      type="text"
+                      id="fullName"
+                      name="fullName"
+                      value={formData.fullName}
+                      onChange={handleInputChange}
+                      placeholder="e.g. Rahul Kumar"
+                      required
+                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Father's Name, Mother's Name and Phone Number */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div>
-                    <label htmlFor="passportNumber" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Passport Number
+                    <label htmlFor="fatherName" className="block text-sm font-semibold text-gray-900 mb-2">
+                      Father's Name
                     </label>
-                    <input
-                      type="text"
-                      id="passportNumber"
-                      name="passportNumber"
-                      value={formData.passportNumber}
-                      onChange={handleInputChange}
-                      placeholder="Enter passport number"
-                      className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white"
-                    />
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                        person
+                      </span>
+                      <input
+                        type="text"
+                        id="fatherName"
+                        name="fatherName"
+                        value={formData.fatherName}
+                        onChange={handleInputChange}
+                        placeholder="Father's Name"
+                        required
+                        className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
+                      />
+                    </div>
                   </div>
                   <div>
-                    <label htmlFor="passportExpiryDate" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Passport Expiry Date
+                    <label htmlFor="motherName" className="block text-sm font-semibold text-gray-900 mb-2">
+                      Mother's Name
                     </label>
-                    <input
-                      type="date"
-                      id="passportExpiryDate"
-                      name="passportExpiryDate"
-                      value={formData.passportExpiryDate}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white placeholder-gray-400"
-                    />
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                        person
+                      </span>
+                      <input
+                        type="text"
+                        id="motherName"
+                        name="motherName"
+                        value={formData.motherName}
+                        onChange={handleInputChange}
+                        placeholder="Mother's Name"
+                        required
+                        className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
+                      />
+                    </div>
                   </div>
                   <div>
-                    <label htmlFor="passportIssuedPlace" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Passport Issued Place
+                    <label htmlFor="phone" className="block text-sm font-semibold text-gray-900 mb-2">
+                      Phone Number
                     </label>
-                    <input
-                      type="text"
-                      id="passportIssuedPlace"
-                      name="passportIssuedPlace"
-                      value={formData.passportIssuedPlace}
-                      onChange={handleInputChange}
-                      placeholder="City/State"
-                      className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white"
-                    />
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                        call
+                      </span>
+                      <input
+                        type="tel"
+                        id="phone"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleInputChange}
+                        placeholder="10 digit number"
+                        required
+                        maxLength={10}
+                        className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Passport Copy
+                {/* Gender and Category */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="gender" className="block text-sm font-semibold text-gray-900 mb-2">
+                      Gender <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                        wc
+                      </span>
+                      <select
+                        id="gender"
+                        name="gender"
+                        value={formData.gender}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
+                      >
+                        <option value="" disabled>
+                          Select gender
+                        </option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="category" className="block text-sm font-semibold text-gray-900 mb-2">
+                      Category <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                        groups
+                      </span>
+                      <select
+                        id="category"
+                        name="category"
+                        value={formData.category}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
+                      >
+                        <option value="" disabled>
+                          Select category
+                        </option>
+                        <option value="SC">SC</option>
+                        <option value="ST">ST</option>
+                        <option value="General">General</option>
+                        <option value="OBC">OBC</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Password */}
+                <div className="max-w-md">
+                  <label htmlFor="password" className="block text-sm font-semibold text-gray-900 mb-2">
+                    New Password
                   </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-[#5a0a8f] transition-colors bg-white">
-                    {passportCopyPreview ? (
-                      <div className="flex flex-col items-center gap-3">
-                        <img
-                          src={passportCopyPreview}
-                          alt="Passport preview"
-                          className="w-32 h-20 object-cover rounded border border-gray-200"
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                      lock
+                    </span>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      id="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      placeholder="Create a password"
+                      required
+                      minLength={8}
+                      className="w-full pl-10 pr-12 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      <span className="material-symbols-outlined text-xl">
+                        {showPassword ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* District Association */}
+                <div>
+                  <label htmlFor="district" className="block text-sm font-semibold text-gray-900 mb-2">
+                    District Association
+                  </label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                      location_on
+                    </span>
+                    <select
+                      id="district"
+                      name="district"
+                      value={formData.district}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full pl-10 pr-10 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all appearance-none bg-white text-gray-900"
+                    >
+                      <option value="">Select your district</option>
+                      {districts
+                        .filter((d) => d.status === 'active')
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map((district) => (
+                          <option key={district.id} value={district.id}>
+                            {district.name} {district.zone ? `(${district.zone})` : ''}
+                          </option>
+                        ))}
+                    </select>
+                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
+                      keyboard_arrow_down
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-600 mt-2">
+                    Select the district where you primarily reside or train.
+                  </p>
+                </div>
+
+                {/* Email ID */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-semibold text-gray-900 mb-2">
+                      Email ID
+                    </label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                        mail
+                      </span>
+                      <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        placeholder="name@example.com"
+                        required
+                        className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Date of Birth */}
+                <div>
+                  <label htmlFor="dateOfBirth" className="block text-sm font-semibold text-gray-900 mb-2">
+                    Date of Birth
+                  </label>
+                  <div className="max-w-xs">
+                    <DatePickerField
+                      id="dateOfBirth"
+                      name="dateOfBirth"
+                      label="Select date of birth"
+                      value={formData.dateOfBirth}
+                      onChange={(date) => setFormData({ ...formData, dateOfBirth: date })}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Identification Documents */}
+              <div className="pt-8 border-t border-gray-100 space-y-6">
+                <h3 className="font-bold text-[#5a0a8f] flex items-center gap-2 text-lg">
+                  <span className="material-symbols-outlined">badge</span>
+                  Identification Documents
+                </h3>
+
+                <div className="space-y-6">
+                  {/* Aadhaar Details */}
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="aadhaarNumber" className="block text-sm font-semibold text-gray-700 mb-2">
+                        Aadhaar Number <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          id="aadhaarNumber"
+                          name="aadhaarNumber"
+                          value={formData.aadhaarNumber}
+                          onChange={handleInputChange}
+                          placeholder="XXXX-XXXX-XXXX"
+                          pattern="[0-9]{4}-[0-9]{4}-[0-9]{4}"
+                          maxLength={14}
+                          required
+                          inputMode="numeric"
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
                         />
-                        <div className="flex gap-3">
-                          <label className="cursor-pointer text-xs font-bold text-[#5a0a8f] hover:text-[#400466]">
-                            Change
+                      </div>
+                    </div>
+
+                    <div className="border-2 border-gray-200 rounded-lg p-4 bg-white">
+                      {aadhaarPreview ? (
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-center gap-3">
+                            {aadhaarPreview === 'pdf' ? (
+                              <div className="w-12 h-12 rounded bg-red-100 flex items-center justify-center">
+                                <span className="material-symbols-outlined text-2xl text-red-600">picture_as_pdf</span>
+                              </div>
+                            ) : (
+                              <img
+                                src={aadhaarPreview}
+                                alt="Aadhaar preview"
+                                className="w-16 h-16 object-cover rounded border border-gray-200"
+                              />
+                            )}
+                            <div className="flex-1 min-w-0 text-left">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {formData.aadhaarDocument?.name || 'Aadhaar Document'}
+                              </p>
+                              <div className="flex gap-3 mt-1">
+                                <label className="cursor-pointer text-xs font-bold text-[#5a0a8f] hover:underline">
+                                  Change
+                                  <input
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/gif,application/pdf"
+                                    onChange={handleAadhaarDocumentChange}
+                                    className="hidden"
+                                  />
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAadhaarPreview(null)
+                                    setFormData({ ...formData, aadhaarDocument: null })
+                                  }}
+                                  className="text-xs font-bold text-red-600 hover:underline"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-500">No Aadhaar uploaded <span className="text-red-500">*</span></span>
+                          <label className="cursor-pointer bg-[#5a0a8f] text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-[#400466] transition-colors">
+                            Upload Aadhaar
                             <input
                               type="file"
-                              accept="image/*"
-                              onChange={handlePassportCopyChange}
+                              accept="image/jpeg,image/png,image/gif,application/pdf"
+                              onChange={handleAadhaarDocumentChange}
                               className="hidden"
                             />
                           </label>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPassportCopyPreview(null)
-                              setFormData({ ...formData, passportCopy: null })
-                            }}
-                            className="text-xs font-bold text-red-600"
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Passport Details */}
+                  <div className="space-y-4 pt-6 border-t border-gray-100 mt-6">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Passport Details <span className="font-normal text-xs text-gray-500 ml-1">(Optional)</span></h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div>
+                        <label htmlFor="passportNumber" className="block text-sm font-semibold text-gray-700 mb-2">
+                          Passport Number
+                        </label>
+                        <input
+                          type="text"
+                          id="passportNumber"
+                          name="passportNumber"
+                          value={formData.passportNumber}
+                          onChange={handleInputChange}
+                          placeholder="Enter passport number"
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="passportExpiryDate" className="block text-sm font-semibold text-gray-700 mb-2">
+                          Passport Expiry Date
+                        </label>
+                        <input
+                          type="date"
+                          id="passportExpiryDate"
+                          name="passportExpiryDate"
+                          value={formData.passportExpiryDate}
+                          onChange={handleInputChange}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white placeholder-gray-400"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="passportIssuedPlace" className="block text-sm font-semibold text-gray-700 mb-2">
+                          Passport Issued Place
+                        </label>
+                        <input
+                          type="text"
+                          id="passportIssuedPlace"
+                          name="passportIssuedPlace"
+                          value={formData.passportIssuedPlace}
+                          onChange={handleInputChange}
+                          placeholder="City/State"
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Passport Copy
+                      </label>
+                      <div className="border-2 border-gray-200 rounded-lg p-4 bg-white">
+                        {passportPreview ? (
+                          <div className="flex flex-col gap-3">
+                            <div className="flex items-center gap-3">
+                              {passportPreview === 'pdf' ? (
+                                <div className="w-12 h-12 rounded bg-red-100 flex items-center justify-center">
+                                  <span className="material-symbols-outlined text-2xl text-red-600">picture_as_pdf</span>
+                                </div>
+                              ) : (
+                                <img
+                                  src={passportPreview}
+                                  alt="Passport preview"
+                                  className="w-16 h-12 object-cover rounded border border-gray-200"
+                                />
+                              )}
+                              <div className="flex-1 min-w-0 text-left">
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {formData.passportDocument?.name || 'Passport Document'}
+                                </p>
+                                <div className="flex gap-3 mt-1">
+                                  <label className="cursor-pointer text-xs font-bold text-[#5a0a8f] hover:underline">
+                                    Change
+                                    <input
+                                      type="file"
+                                      accept="image/jpeg,image/png,image/gif,application/pdf"
+                                      onChange={handlePassportDocumentChange}
+                                      className="hidden"
+                                    />
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPassportPreview(null)
+                                      setFormData({ ...formData, passportDocument: null })
+                                    }}
+                                    className="text-xs font-bold text-red-600 hover:underline"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-500">No passport copy uploaded</span>
+                            <label className="cursor-pointer bg-[#5a0a8f] text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-[#400466] transition-colors">
+                              Upload Passport Copy
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/gif,application/pdf"
+                                onChange={handlePassportDocumentChange}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-2">Maximum size 5MB. JPG/PNG/PDF supported.</p>
+                    </div>
+                  </div>
+
+                  {registrationType === 'player' && (
+                    <div className="space-y-6 pt-6 border-t border-gray-200">
+                      <h3 className="font-bold text-[#5a0a8f] flex items-center gap-2">
+                        <span className="material-symbols-outlined">apparel</span>
+                        Kit & Performance Details
+                      </h3>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">T-Shirt Size</label>
+                          <select
+                            name="tShirtSize"
+                            value={formData.tShirtSize}
+                            onChange={handleInputChange}
+                            className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900"
                           >
-                            Remove
-                          </button>
+                            <option value="">Select Size</option>
+                            <option value="S">Small (S)</option>
+                            <option value="M">Medium (M)</option>
+                            <option value="L">Large (L)</option>
+                            <option value="XL">Extra Large (XL)</option>
+                            <option value="XXL">XXL</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Tracksuit Size</label>
+                          <select
+                            name="trackSuitSize"
+                            value={formData.trackSuitSize}
+                            onChange={handleInputChange}
+                            className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900"
+                          >
+                            <option value="">Select Size</option>
+                            <option value="S">Small (S)</option>
+                            <option value="M">Medium (M)</option>
+                            <option value="L">Large (L)</option>
+                            <option value="XL">Extra Large (XL)</option>
+                            <option value="XXL">XXL</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Shoes Size (UK/India)</label>
+                          <input
+                            type="text"
+                            name="shoesSize"
+                            value={formData.shoesSize}
+                            onChange={handleInputChange}
+                            placeholder="e.g. 8"
+                            className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Pant Size</label>
+                          <input
+                            type="text"
+                            name="pantSize"
+                            value={formData.pantSize}
+                            onChange={handleInputChange}
+                            placeholder="e.g. 32"
+                            className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Number of Games Played</label>
+                          <input
+                            type="text"
+                            name="gamesPlayed"
+                            value={formData.gamesPlayed}
+                            onChange={handleInputChange}
+                            placeholder="e.g. 15"
+                            className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900"
+                          />
                         </div>
                       </div>
-                    ) : (
-                      <label className="cursor-pointer flex flex-col items-center gap-1">
-                        <span className="material-symbols-outlined text-3xl text-gray-400">upload_file</span>
-                        <span className="text-xs text-gray-600 font-medium">Upload Passport Copy</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handlePassportCopyChange}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-gray-500 mt-2">Maximum size 1MB. JPG/PNG supported.</p>
-                </div>
-              </div>
-            )}
-
-            {/* ID Proof Document Upload */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Upload ID Proof Document <span className="text-red-500">*</span>
-              </label>
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 md:p-8 text-center hover:border-[#5a0a8f] transition-colors">
-                {idProofPreview ? (
-                  <div className="flex flex-col items-center gap-4">
-                    {idProofPreview === 'pdf' ? (
-                      <div className="w-24 h-24 rounded-lg bg-red-100 flex items-center justify-center border-4 border-gray-200">
-                        <span className="material-symbols-outlined text-4xl text-red-600">picture_as_pdf</span>
-                      </div>
-                    ) : (
-                      <img
-                        src={idProofPreview}
-                        alt="ID Proof preview"
-                        className="w-32 h-32 rounded-lg object-cover border-4 border-gray-200"
-                      />
-                    )}
-                    <div className="text-sm text-gray-700 font-medium">
-                      {formData.idProofDocument?.name}
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-3 items-center">
-                      <label className="cursor-pointer inline-flex items-center gap-2 bg-[#5a0a8f] text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-[#400466] transition-colors">
-                        <span className="material-symbols-outlined text-lg">upload</span>
-                        Change Document
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/gif,application/pdf"
-                          onChange={handleIdProofChange}
-                          className="hidden"
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIdProofPreview(null)
-                          setFormData({ ...formData, idProofDocument: null })
-                        }}
-                        className="text-sm text-gray-600 hover:text-gray-900"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-4">
-                    <div className="w-24 h-24 rounded-lg bg-gray-100 flex items-center justify-center border-4 border-gray-200">
-                      <span className="material-symbols-outlined text-4xl text-gray-400">upload_file</span>
-                    </div>
-                    <div>
-                      <label className="cursor-pointer inline-flex items-center gap-2 bg-[#5a0a8f] text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-[#400466] transition-colors">
-                        <span className="material-symbols-outlined text-lg">upload</span>
-                        Upload Document
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/gif,application/pdf"
-                          onChange={handleIdProofChange}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-                  </div>
-                )}
-                <p className="text-xs text-gray-600 mt-4">
-                  Upload a clear photo or PDF of your {formData.idProofType === 'passport' ? 'Passport' : formData.idProofType === 'aadhaar' ? 'Aadhaar Card' : formData.idProofType === 'tenth_certificate' ? '10th Certificate' : 'selected ID proof'}. JPG, PNG, GIF or PDF. Max size 5MB.
-                </p>
-              </div>
-            </div>
+                  )}
 
-            {registrationType === 'player' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="gender" className="block text-sm font-semibold text-gray-900 mb-2">
-                    Gender <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                      wc
-                    </span>
-                    <select
-                      id="gender"
-                      name="gender"
-                      value={formData.gender}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
-                    >
-                      <option value="" disabled>
-                        Select gender
-                      </option>
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="category" className="block text-sm font-semibold text-gray-900 mb-2">
-                    Category <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                      groups
-                    </span>
-                    <select
-                      id="category"
-                      name="category"
-                      value={formData.category}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
-                    >
-                      <option value="" disabled>
-                        Select category
-                      </option>
-                      <option value="SC">SC</option>
-                      <option value="ST">ST</option>
-                      <option value="General">General</option>
-                      <option value="OBC">OBC</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Password */}
-            <div className="max-w-md">
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-900 mb-2">
-                New Password
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  lock
-                </span>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  placeholder="Create a password"
-                  required
-                  minLength={8}
-                  className="w-full pl-10 pr-12 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  <span className="material-symbols-outlined text-xl">
-                    {showPassword ? 'visibility_off' : 'visibility'}
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {/* District Association */}
-            <div>
-              <label htmlFor="district" className="block text-sm font-semibold text-gray-900 mb-2">
-                District Association
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  location_on
-                </span>
-                <select
-                  id="district"
-                  name="district"
-                  value={formData.district}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full pl-10 pr-10 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all appearance-none bg-white text-gray-900"
-                >
-                  <option value="">Select your district</option>
-                  {districts
-                    .filter((d) => d.status === 'active')
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((district) => (
-                      <option key={district.id} value={district.id}>
-                        {district.name} {district.zone ? `(${district.zone})` : ''}
-                      </option>
-                    ))}
-                </select>
-                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
-                  keyboard_arrow_down
-                </span>
-              </div>
-              <p className="text-xs text-gray-600 mt-2">
-                Select the district where you primarily reside or train.
-              </p>
-            </div>
-
-            {/* Certificate Images */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Enter your 10th Certificate Image(s)
-              </label>
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 md:p-6 hover:border-[#5a0a8f] transition-colors">
-                {certificatePreviews.length > 0 ? (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                      {certificatePreviews.map((preview, index) => (
-                        <div key={index} className="relative group">
-                          <img
-                            src={preview}
-                            alt={`Certificate ${index + 1}`}
-                            className="w-full h-32 object-cover rounded-lg border-2 border-gray-200"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeCertificate(index)}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <span className="material-symbols-outlined text-sm">close</span>
-                          </button>
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs text-center py-1 rounded-b-lg">
-                            Certificate {index + 1}
+                  {/* Certificate Images */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">
+                      Enter your 10th Certificate Image(s)
+                    </label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 md:p-6 hover:border-[#5a0a8f] transition-colors">
+                      {certificatePreviews.length > 0 ? (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                            {certificatePreviews.map((preview, index) => (
+                              <div key={index} className="relative group">
+                                <img
+                                  src={preview}
+                                  alt={`Certificate ${index + 1}`}
+                                  className="w-full h-32 object-cover rounded-lg border-2 border-gray-200"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeCertificate(index)}
+                                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <span className="material-symbols-outlined text-sm">close</span>
+                                </button>
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs text-center py-1 rounded-b-lg">
+                                  Certificate {index + 1}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          {formData.certificates.length < 10 && (
+                            <div className="text-center pt-2">
+                              <label className="cursor-pointer inline-flex items-center gap-2 bg-[#5a0a8f] text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-[#400466] transition-colors">
+                                <span className="material-symbols-outlined text-lg">add</span>
+                                Add More Certificates ({formData.certificates.length}/10)
+                                <input
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/gif"
+                                  onChange={handleCertificateChange}
+                                  multiple
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-6">
+                          <div className="flex flex-col items-center gap-4">
+                            <span className="material-symbols-outlined text-5xl text-gray-400">description</span>
+                            <div>
+                              <label className="cursor-pointer inline-flex items-center gap-2 bg-[#5a0a8f] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#400466] transition-colors">
+                                <span className="material-symbols-outlined text-lg">upload</span>
+                                Upload Certificates
+                                <input
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/gif"
+                                  onChange={handleCertificateChange}
+                                  multiple
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                    {formData.certificates.length < 10 && (
-                      <div className="text-center pt-2">
-                        <label className="cursor-pointer inline-flex items-center gap-2 bg-[#5a0a8f] text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-[#400466] transition-colors">
-                          <span className="material-symbols-outlined text-lg">add</span>
-                          Add More Certificates ({formData.certificates.length}/10)
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/png,image/gif"
-                            onChange={handleCertificateChange}
-                            multiple
-                            className="hidden"
-                          />
-                        </label>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <div className="flex flex-col items-center gap-4">
-                      <span className="material-symbols-outlined text-5xl text-gray-400">description</span>
-                      <div>
-                        <label className="cursor-pointer inline-flex items-center gap-2 bg-[#5a0a8f] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#400466] transition-colors">
-                          <span className="material-symbols-outlined text-lg">upload</span>
-                          Upload Certificates
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/png,image/gif"
-                            onChange={handleCertificateChange}
-                            multiple
-                            className="hidden"
-                          />
-                        </label>
-                      </div>
+                      )}
+                      <p className="text-xs text-gray-600 mt-4 text-center">
+                        Upload up to 10 certificate images. JPG, PNG or GIF. Max size 5MB per image.
+                      </p>
+                      {formData.certificates.length > 0 && (
+                        <p className="text-xs text-[#5a0a8f] font-medium mt-2 text-center">
+                          {formData.certificates.length} certificate{formData.certificates.length > 1 ? 's' : ''} uploaded
+                        </p>
+                      )}
                     </div>
                   </div>
-                )}
-                <p className="text-xs text-gray-600 mt-4 text-center">
-                  Upload up to 10 certificate images. JPG, PNG or GIF. Max size 5MB per image.
-                </p>
-                {formData.certificates.length > 0 && (
-                  <p className="text-xs text-[#5a0a8f] font-medium mt-2 text-center">
-                    {formData.certificates.length} certificate{formData.certificates.length > 1 ? 's' : ''} uploaded
-                  </p>
-                )}
-              </div>
-            </div>
 
-            {/* Approval Process Information */}
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 md:p-5">
-              <div className="flex gap-3">
-                <span className="material-symbols-outlined text-blue-600 flex-shrink-0">info</span>
-                <div>
-                  <h3 className="font-bold text-blue-900 mb-1">Approval Process</h3>
-                  <p className="text-sm text-blue-800">
-                    Your registration status will be set to <strong>Pending</strong> immediately after
-                    submission. It must be approved by a District Official before you can participate in
-                    tournaments.
-                  </p>
+                  {/* Approval Process Information */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 md:p-5">
+                    <div className="flex gap-3">
+                      <span className="material-symbols-outlined text-blue-600 flex-shrink-0">info</span>
+                      <div>
+                        <h3 className="font-bold text-blue-900 mb-1">Approval Process</h3>
+                        <p className="text-sm text-blue-800">
+                          Your registration status will be set to <strong>Pending</strong> immediately after
+                          submission. It must be approved by a District Official before you can participate in
+                          tournaments.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className={`w-full bg-[#5a0a8f] text-white font-bold py-4 px-6 rounded-lg shadow-lg shadow-purple-900/20 transition-all flex items-center justify-center gap-2 text-base md:text-lg transform ${isSubmitting ? 'opacity-60 cursor-not-allowed' : 'hover:bg-[#400466] hover:-translate-y-0.5'
+                      }`}
+                  >
+                    <span>{isSubmitting ? 'Submitting…' : 'Submit Application'}</span>
+                    <span className="material-symbols-outlined">{isSubmitting ? 'hourglass_empty' : 'arrow_forward'}</span>
+                  </button>
                 </div>
               </div>
             </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={`w-full bg-[#5a0a8f] text-white font-bold py-4 px-6 rounded-lg shadow-lg shadow-purple-900/20 transition-all flex items-center justify-center gap-2 text-base md:text-lg transform ${isSubmitting ? 'opacity-60 cursor-not-allowed' : 'hover:bg-[#400466] hover:-translate-y-0.5'
-                }`}
-            >
-              <span>{isSubmitting ? 'Submitting…' : 'Submit Application'}</span>
-              <span className="material-symbols-outlined">{isSubmitting ? 'hourglass_empty' : 'arrow_forward'}</span>
-            </button>
           </form>
         </div>
+
 
         {/* Footer */}
         <div className="text-center mt-6">
@@ -1072,5 +1131,6 @@ export function RegisterPage() {
         </div>
       </div>
     </main>
+
   )
 }

@@ -23,6 +23,11 @@ export type PlayerRegistration = {
   reviewedBy?: string
   category?: string
   gender?: string
+  aadhaarDocument?: string
+  passportNumber?: string
+  passportExpiryDate?: string
+  passportIssuedPlace?: string
+  passportDocument?: string
   // Tournament registration fields
   tournamentId?: string // ID of tournament they're applying for
   tournamentCategory?: string // Category they're applying for in tournament
@@ -30,6 +35,12 @@ export type PlayerRegistration = {
   appliedAt?: string
   applicationReviewedAt?: string
   applicationReviewedBy?: string
+  // Kit & Performance Details
+  tShirtSize?: string
+  trackSuitSize?: string
+  shoesSize?: string
+  pantSize?: string
+  gamesPlayed?: string
 }
 
 export type TournamentRegistration = {
@@ -116,9 +127,10 @@ export function RegistrationsProvider({ children }: { children: ReactNode }) {
     if (user?.role !== 'admin') return
 
     try {
-      const [players, coaches] = await Promise.all([
+      const [players, coaches, referees] = await Promise.all([
         apiRequest<{ registrations: any[] }>('/players', { auth: true }),
         apiRequest<{ registrations: any[] }>('/coaches', { auth: true }),
+        apiRequest<{ registrations: any[] }>('/referees', { auth: true }),
       ])
 
       const normalize = (r: any): PlayerRegistration => ({
@@ -140,11 +152,23 @@ export function RegistrationsProvider({ children }: { children: ReactNode }) {
         reviewedBy: r.reviewedBy || undefined,
         category: r.category || undefined,
         gender: r.gender || undefined,
+        aadhaarDocument: r.aadhaarDocument || undefined,
+        passportNumber: r.passportNumber || undefined,
+        passportExpiryDate: r.passportExpiryDate || undefined,
+        passportIssuedPlace: r.passportIssuedPlace || undefined,
+        passportDocument: r.passportDocument || undefined,
+        tShirtSize: r.tShirtSize || undefined,
+        trackSuitSize: r.trackSuitSize || undefined,
+        shoesSize: r.shoesSize || undefined,
+        pantSize: r.pantSize || undefined,
+        gamesPlayed: r.gamesPlayed || undefined,
       })
 
-      const combined = [...players.registrations.map(normalize), ...coaches.registrations.map(normalize)].sort(
-        (a, b) => (b.submittedAt || '').localeCompare(a.submittedAt || ''),
-      )
+      const combined = [
+        ...players.registrations.map(normalize),
+        ...coaches.registrations.map(normalize),
+        ...referees.registrations.map(normalize),
+      ].sort((a, b) => (b.submittedAt || '').localeCompare(a.submittedAt || ''))
 
       setRegistrations(combined)
     } catch {
@@ -168,12 +192,38 @@ export function RegistrationsProvider({ children }: { children: ReactNode }) {
     return newRegistration.id
   }
 
-  const updateRegistration = (id: string, updates: Partial<PlayerRegistration>) => {
-    setRegistrations(registrations.map((r) => (r.id === id ? { ...r, ...updates } : r)))
+  const deleteRegistration = (id: string) => {
+    const reg = registrations.find((r) => r.id === id)
+    if (!reg || (reg.type !== 'player' && reg.type !== 'coach' && reg.type !== 'referee') || user?.role !== 'admin') {
+      setRegistrations(registrations.filter((r) => r.id !== id))
+      return
+    }
+
+    const path = reg.type === 'player' ? `/players/${id}` : reg.type === 'coach' ? `/coaches/${id}` : `/referees/${id}`
+    void apiRequest(path, {
+      method: 'DELETE',
+      auth: true,
+    }).then(() => {
+      setRegistrations(registrations.filter((r) => r.id !== id))
+      void refreshFromBackend()
+    })
   }
 
-  const deleteRegistration = (id: string) => {
-    setRegistrations(registrations.filter((r) => r.id !== id))
+  const updateRegistration = (id: string, updates: Partial<PlayerRegistration>) => {
+    const reg = registrations.find((r) => r.id === id)
+    if (!reg || (reg.type !== 'player' && reg.type !== 'coach' && reg.type !== 'referee') || user?.role !== 'admin') {
+      setRegistrations(registrations.map((r) => (r.id === id ? { ...r, ...updates } : r)))
+      return
+    }
+
+    const path = reg.type === 'player' ? `/players/${id}` : reg.type === 'coach' ? `/coaches/${id}` : `/referees/${id}`
+    void apiRequest(path, {
+      method: 'PATCH',
+      auth: true,
+      body: JSON.stringify(updates),
+    }).then(() => {
+      void refreshFromBackend()
+    })
   }
 
   const getRegistrationById = (id: string) => {

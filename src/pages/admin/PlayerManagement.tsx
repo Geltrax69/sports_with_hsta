@@ -3,13 +3,16 @@ import { useState, useMemo } from 'react'
 import { useRegistrations, type PlayerRegistration } from '../../context/RegistrationsContext'
 import { useDistricts } from '../../context/DistrictsContext'
 import { useAuth } from '../../context/AuthContext'
+import { EditPlayerModal } from '../../components/admin/EditPlayerModal.tsx'
 
 export function PlayerManagement() {
-  const { registrations, approveRegistration, rejectRegistration } = useRegistrations()
+  const { registrations, approveRegistration, rejectRegistration, deleteRegistration, updateRegistration } = useRegistrations()
   const { districts } = useDistricts()
   const { user } = useAuth()
   const [selectedRegistration, setSelectedRegistration] = useState<PlayerRegistration | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [registrationToEdit, setRegistrationToEdit] = useState<PlayerRegistration | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
@@ -56,6 +59,17 @@ export function PlayerManagement() {
         setSelectedRegistration(null)
       }
     }
+  }
+
+  const handleDelete = (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete ${name}? This will also delete all their uploaded documents from S3.`)) {
+      deleteRegistration(id)
+    }
+  }
+
+  const handleEdit = (registration: PlayerRegistration) => {
+    setRegistrationToEdit(registration)
+    setShowEditModal(true)
   }
 
   const getDistrictName = (districtId: string) => {
@@ -297,10 +311,10 @@ export function PlayerManagement() {
                       <td className="px-6 py-4">
                         <span
                           className={`px-2 py-1 text-xs font-bold rounded ${registration.type === 'player'
-                              ? 'bg-blue-100 text-blue-700'
-                              : registration.type === 'coach'
-                                ? 'bg-purple-100 text-purple-700'
-                                : 'bg-orange-100 text-orange-700'
+                            ? 'bg-blue-100 text-blue-700'
+                            : registration.type === 'coach'
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'bg-orange-100 text-orange-700'
                             }`}
                         >
                           {registration.type === 'player' ? 'Player' : registration.type === 'coach' ? 'Coach' : 'Referee'}
@@ -354,6 +368,20 @@ export function PlayerManagement() {
                             title="View Details"
                           >
                             <span className="material-symbols-outlined text-lg">visibility</span>
+                          </button>
+                          <button
+                            onClick={() => handleEdit(registration)}
+                            className="text-blue-600 hover:text-blue-700"
+                            title="Edit"
+                          >
+                            <span className="material-symbols-outlined text-lg">edit</span>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(registration.id, registration.fullName)}
+                            className="text-red-600 hover:text-red-700"
+                            title="Delete"
+                          >
+                            <span className="material-symbols-outlined text-lg">delete</span>
                           </button>
                         </div>
                       </td>
@@ -434,10 +462,10 @@ export function PlayerManagement() {
                       <span className="font-semibold">Status:</span>{' '}
                       <span
                         className={`px-2 py-1 rounded text-xs font-bold ${selectedRegistration.status === 'approved'
-                            ? 'bg-green-100 text-green-700'
-                            : selectedRegistration.status === 'rejected'
-                              ? 'bg-red-100 text-red-700'
-                              : 'bg-yellow-100 text-yellow-700'
+                          ? 'bg-green-100 text-green-700'
+                          : selectedRegistration.status === 'rejected'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-yellow-100 text-yellow-700'
                           }`}
                       >
                         {selectedRegistration.status.toUpperCase()}
@@ -481,8 +509,48 @@ export function PlayerManagement() {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Aadhaar Number</label>
-                    <div className="text-gray-900">{selectedRegistration.aadhaarNumber}</div>
+                    <div className="text-gray-900">{selectedRegistration.aadhaarNumber || 'Not provided'}</div>
                   </div>
+                  {selectedRegistration.aadhaarDocument && (
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Aadhaar Document</label>
+                      <button
+                        onClick={() => window.open(selectedRegistration.aadhaarDocument, '_blank')}
+                        className="text-[#5a0a8f] text-sm font-bold hover:underline flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-sm">visibility</span>
+                        View Aadhaar
+                      </button>
+                    </div>
+                  )}
+                  {selectedRegistration.passportNumber && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Passport Number</label>
+                        <div className="text-gray-900">{selectedRegistration.passportNumber}</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Passport Expiry</label>
+                        <div className="text-gray-900">{selectedRegistration.passportExpiryDate || 'N/A'}</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Issued Place</label>
+                        <div className="text-gray-900">{selectedRegistration.passportIssuedPlace || 'N/A'}</div>
+                      </div>
+                    </>
+                  )}
+                  {selectedRegistration.passportDocument && (
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Passport Copy</label>
+                      <button
+                        onClick={() => window.open(selectedRegistration.passportDocument, '_blank')}
+                        className="text-[#5a0a8f] text-sm font-bold hover:underline flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-sm">visibility</span>
+                        View Passport
+                      </button>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
                     <div className="text-gray-900">{selectedRegistration.email}</div>
@@ -493,6 +561,35 @@ export function PlayerManagement() {
                   </div>
                 </div>
               </div>
+
+              {/* Kit & Performance Details */}
+              {selectedRegistration.type === 'player' && (
+                <div>
+                  <h4 className="text-lg font-bold text-gray-900 mb-4">Kit & Performance Details</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">T-Shirt Size</label>
+                      <div className="text-gray-900">{selectedRegistration.tShirtSize || 'Not specified'}</div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Tracksuit Size</label>
+                      <div className="text-gray-900">{selectedRegistration.trackSuitSize || 'Not specified'}</div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Shoes Size</label>
+                      <div className="text-gray-900">{selectedRegistration.shoesSize || 'Not specified'}</div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Pant Size</label>
+                      <div className="text-gray-900">{selectedRegistration.pantSize || 'Not specified'}</div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Games Played</label>
+                      <div className="text-gray-900">{selectedRegistration.gamesPlayed || '0'}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Certificates */}
               {selectedRegistration.certificates.length > 0 && (
@@ -547,6 +644,21 @@ export function PlayerManagement() {
             </div>
           </div>
         </div>
+      )}
+      {/* Edit Player Modal */}
+      {showEditModal && registrationToEdit && (
+        <EditPlayerModal
+          registration={registrationToEdit}
+          onClose={() => {
+            setShowEditModal(false)
+            setRegistrationToEdit(null)
+          }}
+          onSave={(updates: Partial<PlayerRegistration>) => {
+            updateRegistration(registrationToEdit.id, updates)
+            setShowEditModal(false)
+            setRegistrationToEdit(null)
+          }}
+        />
       )}
     </div>
   )
