@@ -1,0 +1,130 @@
+import { useEffect } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { MaintenanceNotice } from './components/MaintenanceNotice'
+
+import { AuthProvider } from './context/AuthContext'
+import { DistrictsProvider } from './context/DistrictsContext'
+import { RegistrationsProvider } from './context/RegistrationsContext'
+import { DocumentsProvider } from './context/DocumentsContext'
+import { WebsiteContentProvider } from './context/WebsiteContentContext'
+import { SiteContentProvider } from './content/SiteContentContext'
+import { Layout } from './components/Layout'
+import { AdminLayout } from './components/admin/AdminLayout'
+import { HomePage } from './pages/HomePage'
+import { AboutPage } from './pages/AboutPage'
+import { EventsPage } from './pages/EventsPage'
+import { DocumentsPage } from './pages/DocumentsPage'
+import { NewsPage } from './pages/NewsPage'
+import { NewsDetailPage } from './pages/NewsDetailPage'
+import { FeatureStoryPage } from './pages/FeatureStoryPage'
+import { PlayersPage } from './pages/PlayersPage'
+import { PlayerDetailPage } from './pages/PlayerDetailPage'
+import { RegisterPage } from './pages/RegisterPage'
+import { LoginPage } from './pages/LoginPage'
+import { TournamentApplication } from './pages/TournamentApplication'
+import { ContactPage } from './pages/ContactPage'
+import { ProtectedRoute } from './components/admin/ProtectedRoute'
+import { AdminPage } from './pages/admin/AdminPage'
+import { AdminDashboard } from './pages/admin/AdminDashboard'
+import { DistrictManagement } from './pages/admin/DistrictManagement'
+import { OfficialsManagement } from './pages/admin/OfficialsManagement'
+import { PlayerManagement } from './pages/admin/PlayerManagement'
+import { TournamentManagement } from './pages/admin/TournamentManagement'
+import { CreateTournament } from './pages/admin/CreateTournament'
+import { EditTournament } from './pages/admin/EditTournament'
+import { NewsManagement } from './pages/admin/NewsManagement'
+import { DocumentsManagement } from './pages/admin/DocumentsManagement'
+import { WebsiteContentManagement } from './pages/admin/WebsiteContentManagement'
+import { TournamentRegistrations } from './pages/admin/TournamentRegistrations'
+import { PlayerLayout } from './components/player/PlayerLayout'
+import { PlayerDashboard } from './pages/player/PlayerDashboard'
+import { PlayerProfile } from './pages/player/PlayerProfile'
+import { PlayerEvents } from './pages/player/PlayerEvents'
+import { PlayerResults } from './pages/player/PlayerResults'
+import { PlayerCertificates } from './pages/player/PlayerCertificates'
+import { PlayerSettings } from './pages/player/PlayerSettings'
+
+export default function App() {
+  useEffect(() => {
+    const t = window.setTimeout(() => document.body.classList.add('loaded'), 50)
+    return () => window.clearTimeout(t)
+  }, [])
+
+  return (
+    <AuthProvider>
+      <DistrictsProvider>
+        <RegistrationsProvider>
+          <DocumentsProvider>
+            <WebsiteContentProvider>
+              <SiteContentProvider>
+                <Routes>
+                  <Route element={<Layout />}>
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/about" element={<AboutPage />} />
+                    <Route path="/events" element={<EventsPage />} />
+                    <Route path="/documents" element={<DocumentsPage />} />
+                    <Route path="/news" element={<NewsPage />} />
+                    <Route path="/news/:id" element={<NewsDetailPage />} />
+                    <Route path="/news/feature-story" element={<FeatureStoryPage />} />
+                    <Route path="/players" element={<PlayersPage />} />
+                    <Route path="/players/:playerId" element={<PlayerDetailPage />} />
+                    <Route path="/register" element={<RegisterPage />} />
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/tournaments/:tournamentId/apply" element={<TournamentApplication />} />
+                    <Route path="/contact" element={<ContactPage />} />
+
+                    {/* Compatibility redirects for old static URLs */}
+                    <Route path="/index.html" element={<Navigate to="/" replace />} />
+                    <Route path="/pages/about.html" element={<Navigate to="/about" replace />} />
+                    <Route path="/pages/events.html" element={<Navigate to="/events" replace />} />
+                    <Route path="/pages/documents.html" element={<Navigate to="/documents" replace />} />
+                    <Route path="/pages/news.html" element={<Navigate to="/news" replace />} />
+                    <Route path="/pages/feature-story.html" element={<Navigate to="/news/feature-story" replace />} />
+                    <Route path="/pages/players.html" element={<Navigate to="/players" replace />} />
+                    <Route path="/pages/contact.html" element={<Navigate to="/contact" replace />} />
+                  </Route>
+
+                  {/* Admin Routes */}
+                  <Route element={<ProtectedRoute requiredRole="admin" />}>
+                    <Route path="/admin" element={<AdminLayout />}>
+                      <Route index element={<Navigate to="/admin/dashboard" replace />} />
+                      <Route path="dashboard" element={<AdminDashboard />} />
+                      <Route path="districts" element={<DistrictManagement />} />
+                      <Route path="officials" element={<OfficialsManagement />} />
+                      <Route path="players" element={<PlayerManagement />} />
+                      <Route path="tournaments" element={<TournamentManagement />} />
+                      <Route path="tournaments/create" element={<CreateTournament />} />
+                      <Route path="tournaments/:tournamentId/edit" element={<EditTournament />} />
+                      <Route path="tournaments/:tournamentId/registrations" element={<TournamentRegistrations />} />
+                      <Route path="coaches" element={<div className="p-6"><MaintenanceNotice title="Coach Management" message="The centralized coach validation and registration system is currently being integrated with the national database." icon="groups" /></div>} />
+                      <Route path="website" element={<WebsiteContentManagement />} />
+                      <Route path="news" element={<NewsManagement />} />
+                      <Route path="documents" element={<DocumentsManagement />} />
+                      <Route path="certificates" element={<div className="p-6"><MaintenanceNotice title="Certificate Generator" message="The automated certificate generation and verification system is under final testing for the 2024 season." icon="card_membership" /></div>} />
+                      <Route path="settings" element={<div className="p-6"><MaintenanceNotice title="System Settings" message="Advanced configuration and system administration tools are currently restricted for maintenance." icon="settings" /></div>} />
+                      <Route path="reports" element={<div className="p-6"><MaintenanceNotice title="Analytical Reports" message="Match performance data and registration metrics reports are being compiled." icon="bar_chart" /></div>} />
+                      <Route path="legacy" element={<AdminPage />} />
+                    </Route>
+                  </Route>
+
+                  {/* Player Routes */}
+                  <Route element={<ProtectedRoute requiredRole="player" />}>
+                    <Route path="/player" element={<PlayerLayout />}>
+                      <Route index element={<Navigate to="/player/dashboard" replace />} />
+                      <Route path="dashboard" element={<PlayerDashboard />} />
+                      <Route path="profile" element={<PlayerProfile />} />
+                      <Route path="events" element={<PlayerEvents />} />
+                      <Route path="results" element={<PlayerResults />} />
+                      <Route path="certificates" element={<PlayerCertificates />} />
+                      <Route path="settings" element={<PlayerSettings />} />
+                    </Route>
+                  </Route>
+                </Routes>
+              </SiteContentProvider>
+            </WebsiteContentProvider>
+          </DocumentsProvider>
+        </RegistrationsProvider>
+      </DistrictsProvider>
+    </AuthProvider>
+  )
+}

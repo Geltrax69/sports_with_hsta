@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Fonts (match static site) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+    rel="stylesheet" />
+
+  <!-- Site CSS (copied from repo into /public/assets) -->
+  <link href="%BASE_URL%assets/css/styles.css" rel="stylesheet" />
+
+  <!-- Tailwind is processed via Vite plugin; CDN removed for production safety. -->
+
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+    }
+
+    .material-symbols-outlined.filled {
+      font-variation-settings: "FILL" 1;
+    }
+  </style>
+
+  <title>Haryana Sepak Takraw Association</title>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script>
+    // Restore SPA route after GitHub Pages 404 redirect (public/404.html).
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var p = params.get('p');
+      if (!p) return;
+
+      try {
+        var target = decodeURIComponent(p);
+        history.replaceState(null, '', target);
+      } catch (e) {
+        history.replaceState(null, '', '/');
+      }
+    })();
+  </script>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>

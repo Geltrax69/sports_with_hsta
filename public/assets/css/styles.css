@@ -1,0 +1,317 @@
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+body {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Hide scrollbars but keep scrolling enabled */
+.scrollbar-hide {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+/* Featured Gallery section background (uses theme warm-bg tone) */
+.featured-gallery-bg {
+    background: rgba(255, 221, 181, 0.35);
+}
+
+/* Staggered Entrance Animation */
+.animate-entry {
+    animation: fadeInUp 0.6s ease-out forwards;
+    opacity: 0;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* SPA Sliding Animations */
+#page-content {
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.page-exit-left {
+    opacity: 0 !important;
+    transform: translateX(-20px) !important;
+}
+
+.page-enter-right {
+    opacity: 0 !important;
+    transform: translateX(20px) !important;
+}
+
+.delay-100 {
+    animation-delay: 100ms;
+}
+
+.delay-200 {
+    animation-delay: 200ms;
+}
+
+.delay-300 {
+    animation-delay: 300ms;
+}
+
+/* Marquee Animation */
+.marquee-container {
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+}
+
+.marquee-content {
+    display: flex;
+    width: max-content;
+    /* Ensure width fits all content */
+    animation: marquee 30s linear infinite;
+}
+
+@keyframes marquee {
+    0% {
+        transform: translateX(0);
+    }
+
+    100% {
+        transform: translateX(-50%);
+    }
+}
+
+/* Interactive Timeline */
+.timeline-container {
+    position: relative;
+    padding: 80px 0;
+    transition: background-image 0.5s ease;
+    background-attachment: fixed;
+    background-size: cover;
+    background-position: center;
+    background-color: #1b1022;
+    /* Fallback */
+    overflow: hidden;
+}
+
+.timeline-container::before {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(27, 16, 34, 0.85);
+    /* Overlay */
+    content: "";
+    z-index: 1;
+}
+
+.timeline-header {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 80px;
+    position: relative;
+    z-index: 2;
+}
+
+.timeline-header__title {
+    color: #fff;
+    font-size: 46px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 900;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+}
+
+.timeline-header__subtitle {
+    color: rgba(255, 255, 255, .5);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    letter-spacing: 5px;
+    margin: 10px 0 0 0;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.timeline {
+    display: flex;
+    margin: 0 auto;
+    flex-wrap: wrap;
+    flex-direction: column;
+    max-width: 800px;
+    /* Tweaked width */
+    position: relative;
+    z-index: 2;
+}
+
+/* Vertical Line */
+.timeline::before {
+    position: absolute;
+    left: 50%;
+    width: 2px;
+    height: 100%;
+    margin-left: -1px;
+    content: "";
+    background: rgba(255, 255, 255, .1);
+}
+
+.timeline-item {
+    padding: 40px 0;
+    opacity: 0.3;
+    filter: blur(2px);
+    transition: all 0.5s ease;
+    box-sizing: border-box;
+    width: calc(50% - 40px);
+    display: flex;
+    position: relative;
+    transform: translateY(-20px);
+    margin-bottom: 20px;
+}
+
+/* Date/Side Text */
+.timeline-item::before {
+    content: attr(data-text);
+    letter-spacing: 3px;
+    width: 100%;
+    position: absolute;
+    color: rgba(255, 255, 255, .5);
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    font-weight: bold;
+    border-left: 2px solid rgba(255, 255, 255, .5);
+    top: 70%;
+    margin-top: -5px;
+    padding-left: 15px;
+    opacity: 0;
+    right: calc(-100% - 56px);
+    text-align: left;
+}
+
+/* Even Items (Right Side) */
+.timeline-item:nth-child(even) {
+    align-self: flex-end;
+}
+
+.timeline-item:nth-child(even)::before {
+    right: auto;
+    text-align: right;
+    left: calc(-100% - 56px);
+    padding-left: 0;
+    border-left: none;
+    border-right: 2px solid rgba(255, 255, 255, .5);
+    padding-right: 15px;
+}
+
+/* Active State */
+.timeline-item.timeline-item--active {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0px);
+    z-index: 10;
+}
+
+.timeline-item.timeline-item--active .timeline__content {
+    background: rgba(255, 255, 255, 0.15);
+    /* Brighter glass */
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 20px rgba(131, 24, 67, 0.4), 0 0 40px rgba(90, 10, 143, 0.2);
+    /* Glow */
+}
+
+.timeline-item.timeline-item--active::before {
+    top: 50%;
+    transition: all 0.3s ease 0.2s;
+    opacity: 1;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+}
+
+/* Content Box */
+.timeline__content {
+    background: rgba(255, 255, 255, 0.05);
+    /* Glass feel */
+    backdrop-filter: blur(10px);
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    width: 100%;
+}
+
+.timeline__content-title {
+    font-weight: 800;
+    font-size: 42px;
+    margin: 0 0 10px 0;
+    transition: .4s;
+    font-family: 'Inter', sans-serif;
+    color: #fff;
+    line-height: 1;
+}
+
+.timeline__content-caption {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fcd34d;
+    /* Gold */
+    margin-bottom: 10px;
+    display: block;
+    text-transform: uppercase;
+}
+
+.timeline__content-desc {
+    margin: 0;
+    font-size: 15px;
+    color: rgba(255, 255, 255, .8);
+    font-family: 'Inter', sans-serif;
+    font-weight: normal;
+    line-height: 1.6;
+}
+
+.timeline__img {
+    max-width: 100%;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, .3);
+}
+
+/* Responsive */
+@media only screen and (max-width: 767px) {
+    .timeline::before {
+        left: 20px;
+    }
+
+    .timeline-item {
+        width: 100%;
+        padding-left: 50px;
+        padding-right: 20px;
+        transform: none;
+        /* Simplify mobile transform */
+    }
+
+    .timeline-item:nth-child(even) {
+        align-self: flex-start;
+    }
+
+    .timeline-item::before {
+        left: 20px !important;
+        padding: 0 !important;
+        top: 30px !important;
+        text-align: center !important;
+        width: 0 !important;
+        border: none !important;
+        display: none;
+        /* Hide side date on mobile to save space */
+    }
+
+    .timeline__content-title {
+        font-size: 32px;
+    }
+}

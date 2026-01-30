@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redirecting…</title>
+  </head>
+  <body>
+    <script>
+      // GitHub Pages serves this file for unknown paths.
+      // Convert the current path into a querystring so the SPA can restore it.
+      (function () {
+        var base = '/sport';
+        var l = window.location;
+        var path = l.pathname;
+
+        // If hosted at /sports/, strip that prefix so we store only the SPA route.
+        if (path.indexOf(base + '/') === 0) path = path.slice(base.length);
+        if (path === base) path = '/';
+
+        var redirect = base + '/?p=' + encodeURIComponent(path + l.search + l.hash);
+        l.replace(redirect);
+      })();
+    </script>
+  </body>
+</html>
