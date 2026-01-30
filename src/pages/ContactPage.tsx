@@ -121,7 +121,7 @@ export function ContactPage() {
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-white/70 mb-1">HEADQUARTERS</p>
                     <p className="text-sm font-medium leading-relaxed">
-                      Room No. 12, Gate 14, Indira Gandhi Stadium Complex, New Delhi - 110002
+                      Yash College of Education Rurkee Rohtak Haryana
                     </p>
                   </div>
                 </div>
@@ -133,9 +133,9 @@ export function ContactPage() {
                     <p className="text-xs font-semibold uppercase tracking-wider text-white/70 mb-1">EMAIL US</p>
                     <a
                       className="text-sm font-medium hover:text-yellow-300 transition-colors"
-                      href="mailto:info@sepaktakraw.in"
+                      href="mailto:haryanasepaktakrawassociation@gmail.com"
                     >
-                      info@sepaktakraw.in
+                      haryanasepaktakrawassociation@gmail.com
                     </a>
                   </div>
                 </div>
@@ -144,10 +144,10 @@ export function ContactPage() {
                     <span className="material-symbols-outlined text-white">call</span>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-white/70 mb-1">PHONE</p>
-                    <a className="text-sm font-medium hover:text-yellow-300 transition-colors" href="tel:+911123456789">
-                      +91 11 2345 6789
-                    </a>
+                    <div className="flex flex-col gap-1">
+                      <span>+91 9255282117, +91 9813585887</span>
+                      <span>+91 7015917743</span>
+                    </div>
                   </div>
                 </div>
               </div>

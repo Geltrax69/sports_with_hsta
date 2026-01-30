@@ -16,6 +16,7 @@ export function RegisterPage() {
     fullName: '',
     fatherName: '',
     motherName: '',
+    phone: '',
     dateOfBirth: '',
     gender: '',
     category: '',
@@ -26,11 +27,17 @@ export function RegisterPage() {
     certificates: [] as File[],
     idProofType: '',
     idProofDocument: null as File | null,
+    // Passport Details
+    passportNumber: '',
+    passportExpiryDate: '',
+    passportIssuedPlace: '',
+    passportCopy: null as File | null,
   })
 
   const [profilePreview, setProfilePreview] = useState<string | null>(null)
   const [certificatePreviews, setCertificatePreviews] = useState<string[]>([])
   const [idProofPreview, setIdProofPreview] = useState<string | null>(null)
+  const [passportCopyPreview, setPassportCopyPreview] = useState<string | null>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -110,7 +117,7 @@ export function RegisterPage() {
         return
       }
       setFormData({ ...formData, idProofDocument: file })
-      
+
       // Preview for images only, PDFs will show a document icon
       if (file.type.startsWith('image/')) {
         const reader = new FileReader()
@@ -138,7 +145,32 @@ export function RegisterPage() {
       }
     }
 
+    // Format Phone number
+    if (name === 'phone') {
+      formattedValue = value.replace(/\D/g, '').slice(0, 10)
+    }
+
     setFormData({ ...formData, [name]: formattedValue })
+  }
+
+  const handlePassportCopyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Only image files (JPG/PNG/GIF) are allowed.')
+        return
+      }
+      if (file.size > 1 * 1024 * 1024) {
+        alert('File size must be less than 1MB')
+        return
+      }
+      setFormData({ ...formData, passportCopy: file })
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setPassportCopyPreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -183,6 +215,7 @@ export function RegisterPage() {
       form.append('fullName', formData.fullName)
       form.append('fatherName', formData.fatherName)
       form.append('motherName', formData.motherName)
+      form.append('phone', formData.phone)
       form.append('dateOfBirth', formData.dateOfBirth)
       if (registrationType === 'player') {
         form.append('gender', formData.gender)
@@ -199,11 +232,17 @@ export function RegisterPage() {
         form.append('idProofDocument', formData.idProofDocument)
       }
 
-      const path = registrationType === 'player' 
-        ? '/players/register' 
-        : registrationType === 'coach' 
-        ? '/coaches/register' 
-        : '/referees/register'
+      // Optional Passport Details
+      if (formData.passportNumber) form.append('passportNumber', formData.passportNumber)
+      if (formData.passportExpiryDate) form.append('passportExpiryDate', formData.passportExpiryDate)
+      if (formData.passportIssuedPlace) form.append('passportIssuedPlace', formData.passportIssuedPlace)
+      if (formData.passportCopy) form.append('passportCopy', formData.passportCopy)
+
+      const path = registrationType === 'player'
+        ? '/players/register'
+        : registrationType === 'coach'
+          ? '/coaches/register'
+          : '/referees/register'
 
       const data = await apiRequest<{ registration: { id: string } }>(path, {
         method: 'POST',
@@ -224,6 +263,7 @@ export function RegisterPage() {
         fullName: '',
         fatherName: '',
         motherName: '',
+        phone: '',
         dateOfBirth: '',
         gender: '',
         category: '',
@@ -234,10 +274,15 @@ export function RegisterPage() {
         certificates: [],
         idProofType: '',
         idProofDocument: null,
+        passportNumber: '',
+        passportExpiryDate: '',
+        passportIssuedPlace: '',
+        passportCopy: null,
       })
       setProfilePreview(null)
       setCertificatePreviews([])
       setIdProofPreview(null)
+      setPassportCopyPreview(null)
       setShowPassword(false)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Registration failed'
@@ -418,8 +463,8 @@ export function RegisterPage() {
               </div>
             </div>
 
-            {/* Father's Name and Mother's Name */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Father's Name, Mother's Name and Phone Number */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label htmlFor="fatherName" className="block text-sm font-semibold text-gray-900 mb-2">
                   Father's Name
@@ -460,22 +505,50 @@ export function RegisterPage() {
                   />
                 </div>
               </div>
+              <div>
+                <label htmlFor="phone" className="block text-sm font-semibold text-gray-900 mb-2">
+                  Phone Number
+                </label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    call
+                  </span>
+                  <input
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    placeholder="10 digit number"
+                    required
+                    maxLength={10}
+                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* Date of Birth and Aadhaar Number */}
+            {/* Email and Aadhaar Number */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="dateOfBirth" className="block text-sm font-semibold text-gray-900 mb-2">
-                  Date of Birth
+                <label htmlFor="email" className="block text-sm font-semibold text-gray-900 mb-2">
+                  Email ID
                 </label>
-                <DatePickerField
-                  id="dateOfBirth"
-                  name="dateOfBirth"
-                  label="Select date of birth"
-                  value={formData.dateOfBirth}
-                  onChange={(date) => setFormData({ ...formData, dateOfBirth: date })}
-                  required
-                />
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    mail
+                  </span>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    placeholder="name@example.com"
+                    required
+                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
+                  />
+                </div>
               </div>
               <div>
                 <label htmlFor="aadhaarNumber" className="block text-sm font-semibold text-gray-900 mb-2">
@@ -502,6 +575,23 @@ export function RegisterPage() {
               </div>
             </div>
 
+            {/* Date of Birth */}
+            <div>
+              <label htmlFor="dateOfBirth" className="block text-sm font-semibold text-gray-900 mb-2">
+                Date of Birth
+              </label>
+              <div className="max-w-xs">
+                <DatePickerField
+                  id="dateOfBirth"
+                  name="dateOfBirth"
+                  label="Select date of birth"
+                  value={formData.dateOfBirth}
+                  onChange={(date) => setFormData({ ...formData, dateOfBirth: date })}
+                  required
+                />
+              </div>
+            </div>
+
             {/* ID Proof Type Selection */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-3">
@@ -509,11 +599,10 @@ export function RegisterPage() {
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <label
-                  className={`relative flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                    formData.idProofType === 'passport'
-                      ? 'border-[#5a0a8f] bg-purple-50'
-                      : 'border-gray-300 hover:border-[#5a0a8f]/50'
-                  }`}
+                  className={`relative flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${formData.idProofType === 'passport'
+                    ? 'border-[#5a0a8f] bg-purple-50'
+                    : 'border-gray-300 hover:border-[#5a0a8f]/50'
+                    }`}
                 >
                   <input
                     type="radio"
@@ -529,11 +618,10 @@ export function RegisterPage() {
                 </label>
 
                 <label
-                  className={`relative flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                    formData.idProofType === 'aadhaar'
-                      ? 'border-[#5a0a8f] bg-purple-50'
-                      : 'border-gray-300 hover:border-[#5a0a8f]/50'
-                  }`}
+                  className={`relative flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${formData.idProofType === 'aadhaar'
+                    ? 'border-[#5a0a8f] bg-purple-50'
+                    : 'border-gray-300 hover:border-[#5a0a8f]/50'
+                    }`}
                 >
                   <input
                     type="radio"
@@ -549,26 +637,128 @@ export function RegisterPage() {
                 </label>
 
                 <label
-                  className={`relative flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                    formData.idProofType === 'birth_certificate'
-                      ? 'border-[#5a0a8f] bg-purple-50'
-                      : 'border-gray-300 hover:border-[#5a0a8f]/50'
-                  }`}
+                  className={`relative flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${formData.idProofType === 'tenth_certificate'
+                    ? 'border-[#5a0a8f] bg-purple-50'
+                    : 'border-gray-300 hover:border-[#5a0a8f]/50'
+                    }`}
                 >
                   <input
                     type="radio"
                     name="idProofType"
-                    value="birth_certificate"
-                    checked={formData.idProofType === 'birth_certificate'}
+                    value="tenth_certificate"
+                    checked={formData.idProofType === 'tenth_certificate'}
                     onChange={handleInputChange}
                     className="w-4 h-4 text-[#5a0a8f] focus:ring-[#5a0a8f]"
                   />
                   <div className="flex-1">
-                    <div className="font-medium text-gray-900">Birth Certificate</div>
+                    <div className="font-medium text-gray-900">10th Certificate</div>
                   </div>
                 </label>
               </div>
             </div>
+
+            {/* Passport Details Section (Optional, shown conditionally) */}
+            {formData.idProofType === 'passport' && (
+              <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 mt-4 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                <h3 className="font-bold text-[#5a0a8f] flex items-center gap-2">
+                  <span className="material-symbols-outlined">passport</span>
+                  Passport Details (Optional)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <label htmlFor="passportNumber" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Passport Number
+                    </label>
+                    <input
+                      type="text"
+                      id="passportNumber"
+                      name="passportNumber"
+                      value={formData.passportNumber}
+                      onChange={handleInputChange}
+                      placeholder="Enter passport number"
+                      className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="passportExpiryDate" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Passport Expiry Date
+                    </label>
+                    <input
+                      type="date"
+                      id="passportExpiryDate"
+                      name="passportExpiryDate"
+                      value={formData.passportExpiryDate}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white placeholder-gray-400"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="passportIssuedPlace" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Passport Issued Place
+                    </label>
+                    <input
+                      type="text"
+                      id="passportIssuedPlace"
+                      name="passportIssuedPlace"
+                      value={formData.passportIssuedPlace}
+                      onChange={handleInputChange}
+                      placeholder="City/State"
+                      className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Passport Copy
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-[#5a0a8f] transition-colors bg-white">
+                    {passportCopyPreview ? (
+                      <div className="flex flex-col items-center gap-3">
+                        <img
+                          src={passportCopyPreview}
+                          alt="Passport preview"
+                          className="w-32 h-20 object-cover rounded border border-gray-200"
+                        />
+                        <div className="flex gap-3">
+                          <label className="cursor-pointer text-xs font-bold text-[#5a0a8f] hover:text-[#400466]">
+                            Change
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handlePassportCopyChange}
+                              className="hidden"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPassportCopyPreview(null)
+                              setFormData({ ...formData, passportCopy: null })
+                            }}
+                            className="text-xs font-bold text-red-600"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="cursor-pointer flex flex-col items-center gap-1">
+                        <span className="material-symbols-outlined text-3xl text-gray-400">upload_file</span>
+                        <span className="text-xs text-gray-600 font-medium">Upload Passport Copy</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePassportCopyChange}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-2">Maximum size 1MB. JPG/PNG supported.</p>
+                </div>
+              </div>
+            )}
 
             {/* ID Proof Document Upload */}
             <div>
@@ -635,7 +825,7 @@ export function RegisterPage() {
                   </div>
                 )}
                 <p className="text-xs text-gray-600 mt-4">
-                  Upload a clear photo or PDF of your {formData.idProofType === 'passport' ? 'Passport' : formData.idProofType === 'aadhaar' ? 'Aadhaar Card' : formData.idProofType === 'birth_certificate' ? 'Birth Certificate' : 'selected ID proof'}. JPG, PNG, GIF or PDF. Max size 5MB.
+                  Upload a clear photo or PDF of your {formData.idProofType === 'passport' ? 'Passport' : formData.idProofType === 'aadhaar' ? 'Aadhaar Card' : formData.idProofType === 'tenth_certificate' ? '10th Certificate' : 'selected ID proof'}. JPG, PNG, GIF or PDF. Max size 5MB.
                 </p>
               </div>
             </div>
@@ -698,58 +888,36 @@ export function RegisterPage() {
               </div>
             )}
 
-            {/* Email and Password */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-semibold text-gray-900 mb-2">
-                  Email ID
-                </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    mail
+            {/* Password */}
+            <div className="max-w-md">
+              <label htmlFor="password" className="block text-sm font-semibold text-gray-900 mb-2">
+                New Password
+              </label>
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  lock
+                </span>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  id="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  placeholder="Create a password"
+                  required
+                  minLength={8}
+                  className="w-full pl-10 pr-12 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  <span className="material-symbols-outlined text-xl">
+                    {showPassword ? 'visibility_off' : 'visibility'}
                   </span>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    placeholder="name@example.com"
-                    required
-                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
-                  />
-                </div>
-              </div>
-              <div>
-                <label htmlFor="password" className="block text-sm font-semibold text-gray-900 mb-2">
-                  New Password
-                </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    lock
-                  </span>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    id="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    placeholder="Create a password"
-                    required
-                    minLength={8}
-                    className="w-full pl-10 pr-12 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    <span className="material-symbols-outlined text-xl">
-                      {showPassword ? 'visibility_off' : 'visibility'}
-                    </span>
-                  </button>
-                </div>
+                </button>
               </div>
             </div>
 
@@ -792,7 +960,7 @@ export function RegisterPage() {
             {/* Certificate Images */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Enter your 10 Certificate Images
+                Enter your 10th Certificate Image(s)
               </label>
               <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 md:p-6 hover:border-[#5a0a8f] transition-colors">
                 {certificatePreviews.length > 0 ? (

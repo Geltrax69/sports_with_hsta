@@ -55,7 +55,7 @@ export function Header() {
               </span>
               <span className="text-gray-400 hidden sm:inline">|</span>
               <span className="inline-flex items-center gap-2 opacity-90">
-                Affiliated with International SepakTakraw Federation (ISTAF) & Asian SepakTakraw Federation (ASTAF)
+                Affiliated with SEPAKTAKRAW FEDERATION OF INDIA
               </span>
               <span className="text-warm-highlight">•</span>
             </div>
@@ -69,7 +69,7 @@ export function Header() {
               </span>
               <span className="text-gray-400 hidden sm:inline">|</span>
               <span className="inline-flex items-center gap-2 opacity-90">
-                Affiliated with International SepakTakraw Federation (ISTAF) & Asian SepakTakraw Federation (ASTAF)
+                Affiliated with SEPAKTAKRAW FEDERATION OF INDIA
               </span>
               <span className="text-warm-highlight">•</span>
             </div>

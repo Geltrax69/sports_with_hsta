@@ -87,20 +87,21 @@ export function Footer() {
               <li className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-primary mt-0.5">location_on</span>
                 <span>
-                  Room No. 12, Gate 14,
+                  Yash College of Education,Rurkee Rohtak
                   <br />
-                  Indira Gandhi Stadium Complex,
-                  <br />
-                  New Delhi - 110002
+                  Haryana
                 </span>
               </li>
               <li className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-primary">call</span>
-                <span>+91 11 2345 6789</span>
+                <div className="flex flex-col">
+                  <span>+91 9255282117, +91 9813585887</span>
+                  <span>+91 7015917743</span>
+                </div>
               </li>
               <li className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-primary">mail</span>
-                <span>contact@stfi.in</span>
+                <span>haryanasepaktakrawassociation@gmail.com</span>
               </li>
             </ul>
           </div>
