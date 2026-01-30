@@ -11,6 +11,7 @@ export type PlayerRegistration = {
   fullName: string
   fatherName: string
   motherName: string
+  phone: string
   dateOfBirth: string
   aadhaarNumber: string
   email: string
@@ -40,7 +41,10 @@ export type PlayerRegistration = {
   trackSuitSize?: string
   shoesSize?: string
   pantSize?: string
-  gamesPlayed?: string
+  districtGames?: string
+  stateGames?: string
+  nationalGames?: string
+  internationalGames?: string
 }
 
 export type TournamentRegistration = {
@@ -135,11 +139,12 @@ export function RegistrationsProvider({ children }: { children: ReactNode }) {
 
       const normalize = (r: any): PlayerRegistration => ({
         id: String(r._id || r.id),
-        type: r.type as 'player' | 'coach',
+        type: r.type as 'player' | 'coach' | 'referee',
         profilePhoto: r.profilePhoto || null,
         fullName: r.fullName || '',
         fatherName: r.fatherName || '',
         motherName: r.motherName || '',
+        phone: r.phone || '',
         dateOfBirth: r.dateOfBirth || '',
         aadhaarNumber: r.aadhaarNumber || '',
         email: r.email || '',
@@ -161,7 +166,10 @@ export function RegistrationsProvider({ children }: { children: ReactNode }) {
         trackSuitSize: r.trackSuitSize || undefined,
         shoesSize: r.shoesSize || undefined,
         pantSize: r.pantSize || undefined,
-        gamesPlayed: r.gamesPlayed || undefined,
+        districtGames: r.districtGames || undefined,
+        stateGames: r.stateGames || undefined,
+        nationalGames: r.nationalGames || undefined,
+        internationalGames: r.internationalGames || undefined,
       })
 
       const combined = [

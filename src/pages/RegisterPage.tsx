@@ -36,7 +36,10 @@ export function RegisterPage() {
     trackSuitSize: '',
     shoesSize: '',
     pantSize: '',
-    gamesPlayed: '',
+    districtGames: '',
+    stateGames: '',
+    nationalGames: '',
+    internationalGames: '',
   })
 
   const [profilePreview, setProfilePreview] = useState<string | null>(null)
@@ -237,31 +240,36 @@ export function RegisterPage() {
       form.append('gender', formData.gender)
       form.append('category', formData.category)
       form.append('aadhaarNumber', formData.aadhaarNumber)
-      if (formData.aadhaarDocument) {
-        form.append('aadhaarDocument', formData.aadhaarDocument)
-      }
 
+
+      // Email, Password, District
       // Email, Password, District
       form.append('email', formData.email)
       form.append('password', formData.password)
       form.append('district', formData.district)
-      form.append('profilePhoto', formData.profilePhoto)
-      formData.certificates.forEach((c) => form.append('certificates', c))
 
-      // Passport Details
-      if (formData.passportNumber) form.append('passportNumber', formData.passportNumber)
-      if (formData.passportExpiryDate) form.append('passportExpiryDate', formData.passportExpiryDate)
-      if (formData.passportIssuedPlace) form.append('passportIssuedPlace', formData.passportIssuedPlace)
-      if (formData.passportDocument) form.append('passportDocument', formData.passportDocument)
-
-      // Kit & Performance Details
-      if (registrationType === 'player') {
+      // Kit & Performance Details (Append BEFORE files)
+      if (registrationType === 'player' || registrationType === 'coach' || registrationType === 'referee') {
         form.append('tShirtSize', formData.tShirtSize)
         form.append('trackSuitSize', formData.trackSuitSize)
         form.append('shoesSize', formData.shoesSize)
         form.append('pantSize', formData.pantSize)
-        form.append('gamesPlayed', formData.gamesPlayed)
+        form.append('districtGames', formData.districtGames)
+        form.append('stateGames', formData.stateGames)
+        form.append('nationalGames', formData.nationalGames)
+        form.append('internationalGames', formData.internationalGames)
       }
+
+      // Passport Details (Text fields)
+      if (formData.passportNumber) form.append('passportNumber', formData.passportNumber)
+      if (formData.passportExpiryDate) form.append('passportExpiryDate', formData.passportExpiryDate)
+      if (formData.passportIssuedPlace) form.append('passportIssuedPlace', formData.passportIssuedPlace)
+
+      // Files (Append LAST)
+      form.append('profilePhoto', formData.profilePhoto)
+      formData.certificates.forEach((c) => form.append('certificates', c))
+      if (formData.aadhaarDocument) form.append('aadhaarDocument', formData.aadhaarDocument)
+      if (formData.passportDocument) form.append('passportDocument', formData.passportDocument)
 
       const path = registrationType === 'player'
         ? '/players/register'
@@ -306,7 +314,10 @@ export function RegisterPage() {
         trackSuitSize: '',
         shoesSize: '',
         pantSize: '',
-        gamesPlayed: '',
+        districtGames: '',
+        stateGames: '',
+        nationalGames: '',
+        internationalGames: '',
       })
       setProfilePreview(null)
       setCertificatePreviews([])
@@ -564,13 +575,13 @@ export function RegisterPage() {
                 </div>
 
                 {/* Gender and Category */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label htmlFor="gender" className="block text-sm font-semibold text-gray-900 mb-2">
+                    <label htmlFor="gender" className="block text-sm font-bold text-gray-700 mb-2">
                       Gender <span className="text-red-500">*</span>
                     </label>
-                    <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <div className="relative group">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#5a0a8f] transition-colors">
                         wc
                       </span>
                       <select
@@ -579,7 +590,7 @@ export function RegisterPage() {
                         value={formData.gender}
                         onChange={handleInputChange}
                         required
-                        className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
+                        className="w-full pl-10 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all appearance-none bg-white text-gray-900 font-medium"
                       >
                         <option value="" disabled>
                           Select gender
@@ -588,15 +599,18 @@ export function RegisterPage() {
                         <option value="Female">Female</option>
                         <option value="Other">Other</option>
                       </select>
+                      <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none group-focus-within:text-[#5a0a8f]">
+                        keyboard_arrow_down
+                      </span>
                     </div>
                   </div>
 
                   <div>
-                    <label htmlFor="category" className="block text-sm font-semibold text-gray-900 mb-2">
+                    <label htmlFor="category" className="block text-sm font-bold text-gray-700 mb-2">
                       Category <span className="text-red-500">*</span>
                     </label>
-                    <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <div className="relative group">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#5a0a8f] transition-colors">
                         groups
                       </span>
                       <select
@@ -605,7 +619,7 @@ export function RegisterPage() {
                         value={formData.category}
                         onChange={handleInputChange}
                         required
-                        className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
+                        className="w-full pl-10 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all appearance-none bg-white text-gray-900 font-medium"
                       >
                         <option value="" disabled>
                           Select category
@@ -616,87 +630,21 @@ export function RegisterPage() {
                         <option value="OBC">OBC</option>
                         <option value="Other">Other</option>
                       </select>
+                      <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none group-focus-within:text-[#5a0a8f]">
+                        keyboard_arrow_down
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Password */}
-                <div className="max-w-md">
-                  <label htmlFor="password" className="block text-sm font-semibold text-gray-900 mb-2">
-                    New Password
-                  </label>
-                  <div className="relative">
-                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                      lock
-                    </span>
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      id="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      placeholder="Create a password"
-                      required
-                      minLength={8}
-                      className="w-full pl-10 pr-12 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    >
-                      <span className="material-symbols-outlined text-xl">
-                        {showPassword ? 'visibility_off' : 'visibility'}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* District Association */}
-                <div>
-                  <label htmlFor="district" className="block text-sm font-semibold text-gray-900 mb-2">
-                    District Association
-                  </label>
-                  <div className="relative">
-                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                      location_on
-                    </span>
-                    <select
-                      id="district"
-                      name="district"
-                      value={formData.district}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full pl-10 pr-10 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all appearance-none bg-white text-gray-900"
-                    >
-                      <option value="">Select your district</option>
-                      {districts
-                        .filter((d) => d.status === 'active')
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .map((district) => (
-                          <option key={district.id} value={district.id}>
-                            {district.name} {district.zone ? `(${district.zone})` : ''}
-                          </option>
-                        ))}
-                    </select>
-                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
-                      keyboard_arrow_down
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-600 mt-2">
-                    Select the district where you primarily reside or train.
-                  </p>
-                </div>
-
-                {/* Email ID */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Email and Password Side-by-Side */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label htmlFor="email" className="block text-sm font-semibold text-gray-900 mb-2">
-                      Email ID
+                    <label htmlFor="email" className="block text-sm font-bold text-gray-700 mb-2">
+                      Email Address
                     </label>
-                    <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <div className="relative group">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#5a0a8f] transition-colors">
                         mail
                       </span>
                       <input
@@ -707,22 +655,86 @@ export function RegisterPage() {
                         onChange={handleInputChange}
                         placeholder="name@example.com"
                         required
-                        className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white"
+                        className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white font-medium"
                       />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="password" className="block text-sm font-bold text-gray-700 mb-2">
+                      Account Password
+                    </label>
+                    <div className="relative group">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#5a0a8f] transition-colors">
+                        lock
+                      </span>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        id="password"
+                        name="password"
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        placeholder="Min. 8 characters"
+                        required
+                        minLength={8}
+                        className="w-full pl-10 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all text-gray-900 bg-white font-medium"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#5a0a8f] transition-colors"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        <span className="material-symbols-outlined text-xl">
+                          {showPassword ? 'visibility_off' : 'visibility'}
+                        </span>
+                      </button>
                     </div>
                   </div>
                 </div>
 
-                {/* Date of Birth */}
-                <div>
-                  <label htmlFor="dateOfBirth" className="block text-sm font-semibold text-gray-900 mb-2">
-                    Date of Birth
-                  </label>
-                  <div className="max-w-xs">
+                {/* District and Date of Birth Side-by-Side */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label htmlFor="district" className="block text-sm font-bold text-gray-700 mb-2">
+                      District Association
+                    </label>
+                    <div className="relative group">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#5a0a8f] transition-colors">
+                        location_on
+                      </span>
+                      <select
+                        id="district"
+                        name="district"
+                        value={formData.district}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full pl-10 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none transition-all appearance-none bg-white text-gray-900 font-medium"
+                      >
+                        <option value="">Select your district</option>
+                        {districts
+                          .filter((d) => d.status === 'active')
+                          .sort((a, b) => a.name.localeCompare(b.name))
+                          .map((district) => (
+                            <option key={district.id} value={district.id}>
+                              {district.name} {district.zone ? `(${district.zone})` : ''}
+                            </option>
+                          ))}
+                      </select>
+                      <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none group-focus-within:text-[#5a0a8f]">
+                        keyboard_arrow_down
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="dateOfBirth" className="block text-sm font-bold text-gray-700 mb-2">
+                      Date of Birth <span className="text-red-500">*</span>
+                    </label>
                     <DatePickerField
                       id="dateOfBirth"
                       name="dateOfBirth"
-                      label="Select date of birth"
+                      label="Select birth date"
                       value={formData.dateOfBirth}
                       onChange={(date) => setFormData({ ...formData, dateOfBirth: date })}
                       required
@@ -935,78 +947,139 @@ export function RegisterPage() {
                     </div>
                   </div>
 
-                  {registrationType === 'player' && (
-                    <div className="space-y-6 pt-6 border-t border-gray-200">
-                      <h3 className="font-bold text-[#5a0a8f] flex items-center gap-2">
-                        <span className="material-symbols-outlined">apparel</span>
-                        Kit & Performance Details
-                      </h3>
+                  {(registrationType === 'player' || registrationType === 'coach' || registrationType === 'referee') && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-8">
+                      {/* Kit Sizes */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-4">
+                          <span className="material-symbols-outlined text-[#5a0a8f]">apparel</span>
+                          <h4 className="text-lg font-bold text-gray-900">Kit Sizes & Performance Details</h4>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">T-Shirt Size</label>
+                            <div className="relative group">
+                              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#5a0a8f]">apparel</span>
+                              <select
+                                name="tShirtSize"
+                                value={formData.tShirtSize}
+                                onChange={handleInputChange}
+                                className="w-full pl-10 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#5a0a8f] outline-none appearance-none bg-white text-gray-900 font-medium"
+                              >
+                                <option value="">Select Size</option>
+                                <option value="S">Small (S)</option>
+                                <option value="M">Medium (M)</option>
+                                <option value="L">Large (L)</option>
+                                <option value="XL">Extra Large (XL)</option>
+                                <option value="XXL">XXL</option>
+                              </select>
+                              <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none group-focus-within:text-[#5a0a8f]">keyboard_arrow_down</span>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Tracksuit Size</label>
+                            <div className="relative group">
+                              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#5a0a8f]">straighten</span>
+                              <select
+                                name="trackSuitSize"
+                                value={formData.trackSuitSize}
+                                onChange={handleInputChange}
+                                className="w-full pl-10 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#5a0a8f] outline-none appearance-none bg-white text-gray-900 font-medium"
+                              >
+                                <option value="">Select Size</option>
+                                <option value="S">Small (S)</option>
+                                <option value="M">Medium (M)</option>
+                                <option value="L">Large (L)</option>
+                                <option value="XL">Extra Large (XL)</option>
+                                <option value="XXL">XXL</option>
+                              </select>
+                              <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none group-focus-within:text-[#5a0a8f]">keyboard_arrow_down</span>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Shoes Size (UK/India)</label>
+                            <div className="relative group">
+                              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#5a0a8f]">footprint</span>
+                              <input
+                                type="text"
+                                name="shoesSize"
+                                value={formData.shoesSize}
+                                onChange={handleInputChange}
+                                placeholder="e.g. 8"
+                                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900 font-medium"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Pant Size</label>
+                            <div className="relative group">
+                              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#5a0a8f]">format_size</span>
+                              <input
+                                type="text"
+                                name="pantSize"
+                                value={formData.pantSize}
+                                onChange={handleInputChange}
+                                placeholder="e.g. 32"
+                                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900 font-medium"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">T-Shirt Size</label>
-                          <select
-                            name="tShirtSize"
-                            value={formData.tShirtSize}
-                            onChange={handleInputChange}
-                            className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900"
-                          >
-                            <option value="">Select Size</option>
-                            <option value="S">Small (S)</option>
-                            <option value="M">Medium (M)</option>
-                            <option value="L">Large (L)</option>
-                            <option value="XL">Extra Large (XL)</option>
-                            <option value="XXL">XXL</option>
-                          </select>
+                      <hr className="border-gray-100" />
+
+                      {/* Performance Details */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-4">
+                          <span className="material-symbols-outlined text-[#5a0a8f]">analytics</span>
+                          <h4 className="text-lg font-bold text-gray-900">Performance Details</h4>
                         </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">Tracksuit Size</label>
-                          <select
-                            name="trackSuitSize"
-                            value={formData.trackSuitSize}
-                            onChange={handleInputChange}
-                            className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900"
-                          >
-                            <option value="">Select Size</option>
-                            <option value="S">Small (S)</option>
-                            <option value="M">Medium (M)</option>
-                            <option value="L">Large (L)</option>
-                            <option value="XL">Extra Large (XL)</option>
-                            <option value="XXL">XXL</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">Shoes Size (UK/India)</label>
-                          <input
-                            type="text"
-                            name="shoesSize"
-                            value={formData.shoesSize}
-                            onChange={handleInputChange}
-                            placeholder="e.g. 8"
-                            className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">Pant Size</label>
-                          <input
-                            type="text"
-                            name="pantSize"
-                            value={formData.pantSize}
-                            onChange={handleInputChange}
-                            placeholder="e.g. 32"
-                            className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">Number of Games Played</label>
-                          <input
-                            type="text"
-                            name="gamesPlayed"
-                            value={formData.gamesPlayed}
-                            onChange={handleInputChange}
-                            placeholder="e.g. 15"
-                            className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900"
-                          />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">District Games Played</label>
+                            <input
+                              type="text"
+                              name="districtGames"
+                              value={formData.districtGames}
+                              onChange={handleInputChange}
+                              placeholder="e.g. 5"
+                              className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">State-Level Games Played</label>
+                            <input
+                              type="text"
+                              name="stateGames"
+                              value={formData.stateGames}
+                              onChange={handleInputChange}
+                              placeholder="e.g. 3"
+                              className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">National Games Played</label>
+                            <input
+                              type="text"
+                              name="nationalGames"
+                              value={formData.nationalGames}
+                              onChange={handleInputChange}
+                              placeholder="e.g. 1"
+                              className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">International Games Played</label>
+                            <input
+                              type="text"
+                              name="internationalGames"
+                              value={formData.internationalGames}
+                              onChange={handleInputChange}
+                              placeholder="e.g. 0"
+                              className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900"
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>

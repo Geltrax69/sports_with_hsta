@@ -552,6 +552,10 @@ export function PlayerManagement() {
                     </div>
                   )}
                   <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Phone Number</label>
+                    <div className="text-gray-900">{selectedRegistration.phone || 'N/A'}</div>
+                  </div>
+                  <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
                     <div className="text-gray-900">{selectedRegistration.email}</div>
                   </div>
@@ -563,7 +567,7 @@ export function PlayerManagement() {
               </div>
 
               {/* Kit & Performance Details */}
-              {selectedRegistration.type === 'player' && (
+              {(selectedRegistration.type === 'player' || selectedRegistration.type === 'coach' || selectedRegistration.type === 'referee') && (
                 <div>
                   <h4 className="text-lg font-bold text-gray-900 mb-4">Kit & Performance Details</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -584,8 +588,20 @@ export function PlayerManagement() {
                       <div className="text-gray-900">{selectedRegistration.pantSize || 'Not specified'}</div>
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">Games Played</label>
-                      <div className="text-gray-900">{selectedRegistration.gamesPlayed || '0'}</div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">District Games</label>
+                      <div className="text-gray-900 font-medium">{selectedRegistration.districtGames || '0'}</div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">State Games</label>
+                      <div className="text-gray-900 font-medium">{selectedRegistration.stateGames || '0'}</div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">National Games</label>
+                      <div className="text-gray-900 font-medium">{selectedRegistration.nationalGames || '0'}</div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">International Games</label>
+                      <div className="text-gray-900 font-medium">{selectedRegistration.internationalGames || '0'}</div>
                     </div>
                   </div>
                 </div>

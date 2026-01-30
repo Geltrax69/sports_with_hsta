@@ -56,6 +56,23 @@ export function TournamentManagement() {
     }
   };
 
+  const handleDeleteTournament = async (tournamentId: string, title: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${title}"? This will permanently remove the tournament, all its registrations, matches, and teams from the database and S3.`)) return;
+    setActionLoading(tournamentId);
+    try {
+      await apiRequest(`/admin/tournaments/${tournamentId}`, {
+        method: 'DELETE',
+        auth: true,
+      });
+      // Refresh tournaments
+      setTournaments(prev => prev.filter(t => t._id !== tournamentId));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to delete tournament');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false
 
@@ -306,18 +323,18 @@ export function TournamentManagement() {
                         <span className="inline-flex items-center gap-2">
                           <span
                             className={`w-2 h-2 rounded-full ${tournament.status === 'REGISTRATION OPEN'
-                                ? 'bg-green-500'
-                                : tournament.status === 'CONFIRMED'
-                                  ? 'bg-blue-500'
-                                  : 'bg-gray-500'
+                              ? 'bg-green-500'
+                              : tournament.status === 'CONFIRMED'
+                                ? 'bg-blue-500'
+                                : 'bg-gray-500'
                               }`}
                           ></span>
                           <span
                             className={`px-2 py-1 text-xs font-bold rounded ${tournament.status === 'REGISTRATION OPEN'
-                                ? 'bg-green-100 text-green-700'
-                                : tournament.status === 'CONFIRMED'
-                                  ? 'bg-blue-100 text-blue-700'
-                                  : 'bg-gray-100 text-gray-700'
+                              ? 'bg-green-100 text-green-700'
+                              : tournament.status === 'CONFIRMED'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-gray-100 text-gray-700'
                               }`}
                           >
                             {tournament.status}
@@ -347,6 +364,14 @@ export function TournamentManagement() {
                               {actionLoading === tournament._id ? 'Closing…' : 'Close Registration'}
                             </button>
                           )}
+                          <button
+                            className="text-gray-500 hover:text-red-600 transition-colors disabled:opacity-60"
+                            disabled={actionLoading === tournament._id}
+                            onClick={() => handleDeleteTournament(tournament._id, tournament.title)}
+                            title="Delete Tournament"
+                          >
+                            <span className="material-symbols-outlined text-lg">delete</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
