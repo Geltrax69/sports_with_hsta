@@ -501,7 +501,9 @@ export function EventsPage() {
                           <td className="px-1 sm:px-2 py-2 sm:py-3 text-center font-bold text-purple-600 text-xs sm:text-sm">VS</td>
                           <td className="px-2 sm:px-4 py-2 sm:py-3 font-semibold text-gray-900 text-xs sm:text-sm truncate">{match.team2}</td>
                           <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 whitespace-nowrap">{match.date}</td>
-                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 whitespace-nowrap font-semibold">{match.time}</td>
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 whitespace-nowrap font-semibold">
+                            {new Date(`2000-01-01T${match.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                          </td>
                           <td className="px-2 sm:px-4 py-2 sm:py-3">
                             <span className={`inline-flex px-2 sm:px-3 py-1 rounded-full font-medium text-xs whitespace-nowrap ${match.bracket === 'winner'
                               ? 'bg-blue-100 text-blue-700'

@@ -302,7 +302,7 @@ export function PlayerManagement() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">{registration.id}</div>
+                        <div className="text-sm font-medium text-gray-900">{registration.playerId || registration.id}</div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-600">{formatDate(registration.dateOfBirth)}</div>

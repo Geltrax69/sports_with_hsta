@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useRegistrations } from '../../context/RegistrationsContext'
 import { useDistricts } from '../../context/DistrictsContext'
+import { UpdateScoreModal } from '../../components/admin/UpdateScoreModal'
 
 export function AdminDashboard() {
   const { registrations } = useRegistrations()
   const { districts } = useDistricts()
+  const [isScoreModalOpen, setIsScoreModalOpen] = useState(false)
 
   const stats = useMemo(() => {
     const players = registrations.filter((r) => r.type === 'player')
@@ -113,27 +115,20 @@ export function AdminDashboard() {
             <div className="text-sm font-semibold text-gray-900">Create Tournament</div>
           </Link>
 
-          <Link
-            to="/admin/officials"
-            className="bg-white rounded-xl border-2 border-gray-200 p-6 text-center hover:border-[#5a0a8f] hover:shadow-md transition-all"
+          <button
+            onClick={() => setIsScoreModalOpen(true)}
+            className="bg-white rounded-xl border-2 border-gray-200 p-6 text-center hover:border-[#5a0a8f] hover:shadow-md transition-all cursor-pointer"
           >
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-              <span className="material-symbols-outlined text-blue-600 text-2xl">verified</span>
+              <span className="material-symbols-outlined text-blue-600 text-2xl">scoreboard</span>
             </div>
-            <div className="text-sm font-semibold text-gray-900">Verify Official</div>
-          </Link>
-
-          <Link
-            to="/admin/reports"
-            className="bg-white rounded-xl border-2 border-gray-200 p-6 text-center hover:border-[#5a0a8f] hover:shadow-md transition-all"
-          >
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-              <span className="material-symbols-outlined text-green-600 text-2xl">description</span>
-            </div>
-            <div className="text-sm font-semibold text-gray-900">Generate Report</div>
-          </Link>
+            <div className="text-sm font-semibold text-gray-900">Update Points</div>
+          </button>
         </div>
       </div>
+
+      <UpdateScoreModal isOpen={isScoreModalOpen} onClose={() => setIsScoreModalOpen(false)} />
+
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Pending Registrations */}
@@ -272,6 +267,6 @@ export function AdminDashboard() {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   )
 }

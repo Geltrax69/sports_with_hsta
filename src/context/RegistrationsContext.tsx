@@ -6,6 +6,7 @@ export type RegistrationStatus = 'pending' | 'approved' | 'rejected'
 
 export type PlayerRegistration = {
   id: string
+  playerId?: string
   type: 'player' | 'coach' | 'referee'
   profilePhoto: string | null // base64 or URL
   fullName: string
@@ -139,6 +140,7 @@ export function RegistrationsProvider({ children }: { children: ReactNode }) {
 
       const normalize = (r: any): PlayerRegistration => ({
         id: String(r._id || r.id),
+        playerId: r.playerId,
         type: r.type as 'player' | 'coach' | 'referee',
         profilePhoto: r.profilePhoto || null,
         fullName: r.fullName || '',
