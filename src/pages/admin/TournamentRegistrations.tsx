@@ -68,7 +68,7 @@ type Match = {
     setNumber: number
     team1Score: number
     team2Score: number
-    winner?: string
+    winner?: 'team1' | 'team2' | null
   }[]
   winner?: 'team1' | 'team2' | 'tie'
 }
