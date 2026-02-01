@@ -327,7 +327,6 @@ export function TournamentRegistrations() {
           tournamentId,
           team1: team1Res.team._id,
           team2: team2Res.team._id,
-          team2: team2Res.team._id,
           date: wizard.simpleMatch.date,
           time: wizard.simpleMatch.time,
           bracket: 'winner',
