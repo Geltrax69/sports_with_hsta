@@ -13,8 +13,9 @@ type Match = {
     team2: string
     date: string
     time: string
-    status: string
+    status?: 'scheduled' | 'ongoing' | 'completed'
     description?: string
+    bracket?: 'winner' | 'loser'
     sets?: {
         setNumber: number
         team1Score: number
@@ -107,7 +108,7 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                 method: 'PATCH',
                 body: JSON.stringify({
                     sets: newSets,
-                    status: matchStatus || selectedMatch.status,
+                    status: matchStatus || selectedMatch.status || 'scheduled',
                     score: { team1: team1Total, team2: team2Total },
                     winner: winner
                 }),
@@ -227,7 +228,7 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                                         selectedMatch.status === 'ongoing' ? 'bg-blue-100 text-blue-700' :
                                             'bg-gray-100 text-gray-600'
                                         }`}>
-                                        {selectedMatch.status.toUpperCase()}
+                                        {(selectedMatch.status || 'scheduled').toUpperCase()}
                                     </span>
                                 </div>
                                 <div className="text-center w-1/3">
