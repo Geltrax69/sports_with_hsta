@@ -14,6 +14,7 @@ type Match = {
     date: string
     time: string
     status: string
+    description?: string
     sets?: {
         setNumber: number
         team1Score: number
@@ -30,9 +31,11 @@ type Match = {
 type Props = {
     isOpen: boolean
     onClose: () => void
+    preSelectedTournamentId?: string
+    preSelectedMatch?: Match
 }
 
-export function UpdateScoreModal({ isOpen, onClose }: Props) {
+export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, preSelectedMatch }: Props) {
     const [loading, setLoading] = useState(false)
     const [tournaments, setTournaments] = useState<Tournament[]>([])
     const [selectedTournamentId, setSelectedTournamentId] = useState('')
@@ -43,14 +46,23 @@ export function UpdateScoreModal({ isOpen, onClose }: Props) {
     // Load tournaments on mount/open
     useEffect(() => {
         if (isOpen) {
-            loadTournaments()
+            // If a match is pre-selected, use it directly
+            if (preSelectedMatch) {
+                setSelectedMatch(preSelectedMatch)
+            } else {
+                loadTournaments()
+                // Auto-select tournament if provided
+                if (preSelectedTournamentId) {
+                    setSelectedTournamentId(preSelectedTournamentId)
+                }
+            }
         } else {
             // Reset state on close
             setSelectedTournamentId('')
             setMatches([])
             setSelectedMatch(null)
         }
-    }, [isOpen])
+    }, [isOpen, preSelectedTournamentId, preSelectedMatch])
 
     // Load matches when tournament selected
     useEffect(() => {
@@ -76,7 +88,7 @@ export function UpdateScoreModal({ isOpen, onClose }: Props) {
     const loadMatches = async (tId: string) => {
         try {
             setLoading(true)
-            const res = await apiRequest<{ matches: Match[] }>(`/tournaments/${tId}/matches`)
+            const res = await apiRequest<{ matches: Match[] }>(`/admin/matches?tournamentId=${tId}`, { auth: true })
             setMatches(res.matches || [])
         } catch (err) {
             console.error(err)
@@ -160,7 +172,8 @@ export function UpdateScoreModal({ isOpen, onClose }: Props) {
                 </div>
 
                 <div className="p-6 flex-1 overflow-y-auto">
-                    {/* Selection Phase */}
+                    {/* Selection Phase - Only show if no pre-selected match */}
+                    {!preSelectedMatch && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1">Select Tournament</label>
@@ -177,7 +190,7 @@ export function UpdateScoreModal({ isOpen, onClose }: Props) {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">Select Match</label>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">Select Match by Title</label>
                             <select
                                 className="w-full p-2 border border-gray-300 rounded-lg disabled:opacity-50 bg-white text-gray-900"
                                 value={selectedMatch?._id || ''}
@@ -190,12 +203,13 @@ export function UpdateScoreModal({ isOpen, onClose }: Props) {
                                 <option value="">{loading && selectedTournamentId ? 'Loading...' : '-- Choose Match --'}</option>
                                 {matches.map(m => (
                                     <option key={m._id} value={m._id}>
-                                        {m.team1} vs {m.team2} ({m.date})
+                                        {m.description || `${m.team1} vs ${m.team2}`} ({m.date})
                                     </option>
                                 ))}
                             </select>
                         </div>
                     </div>
+                    )}
 
                     {/* Scoring Interface */}
                     {selectedMatch && (
@@ -311,7 +325,7 @@ export function UpdateScoreModal({ isOpen, onClose }: Props) {
                                             <span className={set.winner === 'team2' ? 'text-green-600' : ''}>{set.team2Score}</span>
                                         </div>
                                         <span className="text-xs font-bold text-gray-400 w-20 text-right">
-                                            {set.winner ? (set.winner === 'team1' ? 'Team 1 Won' : 'Team 2 Won') : 'In Progress'}
+                                            {set.winner ? (set.winner === 'team1' ? `${selectedMatch.team1} Won` : `${selectedMatch.team2} Won`) : 'In Progress'}
                                         </span>
                                     </div>
                                 ))}

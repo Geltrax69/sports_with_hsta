@@ -1,6 +1,7 @@
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { apiRequest } from '../../lib/api'
+import { UpdateScoreModal } from '../../components/admin/UpdateScoreModal'
 
 type AdminTournament = {
   _id: string
@@ -140,6 +141,10 @@ export function TournamentRegistrations() {
 
   const [savingMatch, setSavingMatch] = useState(false)
 
+  // Score Update Modal State
+  const [isScoreModalOpen, setIsScoreModalOpen] = useState(false)
+  const [selectedMatchForScore, setSelectedMatchForScore] = useState<Match | null>(null)
+
   // Fetch tournament details
   useEffect(() => {
     if (!tournamentId) return
@@ -196,6 +201,30 @@ export function TournamentRegistrations() {
       setMatches(Array.isArray(res.matches) ? res.matches : [])
     } catch (e) {
       setMatches([])
+    }
+  }
+
+  // Delete match
+  const handleDeleteMatch = async (matchId: string, team1: string, team2: string) => {
+    if (!window.confirm(`Are you sure you want to delete the match between ${team1} and ${team2}? This will also delete the associated teams.`)) {
+      return
+    }
+
+    try {
+      await apiRequest(`/admin/matches/${matchId}`, {
+        method: 'DELETE',
+        auth: true
+      })
+
+      // Refresh both matches and teams
+      if (tournamentId) {
+        await Promise.all([
+          fetchMatches(tournamentId),
+          fetchTeams(tournamentId)
+        ])
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to delete match')
     }
   }
 
@@ -1050,6 +1079,27 @@ export function TournamentRegistrations() {
                           </div>
                         )}
                       </div>
+
+                      {/* Update Score Button - Separate column for better visibility */}
+                      <div className="border-t md:border-t-0 md:border-l border-gray-200 bg-gray-50 p-4 flex flex-col gap-2 items-center justify-center min-w-[180px]">
+                        <button
+                          onClick={() => {
+                            setSelectedMatchForScore(match)
+                            setIsScoreModalOpen(true)
+                          }}
+                          className="w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 shadow-sm"
+                        >
+                          <span className="material-symbols-outlined text-lg">edit_square</span>
+                          Update Score
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMatch(match._id, match.team1, match.team2)}
+                          className="w-full px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 border border-red-200"
+                        >
+                          <span className="material-symbols-outlined text-lg">delete</span>
+                          Delete Match
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1158,6 +1208,21 @@ export function TournamentRegistrations() {
           </div>
         </div>
       )}
+
+      {/* Score Update Modal */}
+      <UpdateScoreModal 
+        isOpen={isScoreModalOpen} 
+        onClose={() => {
+          setIsScoreModalOpen(false)
+          setSelectedMatchForScore(null)
+          // Refresh matches after modal closes
+          if (tournamentId) {
+            fetchMatches(tournamentId)
+          }
+        }}
+        preSelectedTournamentId={tournamentId}
+        preSelectedMatch={selectedMatchForScore || undefined}
+      />
     </div>
   )
 }
