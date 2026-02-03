@@ -29,6 +29,8 @@ import { AdminDashboard } from './pages/admin/AdminDashboard'
 import { DistrictManagement } from './pages/admin/DistrictManagement'
 import { OfficialsManagement } from './pages/admin/OfficialsManagement'
 import { PlayerManagement } from './pages/admin/PlayerManagement'
+import { CoachManagement } from './pages/admin/CoachManagement'
+import { RefereeManagement } from './pages/admin/RefereeManagement'
 import { TournamentManagement } from './pages/admin/TournamentManagement'
 import { CreateTournament } from './pages/admin/CreateTournament'
 import { EditTournament } from './pages/admin/EditTournament'
@@ -43,6 +45,20 @@ import { PlayerEvents } from './pages/player/PlayerEvents'
 import { PlayerResults } from './pages/player/PlayerResults'
 import { PlayerCertificates } from './pages/player/PlayerCertificates'
 import { PlayerSettings } from './pages/player/PlayerSettings'
+import { CoachLayout } from './components/coach/CoachLayout'
+import { CoachDashboard } from './pages/coach/CoachDashboard'
+import { CoachProfile } from './pages/coach/CoachProfile'
+import { CoachTournaments } from './pages/coach/CoachTournaments'
+import { CoachTeam } from './pages/coach/CoachTeam'
+import { CoachCertificates } from './pages/coach/CoachCertificates'
+import { CoachSettings } from './pages/coach/CoachSettings'
+import { RefereeLayout } from './components/referee/RefereeLayout'
+import { RefereeDashboard } from './pages/referee/RefereeDashboard'
+import { RefereeProfile } from './pages/referee/RefereeProfile'
+import { RefereeTournaments } from './pages/referee/RefereeTournaments'
+import { RefereeMatches } from './pages/referee/RefereeMatches'
+import { RefereeCertificates } from './pages/referee/RefereeCertificates'
+import { RefereeSettings } from './pages/referee/RefereeSettings'
 
 export default function App() {
   useEffect(() => {
@@ -92,11 +108,13 @@ export default function App() {
                       <Route path="districts" element={<DistrictManagement />} />
                       <Route path="officials" element={<OfficialsManagement />} />
                       <Route path="players" element={<PlayerManagement />} />
+                      <Route path="coaches" element={<CoachManagement />} />
+                      <Route path="referees" element={<RefereeManagement />} />
                       <Route path="tournaments" element={<TournamentManagement />} />
                       <Route path="tournaments/create" element={<CreateTournament />} />
                       <Route path="tournaments/:tournamentId/edit" element={<EditTournament />} />
                       <Route path="tournaments/:tournamentId/registrations" element={<TournamentRegistrations />} />
-                      <Route path="coaches" element={<div className="p-6"><MaintenanceNotice title="Coach Management" message="The centralized coach validation and registration system is currently being integrated with the national database." icon="groups" /></div>} />
+                      <Route path="coaches" element={<CoachManagement />} />
                       <Route path="website" element={<WebsiteContentManagement />} />
                       <Route path="news" element={<NewsManagement />} />
                       <Route path="documents" element={<DocumentsManagement />} />
@@ -117,6 +135,32 @@ export default function App() {
                       <Route path="results" element={<PlayerResults />} />
                       <Route path="certificates" element={<PlayerCertificates />} />
                       <Route path="settings" element={<PlayerSettings />} />
+                    </Route>
+                  </Route>
+
+                  {/* Coach Routes */}
+                  <Route element={<ProtectedRoute requiredRole="coach" />}>
+                    <Route path="/coach" element={<CoachLayout />}>
+                      <Route index element={<Navigate to="/coach/dashboard" replace />} />
+                      <Route path="dashboard" element={<CoachDashboard />} />
+                      <Route path="profile" element={<CoachProfile />} />
+                      <Route path="tournaments" element={<CoachTournaments />} />
+                      <Route path="team" element={<CoachTeam />} />
+                      <Route path="certificates" element={<CoachCertificates />} />
+                      <Route path="settings" element={<CoachSettings />} />
+                    </Route>
+                  </Route>
+
+                  {/* Referee Routes */}
+                  <Route element={<ProtectedRoute requiredRole="referee" />}>
+                    <Route path="/referee" element={<RefereeLayout />}>
+                      <Route index element={<Navigate to="/referee/dashboard" replace />} />
+                      <Route path="dashboard" element={<RefereeDashboard />} />
+                      <Route path="profile" element={<RefereeProfile />} />
+                      <Route path="tournaments" element={<RefereeTournaments />} />
+                      <Route path="matches" element={<RefereeMatches />} />
+                      <Route path="certificates" element={<RefereeCertificates />} />
+                      <Route path="settings" element={<RefereeSettings />} />
                     </Route>
                   </Route>
                 </Routes>

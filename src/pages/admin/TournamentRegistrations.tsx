@@ -85,14 +85,37 @@ type SimpleMatchPlayer = {
   _id: string
   fullName: string
   playerId: string
+  jerseyNumber?: number
+  position?: string
+  isCaptain?: boolean
+  isSubstitute?: boolean
+}
+
+type Coach = {
+  _id: string
+  fullName: string
+  email: string
+}
+
+type Referee = {
+  _id: string
+  fullName: string
+  email: string
 }
 
 type SimpleMatchState = {
   title: string
+  round: number
   team1Name: string
   team2Name: string
   team1Players: SimpleMatchPlayer[]
   team2Players: SimpleMatchPlayer[]
+  team1Coach: Coach | null
+  team2Coach: Coach | null
+  team1Manager: string
+  team2Manager: string
+  referee: Referee | null
+  assistantReferee: Referee | null
   date: string
   time: string
 }
@@ -125,10 +148,17 @@ export function TournamentRegistrations() {
     phase: 'idle',
     simpleMatch: {
       title: '',
+      round: 1,
       team1Name: 'Team A',
       team2Name: 'Team B',
       team1Players: [],
       team2Players: [],
+      team1Coach: null,
+      team2Coach: null,
+      team1Manager: '',
+      team2Manager: '',
+      referee: null,
+      assistantReferee: null,
       date: new Date().toISOString().split('T')[0],
       time: '10:00'
     }
@@ -138,6 +168,15 @@ export function TournamentRegistrations() {
   const [playerSearch, setPlayerSearch] = useState('')
   const [activeSearchSide, setActiveSearchSide] = useState<1 | 2 | null>(null)
   const [playerResults, setPlayerResults] = useState<Player[]>([])
+  
+  // Coach and Referee Search States
+  const [coachSearch, setCoachSearch] = useState('')
+  const [coachResults, setCoachResults] = useState<Coach[]>([])
+  const [activeCoachSide, setActiveCoachSide] = useState<1 | 2 | null>(null)
+  
+  const [refereeSearch, setRefereeSearch] = useState('')
+  const [refereeResults, setRefereeResults] = useState<Referee[]>([])
+  const [activeRefereeSide, setActiveRefereeSide] = useState<'main' | 'assistant' | null>(null)
 
   const [savingMatch, setSavingMatch] = useState(false)
 
@@ -228,6 +267,47 @@ export function TournamentRegistrations() {
     }
   }
 
+  // Download match PDF
+  const handleDownloadMatchPdf = async (matchId: string) => {
+    try {
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://sports-backend-fgsp.onrender.com'
+      const baseUrl = API_BASE.replace(/\/api$/, '') // Remove /api if present to add it back
+      
+      // Get token from localStorage using the same key as api.ts
+      const token = window.localStorage.getItem('stfi.token')
+      
+      const response = await fetch(`${baseUrl}/api/admin/matches/${matchId}/pdf`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF')
+      }
+
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition')
+      const filename = contentDisposition 
+        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '') 
+        : `match_${matchId}.pdf`
+
+      // Create blob and download
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to download PDF')
+    }
+  }
+
   useEffect(() => {
     if (tournamentId) {
       fetchTeams(tournamentId)
@@ -262,10 +342,17 @@ export function TournamentRegistrations() {
       phase: 'create-match',
       simpleMatch: {
         title: '',
+        round: 1,
         team1Name: 'Team A',
         team2Name: 'Team B',
         team1Players: [],
         team2Players: [],
+        team1Coach: null,
+        team2Coach: null,
+        team1Manager: '',
+        team2Manager: '',
+        referee: null,
+        assistantReferee: null,
         date: new Date().toISOString().split('T')[0],
         time: '10:00'
       }
@@ -273,6 +360,12 @@ export function TournamentRegistrations() {
     setPlayerSearch('')
     setPlayerResults([])
     setActiveSearchSide(null)
+    setCoachSearch('')
+    setCoachResults([])
+    setActiveCoachSide(null)
+    setRefereeSearch('')
+    setRefereeResults([])
+    setActiveRefereeSide(null)
   }
 
   const addPlayerToTeam = (side: 1 | 2, player: Player) => {
@@ -282,14 +375,14 @@ export function TournamentRegistrations() {
         if (!newState.simpleMatch.team1Players.some(p => p._id === player._id)) {
           newState.simpleMatch.team1Players = [
             ...newState.simpleMatch.team1Players,
-            { _id: player._id, fullName: player.fullName, playerId: player.playerId }
+            { _id: player._id, fullName: player.fullName, playerId: player.playerId, jerseyNumber: undefined, position: '', isCaptain: false, isSubstitute: false }
           ]
         }
       } else {
         if (!newState.simpleMatch.team2Players.some(p => p._id === player._id)) {
           newState.simpleMatch.team2Players = [
             ...newState.simpleMatch.team2Players,
-            { _id: player._id, fullName: player.fullName, playerId: player.playerId }
+            { _id: player._id, fullName: player.fullName, playerId: player.playerId, jerseyNumber: undefined, position: '', isCaptain: false, isSubstitute: false }
           ]
         }
       }
@@ -310,6 +403,178 @@ export function TournamentRegistrations() {
       }
       return newState
     })
+  }
+
+  const updatePlayerJerseyNumber = (side: 1 | 2, playerId: string, jerseyNumber: number) => {
+    setWizard(prev => {
+      const newState = { ...prev }
+      if (side === 1) {
+        newState.simpleMatch.team1Players = newState.simpleMatch.team1Players.map(p =>
+          p._id === playerId ? { ...p, jerseyNumber } : p
+        )
+      } else {
+        newState.simpleMatch.team2Players = newState.simpleMatch.team2Players.map(p =>
+          p._id === playerId ? { ...p, jerseyNumber } : p
+        )
+      }
+      return newState
+    })
+  }
+
+  const updatePlayerPosition = (side: 1 | 2, playerId: string, position: string) => {
+    setWizard(prev => {
+      const newState = { ...prev }
+      if (side === 1) {
+        newState.simpleMatch.team1Players = newState.simpleMatch.team1Players.map(p =>
+          p._id === playerId ? { ...p, position } : p
+        )
+      } else {
+        newState.simpleMatch.team2Players = newState.simpleMatch.team2Players.map(p =>
+          p._id === playerId ? { ...p, position } : p
+        )
+      }
+      return newState
+    })
+  }
+
+  const togglePlayerCaptain = (side: 1 | 2, playerId: string) => {
+    setWizard(prev => {
+      if (side === 1) {
+        return {
+          ...prev,
+          simpleMatch: {
+            ...prev.simpleMatch,
+            team1Players: prev.simpleMatch.team1Players.map(p =>
+              p._id === playerId ? { ...p, isCaptain: !p.isCaptain } : { ...p, isCaptain: false }
+            )
+          }
+        }
+      } else {
+        return {
+          ...prev,
+          simpleMatch: {
+            ...prev.simpleMatch,
+            team2Players: prev.simpleMatch.team2Players.map(p =>
+              p._id === playerId ? { ...p, isCaptain: !p.isCaptain } : { ...p, isCaptain: false }
+            )
+          }
+        }
+      }
+    })
+  }
+
+  const togglePlayerSubstitute = (side: 1 | 2, playerId: string) => {
+    setWizard(prev => {
+      if (side === 1) {
+        return {
+          ...prev,
+          simpleMatch: {
+            ...prev.simpleMatch,
+            team1Players: prev.simpleMatch.team1Players.map(p =>
+              p._id === playerId ? { ...p, isSubstitute: !p.isSubstitute } : p
+            )
+          }
+        }
+      } else {
+        return {
+          ...prev,
+          simpleMatch: {
+            ...prev.simpleMatch,
+            team2Players: prev.simpleMatch.team2Players.map(p =>
+              p._id === playerId ? { ...p, isSubstitute: !p.isSubstitute } : p
+            )
+          }
+        }
+      }
+    })
+  }
+
+  // Handle coach search
+  const handleCoachSearch = async (query: string, side: 1 | 2) => {
+    setCoachSearch(query)
+    setActiveCoachSide(side)
+
+    if (!query.trim() || query.trim().length < 2) {
+      setCoachResults([])
+      return
+    }
+
+    try {
+      const res = await apiRequest<{ coaches: Coach[] }>(
+        `/admin/coaches/search?q=${encodeURIComponent(query)}`,
+        { auth: true }
+      )
+      setCoachResults(Array.isArray(res.coaches) ? res.coaches : [])
+    } catch (e) {
+      setCoachResults([])
+    }
+  }
+
+  const selectCoach = (side: 1 | 2, coach: Coach) => {
+    setWizard(prev => ({
+      ...prev,
+      simpleMatch: {
+        ...prev.simpleMatch,
+        ...(side === 1 ? { team1Coach: coach } : { team2Coach: coach })
+      }
+    }))
+    setCoachSearch('')
+    setCoachResults([])
+    setActiveCoachSide(null)
+  }
+
+  const removeCoach = (side: 1 | 2) => {
+    setWizard(prev => ({
+      ...prev,
+      simpleMatch: {
+        ...prev.simpleMatch,
+        ...(side === 1 ? { team1Coach: null } : { team2Coach: null })
+      }
+    }))
+  }
+
+  // Handle referee search
+  const handleRefereeSearch = async (query: string, type: 'main' | 'assistant') => {
+    setRefereeSearch(query)
+    setActiveRefereeSide(type)
+
+    if (!query.trim() || query.trim().length < 2) {
+      setRefereeResults([])
+      return
+    }
+
+    try {
+      const res = await apiRequest<{ referees: Referee[] }>(
+        `/admin/referees/search?q=${encodeURIComponent(query)}`,
+        { auth: true }
+      )
+      setRefereeResults(Array.isArray(res.referees) ? res.referees : [])
+    } catch (e) {
+      setRefereeResults([])
+    }
+  }
+
+  const selectReferee = (type: 'main' | 'assistant', referee: Referee) => {
+    setWizard(prev => ({
+      ...prev,
+      simpleMatch: {
+        ...prev.simpleMatch,
+        ...(type === 'main' ? { referee } : { assistantReferee: referee })
+      }
+    }))
+    setRefereeSearch('')
+    setRefereeResults([])
+    setActiveRefereeSide(null)
+  }
+
+  const removeReferee = (type: 'main' | 'assistant') => {
+    setWizard(prev => ({
+      ...prev,
+      simpleMatch: {
+        ...prev.simpleMatch,
+        ...(type === 'main' ? { referee: null } : { assistantReferee: null })
+      }
+    }))
   }
 
   const saveSimpleMatch = async () => {
@@ -348,7 +613,7 @@ export function TournamentRegistrations() {
         }),
       })
 
-      // 3. Create Match
+      // 3. Create Match with all new fields
       await apiRequest<{ match: Match }>(`/admin/matches`, {
         method: 'POST',
         auth: true,
@@ -356,6 +621,27 @@ export function TournamentRegistrations() {
           tournamentId,
           team1: team1Res.team._id,
           team2: team2Res.team._id,
+          round: wizard.simpleMatch.round,
+          team1Coach: wizard.simpleMatch.team1Coach?._id || null,
+          team2Coach: wizard.simpleMatch.team2Coach?._id || null,
+          team1Manager: wizard.simpleMatch.team1Manager || null,
+          team2Manager: wizard.simpleMatch.team2Manager || null,
+          team1Players: wizard.simpleMatch.team1Players.map(p => ({
+            player: p._id,
+            jerseyNumber: p.jerseyNumber || null,
+            position: p.position || null,
+            isCaptain: p.isCaptain || false,
+            isSubstitute: p.isSubstitute || false
+          })),
+          team2Players: wizard.simpleMatch.team2Players.map(p => ({
+            player: p._id,
+            jerseyNumber: p.jerseyNumber || null,
+            position: p.position || null,
+            isCaptain: p.isCaptain || false,
+            isSubstitute: p.isSubstitute || false
+          })),
+          referee: wizard.simpleMatch.referee?._id || null,
+          assistantReferee: wizard.simpleMatch.assistantReferee?._id || null,
           date: wizard.simpleMatch.date,
           time: wizard.simpleMatch.time,
           bracket: 'winner',
@@ -470,22 +756,40 @@ export function TournamentRegistrations() {
           </div>
 
           <div className="p-6 flex-1 overflow-y-auto space-y-6">
-            {/* Title Input */}
-            <div>
-              <label className="block text-sm font-bold uppercase tracking-wide text-gray-700 mb-2">
-                Match Title / Description
-              </label>
-              <input
-                type="text"
-                autoFocus
-                value={wizard.simpleMatch.title}
-                onChange={(e) => setWizard(prev => ({
-                  ...prev,
-                  simpleMatch: { ...prev.simpleMatch, title: e.target.value }
-                }))}
-                placeholder="e.g. Quarter Final 1, League Match A vs B"
-                className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5a0a8f] font-semibold text-gray-900"
-              />
+            {/* Title and Round Input */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="md:col-span-3">
+                <label className="block text-sm font-bold uppercase tracking-wide text-gray-700 mb-2">
+                  Match Title / Description
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={wizard.simpleMatch.title}
+                  onChange={(e) => setWizard(prev => ({
+                    ...prev,
+                    simpleMatch: { ...prev.simpleMatch, title: e.target.value }
+                  }))}
+                  placeholder="e.g. Quarter Final 1, League Match A vs B"
+                  className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5a0a8f] font-semibold text-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold uppercase tracking-wide text-gray-700 mb-2">
+                  Round
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={wizard.simpleMatch.round}
+                  onChange={(e) => setWizard(prev => ({
+                    ...prev,
+                    simpleMatch: { ...prev.simpleMatch, round: parseInt(e.target.value) || 1 }
+                  }))}
+                  placeholder="1"
+                  className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5a0a8f] font-semibold text-gray-900"
+                />
+              </div>
             </div>
 
             {/* Date and Time Input */}
@@ -572,19 +876,130 @@ export function TournamentRegistrations() {
                   )}
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {wizard.simpleMatch.team1Players.map(p => (
-                    <div key={p._id} className="flex justify-between items-center bg-white px-3 py-2 rounded-lg border border-blue-100 shadow-sm">
-                      <div>
-                        <div className="font-medium text-blue-900">{p.fullName}</div>
-                        <div className="text-xs text-gray-500">{p.playerId || 'N/A'}</div>
+                    <div key={p._id} className="bg-white px-3 py-3 rounded-lg border border-blue-100 shadow-sm">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <div className="font-semibold text-blue-900 text-base">{p.fullName}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{p.playerId || 'N/A'}</div>
+                        </div>
+                        <button onClick={() => removePlayerFromTeam(1, p._id)} className="text-red-500 hover:text-red-700 font-bold text-2xl leading-none ml-2">×</button>
                       </div>
-                      <button onClick={() => removePlayerFromTeam(1, p._id)} className="text-red-500 hover:text-red-700">×</button>
+                      <div className="grid grid-cols-1 gap-2.5">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-xs text-blue-700 font-semibold mb-1">Jersey #</label>
+                            <input
+                              type="number"
+                              value={p.jerseyNumber || ''}
+                              onChange={(e) => updatePlayerJerseyNumber(1, p._id, parseInt(e.target.value) || 0)}
+                              placeholder="Number"
+                              className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg text-base font-semibold text-blue-900 focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-blue-700 font-semibold mb-1">Position</label>
+                            <input
+                              type="text"
+                              value={p.position || ''}
+                              onChange={(e) => updatePlayerPosition(1, p._id, e.target.value)}
+                              placeholder="e.g. Forward"
+                              className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg text-base font-semibold text-blue-900 focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-4">
+                          <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={p.isCaptain || false}
+                              onChange={() => togglePlayerCaptain(1, p._id)}
+                              className="w-4 h-4 rounded"
+                            />
+                            <span className="text-blue-700">Captain</span>
+                          </label>
+                          <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={p.isSubstitute || false}
+                              onChange={() => togglePlayerSubstitute(1, p._id)}
+                              className="w-4 h-4 rounded"
+                            />
+                            <span className="text-blue-700">Sub</span>
+                          </label>
+                        </div>
+                      </div>
                     </div>
                   ))}
                   {wizard.simpleMatch.team1Players.length === 0 && (
                     <div className="text-center py-4 text-blue-400 text-sm italic">No players added</div>
                   )}
+                </div>
+
+                {/* Team 1 Coach */}
+                <div className="mt-4">
+                  <label className="block text-xs font-bold uppercase text-blue-800 mb-1">Team Coach</label>
+                  {wizard.simpleMatch.team1Coach ? (
+                    <div className="bg-white px-3 py-2 rounded-lg border-2 border-blue-200 flex justify-between items-center">
+                      <div>
+                        <div className="font-semibold text-blue-900">{wizard.simpleMatch.team1Coach.fullName}</div>
+                        <div className="text-xs text-gray-500">{wizard.simpleMatch.team1Coach.email}</div>
+                      </div>
+                      <button onClick={() => removeCoach(1)} className="text-red-500 hover:text-red-700 font-bold text-xl">×</button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={activeCoachSide === 1 ? coachSearch : ''}
+                        onFocus={() => {
+                          setCoachSearch('')
+                          setActiveCoachSide(1)
+                        }}
+                        onChange={(e) => handleCoachSearch(e.target.value, 1)}
+                        placeholder="Search by name, email, phone, or district..."
+                        className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-gray-900"
+                      />
+                      {activeCoachSide === 1 && coachResults.length > 0 && (
+                        <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-blue-300 max-h-48 overflow-y-auto">
+                          {coachResults.map(c => (
+                            <div
+                              key={c._id}
+                              onClick={() => selectCoach(1, c)}
+                              className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
+                            >
+                              <div>
+                                <div className="font-semibold text-sm text-gray-900">{c.fullName}</div>
+                                <div className="text-xs text-gray-500">{c.email} {c.phone && `• ${c.phone}`}</div>
+                              </div>
+                              <span className="text-blue-600 font-bold">+</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {activeCoachSide === 1 && coachSearch.length >= 2 && coachResults.length === 0 && (
+                        <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-blue-300 px-3 py-2 text-sm text-gray-500 italic">
+                          No coaches found
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Team 1 Manager */}
+                <div className="mt-4">
+                  <label className="block text-xs font-bold uppercase text-blue-800 mb-1">Team Manager</label>
+                  <input
+                    type="text"
+                    value={wizard.simpleMatch.team1Manager}
+                    onChange={(e) => setWizard(prev => ({
+                      ...prev,
+                      simpleMatch: { ...prev.simpleMatch, team1Manager: e.target.value }
+                    }))}
+                    placeholder="Enter manager name..."
+                    className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-gray-900"
+                  />
                 </div>
               </div>
 
@@ -639,18 +1054,238 @@ export function TournamentRegistrations() {
                   )}
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {wizard.simpleMatch.team2Players.map(p => (
-                    <div key={p._id} className="flex justify-between items-center bg-white px-3 py-2 rounded-lg border border-orange-100 shadow-sm">
-                      <div>
-                        <div className="font-medium text-orange-900">{p.fullName}</div>
-                        <div className="text-xs text-gray-500">{p.playerId || 'N/A'}</div>
+                    <div key={p._id} className="bg-white px-3 py-3 rounded-lg border border-orange-100 shadow-sm">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <div className="font-semibold text-orange-900 text-base">{p.fullName}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{p.playerId || 'N/A'}</div>
+                        </div>
+                        <button onClick={() => removePlayerFromTeam(2, p._id)} className="text-red-500 hover:text-red-700 font-bold text-2xl leading-none ml-2">×</button>
                       </div>
-                      <button onClick={() => removePlayerFromTeam(2, p._id)} className="text-red-500 hover:text-red-700">×</button>
+                      <div className="grid grid-cols-1 gap-2.5">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-xs text-orange-700 font-semibold mb-1">Jersey #</label>
+                            <input
+                              type="number"
+                              value={p.jerseyNumber || ''}
+                              onChange={(e) => updatePlayerJerseyNumber(2, p._id, parseInt(e.target.value) || 0)}
+                              placeholder="Number"
+                              className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg text-base font-semibold text-orange-900 focus:outline-none focus:border-orange-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-orange-700 font-semibold mb-1">Position</label>
+                            <input
+                              type="text"
+                              value={p.position || ''}
+                              onChange={(e) => updatePlayerPosition(2, p._id, e.target.value)}
+                              placeholder="e.g. Forward"
+                              className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg text-base font-semibold text-orange-900 focus:outline-none focus:border-orange-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-4">
+                          <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={p.isCaptain || false}
+                              onChange={() => togglePlayerCaptain(2, p._id)}
+                              className="w-4 h-4 rounded"
+                            />
+                            <span className="text-orange-700">Captain</span>
+                          </label>
+                          <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={p.isSubstitute || false}
+                              onChange={() => togglePlayerSubstitute(2, p._id)}
+                              className="w-4 h-4 rounded"
+                            />
+                            <span className="text-orange-700">Sub</span>
+                          </label>
+                        </div>
+                      </div>
                     </div>
                   ))}
                   {wizard.simpleMatch.team2Players.length === 0 && (
                     <div className="text-center py-4 text-orange-400 text-sm italic">No players added</div>
+                  )}
+                </div>
+
+                {/* Team 2 Coach */}
+                <div className="mt-4">
+                  <label className="block text-xs font-bold uppercase text-orange-800 mb-1">Team Coach</label>
+                  {wizard.simpleMatch.team2Coach ? (
+                    <div className="bg-white px-3 py-2 rounded-lg border-2 border-orange-200 flex justify-between items-center">
+                      <div>
+                        <div className="font-semibold text-orange-900">{wizard.simpleMatch.team2Coach.fullName}</div>
+                        <div className="text-xs text-gray-500">{wizard.simpleMatch.team2Coach.email}</div>
+                      </div>
+                      <button onClick={() => removeCoach(2)} className="text-red-500 hover:text-red-700 font-bold text-xl">×</button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={activeCoachSide === 2 ? coachSearch : ''}
+                        onFocus={() => {
+                          setCoachSearch('')
+                          setActiveCoachSide(2)
+                        }}
+                        onChange={(e) => handleCoachSearch(e.target.value, 2)}
+                        placeholder="Search by name, email, phone, or district..."
+                        className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg focus:outline-none focus:border-orange-500 bg-white text-gray-900"
+                      />
+                      {activeCoachSide === 2 && coachResults.length > 0 && (
+                        <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-orange-300 max-h-48 overflow-y-auto">
+                          {coachResults.map(c => (
+                            <div
+                              key={c._id}
+                              onClick={() => selectCoach(2, c)}
+                              className="px-3 py-2 hover:bg-orange-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
+                            >
+                              <div>
+                                <div className="font-semibold text-sm text-gray-900">{c.fullName}</div>
+                                <div className="text-xs text-gray-500">{c.email} {c.phone && `• ${c.phone}`}</div>
+                              </div>
+                              <span className="text-orange-600 font-bold">+</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {activeCoachSide === 2 && coachSearch.length >= 2 && coachResults.length === 0 && (
+                        <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-orange-300 px-3 py-2 text-sm text-gray-500 italic">
+                          No coaches found
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Team 2 Manager */}
+                <div className="mt-4">
+                  <label className="block text-xs font-bold uppercase text-orange-800 mb-1">Team Manager</label>
+                  <input
+                    type="text"
+                    value={wizard.simpleMatch.team2Manager}
+                    onChange={(e) => setWizard(prev => ({
+                      ...prev,
+                      simpleMatch: { ...prev.simpleMatch, team2Manager: e.target.value }
+                    }))}
+                    placeholder="Enter manager name..."
+                    className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg focus:outline-none focus:border-orange-500 bg-white text-gray-900"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Match Officials Section */}
+            <div className="bg-green-50 rounded-xl p-5 border-2 border-green-200">
+              <h3 className="text-xl font-black text-green-900 mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined">sports</span> Match Officials
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Referee */}
+                <div>
+                  <label className="block text-xs font-bold uppercase text-green-800 mb-1">Referee</label>
+                  {wizard.simpleMatch.referee ? (
+                    <div className="bg-white px-3 py-2 rounded-lg border-2 border-green-200 flex justify-between items-center">
+                      <div>
+                        <div className="font-semibold text-green-900">{wizard.simpleMatch.referee.fullName}</div>
+                        <div className="text-xs text-gray-500">{wizard.simpleMatch.referee.email}</div>
+                      </div>
+                      <button onClick={() => removeReferee('main')} className="text-red-500 hover:text-red-700 font-bold text-xl">×</button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={activeRefereeSide === 'main' ? refereeSearch : ''}
+                        onFocus={() => {
+                          setRefereeSearch('')
+                          setActiveRefereeSide('main')
+                        }}
+                        onChange={(e) => handleRefereeSearch(e.target.value, 'main')}
+                        placeholder="Search by name, email, phone, or district..."
+                        className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:outline-none focus:border-green-500 bg-white text-gray-900"
+                      />
+                      {activeRefereeSide === 'main' && refereeResults.length > 0 && (
+                        <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-green-300 max-h-48 overflow-y-auto">
+                          {refereeResults.map(r => (
+                            <div
+                              key={r._id}
+                              onClick={() => selectReferee('main', r)}
+                              className="px-3 py-2 hover:bg-green-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
+                            >
+                              <div>
+                                <div className="font-semibold text-sm text-gray-900">{r.fullName}</div>
+                                <div className="text-xs text-gray-500">{r.email} {r.phone && `• ${r.phone}`}</div>
+                              </div>
+                              <span className="text-green-600 font-bold">+</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {activeRefereeSide === 'main' && refereeSearch.length >= 2 && refereeResults.length === 0 && (
+                        <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-green-300 px-3 py-2 text-sm text-gray-500 italic">
+                          No referees found
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Assistant Referee */}
+                <div>
+                  <label className="block text-xs font-bold uppercase text-green-800 mb-1">Assistant Referee</label>
+                  {wizard.simpleMatch.assistantReferee ? (
+                    <div className="bg-white px-3 py-2 rounded-lg border-2 border-green-200 flex justify-between items-center">
+                      <div>
+                        <div className="font-semibold text-green-900">{wizard.simpleMatch.assistantReferee.fullName}</div>
+                        <div className="text-xs text-gray-500">{wizard.simpleMatch.assistantReferee.email}</div>
+                      </div>
+                      <button onClick={() => removeReferee('assistant')} className="text-red-500 hover:text-red-700 font-bold text-xl">×</button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={activeRefereeSide === 'assistant' ? refereeSearch : ''}
+                        onFocus={() => {
+                          setRefereeSearch('')
+                          setActiveRefereeSide('assistant')
+                        }}
+                        onChange={(e) => handleRefereeSearch(e.target.value, 'assistant')}
+                        placeholder="Search by name, email, phone, or district..."
+                        className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:outline-none focus:border-green-500 bg-white text-gray-900"
+                      />
+                      {activeRefereeSide === 'assistant' && refereeResults.length > 0 && (
+                        <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-green-300 max-h-48 overflow-y-auto">
+                          {refereeResults.map(r => (
+                            <div
+                              key={r._id}
+                              onClick={() => selectReferee('assistant', r)}
+                              className="px-3 py-2 hover:bg-green-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
+                            >
+                              <div>
+                                <div className="font-semibold text-sm text-gray-900">{r.fullName}</div>
+                                <div className="text-xs text-gray-500">{r.email} {r.phone && `• ${r.phone}`}</div>
+                              </div>
+                              <span className="text-green-600 font-bold">+</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {activeRefereeSide === 'assistant' && refereeSearch.length >= 2 && refereeResults.length === 0 && (
+                        <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-green-300 px-3 py-2 text-sm text-gray-500 italic">
+                          No referees found
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -1091,6 +1726,13 @@ export function TournamentRegistrations() {
                         >
                           <span className="material-symbols-outlined text-lg">edit_square</span>
                           Update Score
+                        </button>
+                        <button
+                          onClick={() => handleDownloadMatchPdf(match._id)}
+                          className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
+                        >
+                          <span className="material-symbols-outlined text-lg">download</span>
+                          Download PDF
                         </button>
                         <button
                           onClick={() => handleDeleteMatch(match._id, match.team1, match.team2)}

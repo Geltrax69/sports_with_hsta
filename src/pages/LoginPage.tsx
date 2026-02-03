@@ -35,6 +35,10 @@ export function LoginPage() {
           navigate('/admin/dashboard')
         } else if (role === 'player') {
           navigate('/player/dashboard')
+        } else if (role === 'coach') {
+          navigate('/coach/dashboard')
+        } else if (role === 'referee') {
+          navigate('/referee/dashboard')
         } else {
           navigate('/')
         }
