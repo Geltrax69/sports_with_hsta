@@ -95,12 +95,14 @@ type Coach = {
   _id: string
   fullName: string
   email: string
+  phone?: string
 }
 
 type Referee = {
   _id: string
   fullName: string
   email: string
+  phone?: string
 }
 
 type SimpleMatchState = {
@@ -168,12 +170,12 @@ export function TournamentRegistrations() {
   const [playerSearch, setPlayerSearch] = useState('')
   const [activeSearchSide, setActiveSearchSide] = useState<1 | 2 | null>(null)
   const [playerResults, setPlayerResults] = useState<Player[]>([])
-  
+
   // Coach and Referee Search States
   const [coachSearch, setCoachSearch] = useState('')
   const [coachResults, setCoachResults] = useState<Coach[]>([])
   const [activeCoachSide, setActiveCoachSide] = useState<1 | 2 | null>(null)
-  
+
   const [refereeSearch, setRefereeSearch] = useState('')
   const [refereeResults, setRefereeResults] = useState<Referee[]>([])
   const [activeRefereeSide, setActiveRefereeSide] = useState<'main' | 'assistant' | null>(null)
@@ -272,10 +274,10 @@ export function TournamentRegistrations() {
     try {
       const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://sports-backend-fgsp.onrender.com'
       const baseUrl = API_BASE.replace(/\/api$/, '') // Remove /api if present to add it back
-      
+
       // Get token from localStorage using the same key as api.ts
       const token = window.localStorage.getItem('stfi.token')
-      
+
       const response = await fetch(`${baseUrl}/api/admin/matches/${matchId}/pdf`, {
         method: 'GET',
         headers: {
@@ -289,8 +291,8 @@ export function TournamentRegistrations() {
 
       // Get filename from Content-Disposition header or use default
       const contentDisposition = response.headers.get('Content-Disposition')
-      const filename = contentDisposition 
-        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '') 
+      const filename = contentDisposition
+        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
         : `match_${matchId}.pdf`
 
       // Create blob and download
@@ -1852,8 +1854,8 @@ export function TournamentRegistrations() {
       )}
 
       {/* Score Update Modal */}
-      <UpdateScoreModal 
-        isOpen={isScoreModalOpen} 
+      <UpdateScoreModal
+        isOpen={isScoreModalOpen}
         onClose={() => {
           setIsScoreModalOpen(false)
           setSelectedMatchForScore(null)
