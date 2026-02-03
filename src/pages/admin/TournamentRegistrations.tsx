@@ -2,6 +2,8 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { apiRequest } from '../../lib/api'
 import { UpdateScoreModal } from '../../components/admin/UpdateScoreModal'
+import { GenerateScoreCardModal } from '../../components/admin/GenerateScoreCardModal'
+import type { ScoreCardData } from '../../components/admin/GenerateScoreCardModal'
 
 type AdminTournament = {
   _id: string
@@ -144,6 +146,10 @@ export function TournamentRegistrations() {
 
   // UI State
   const [activeTab, setActiveTab] = useState<'registrations' | 'matches'>('registrations')
+
+  // Score Card Modal State
+  const [isScoreCardModalOpen, setIsScoreCardModalOpen] = useState(false)
+  const [selectedMatchForScoreCard, setSelectedMatchForScoreCard] = useState<Match | null>(null)
 
   // Wizard State
   const [wizard, setWizard] = useState<WizardState>({
@@ -1315,6 +1321,52 @@ export function TournamentRegistrations() {
   }
 
   // ===== MAIN PAGE UI =====
+  // Handle Score Card Generation
+  const handleOpenScoreCardModal = (match: Match) => {
+    setSelectedMatchForScoreCard(match)
+    setIsScoreCardModalOpen(true)
+  }
+
+  const handleGenerateScoreCard = async (data: ScoreCardData) => {
+    if (!selectedMatchForScoreCard) return
+
+    try {
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://sports-backend-fgsp.onrender.com'
+      const baseUrl = API_BASE.replace(/\/api$/, '')
+      const token = window.localStorage.getItem('stfi.token')
+
+      const response = await fetch(`${baseUrl}/api/admin/matches/${selectedMatchForScoreCard._id}/scorecard-pdf`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate Score Card PDF')
+      }
+
+      const contentDisposition = response.headers.get('Content-Disposition')
+      const filename = contentDisposition
+        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
+        : `scorecard_${selectedMatchForScoreCard._id}.pdf`
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to generate Score Card PDF')
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Breadcrumbs */}
@@ -1736,6 +1788,16 @@ export function TournamentRegistrations() {
                           <span className="material-symbols-outlined text-lg">download</span>
                           Download PDF
                         </button>
+
+                        {match.status === 'completed' && (
+                          <button
+                            onClick={() => handleOpenScoreCardModal(match)}
+                            className="w-full px-4 py-2 bg-[#5a0a8f] hover:bg-[#400466] text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 shadow-sm"
+                          >
+                            <span className="material-symbols-outlined text-lg">sports_score</span>
+                            Score Card
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDeleteMatch(match._id, match.team1, match.team2)}
                           className="w-full px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 border border-red-200"
@@ -1867,6 +1929,17 @@ export function TournamentRegistrations() {
         preSelectedTournamentId={tournamentId}
         preSelectedMatch={selectedMatchForScore || undefined}
       />
+      {isScoreCardModalOpen && selectedMatchForScoreCard && (
+        <GenerateScoreCardModal
+          isOpen={isScoreCardModalOpen}
+          onClose={() => {
+            setIsScoreCardModalOpen(false)
+            setSelectedMatchForScoreCard(null)
+          }}
+          onGenerate={handleGenerateScoreCard}
+          matchTitle={`${typeof selectedMatchForScoreCard.team1 === 'string' ? selectedMatchForScoreCard.team1 : selectedMatchForScoreCard.team1} vs ${typeof selectedMatchForScoreCard.team2 === 'string' ? selectedMatchForScoreCard.team2 : selectedMatchForScoreCard.team2}`}
+        />
+      )}
     </div>
   )
 }
