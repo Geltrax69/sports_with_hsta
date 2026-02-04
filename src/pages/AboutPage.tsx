@@ -1,10 +1,14 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useWebsiteContent } from '../context/WebsiteContentContext'
+import { imageRateLimiter } from '../lib/rateLimit'
 
 export function AboutPage() {
   const { content: websiteContent } = useWebsiteContent()
+  const failedImages = useRef<Set<string>>(new Set())
 
   const withBase = (url: string) => (url.startsWith('/') ? `${import.meta.env.BASE_URL}${url.slice(1)}` : url)
+  
+  const getPlaceholder = () => `${import.meta.env.BASE_URL}assets/images/placeholder.svg`
 
   useEffect(() => {
     // Trigger entry animations on mount
@@ -130,11 +134,28 @@ export function AboutPage() {
                   <div className="timeline__content">
                     <img
                       className="timeline__img"
-                      src={withBase(item.imageUrl || '/assets/images/hero-bg-2.jpg')}
+                      src={withBase(item.imageUrl || '/assets/images/placeholder.svg')}
                       alt={item.title}
                       onError={(e) => {
                         const target = e.target as HTMLImageElement
-                        target.src = withBase('/assets/images/hero-bg-2.jpg')
+                        const currentSrc = target.src
+                        
+                        // Prevent infinite retry loop
+                        if (failedImages.current.has(currentSrc)) {
+                          return
+                        }
+                        
+                        failedImages.current.add(currentSrc)
+                        
+                        // Check rate limit before attempting fallback
+                        if (!imageRateLimiter.canAttempt(currentSrc)) {
+                          console.warn(`Rate limit exceeded for image: ${currentSrc}`)
+                          target.src = getPlaceholder()
+                          return
+                        }
+                        
+                        imageRateLimiter.recordAttempt(currentSrc)
+                        target.src = getPlaceholder()
                       }}
                     />
                     <span className="timeline__content-caption">{item.year}</span>
@@ -149,7 +170,7 @@ export function AboutPage() {
                 <div className="timeline__content">
                   <img
                     className="timeline__img"
-                    src={`${import.meta.env.BASE_URL}assets/images/hero-bg-2.jpg`}
+                    src={getPlaceholder()}
                     alt="1982 Federation"
                   />
                   <span className="timeline__content-caption">1982</span>
@@ -164,7 +185,7 @@ export function AboutPage() {
                 <div className="timeline__content">
                   <img
                     className="timeline__img"
-                    src={`${import.meta.env.BASE_URL}assets/images/hero-bg.jpg`}
+                    src={getPlaceholder()}
                     alt="1984 First Nationals"
                   />
                   <span className="timeline__content-caption">1984</span>
@@ -179,7 +200,7 @@ export function AboutPage() {
                 <div className="timeline__content">
                   <img
                     className="timeline__img"
-                    src={`${import.meta.env.BASE_URL}assets/images/hero-bg-2.jpg`}
+                    src={getPlaceholder()}
                     alt="1990 Asian Games"
                   />
                   <span className="timeline__content-caption">1990</span>
@@ -194,7 +215,7 @@ export function AboutPage() {
                 <div className="timeline__content">
                   <img
                     className="timeline__img"
-                    src={`${import.meta.env.BASE_URL}assets/images/hero-bg.jpg`}
+                    src={getPlaceholder()}
                     alt="2018 Bronze Medal"
                   />
                   <span className="timeline__content-caption">2018</span>

@@ -1,7 +1,16 @@
 import { apiRequest } from './api'
+import { imageRateLimiter } from './rateLimit'
 
 export async function getSignedUrlForImage(originalUrl: string, requireAuth = true): Promise<string | null> {
+  // Check rate limit before attempting
+  if (!imageRateLimiter.canAttempt(originalUrl)) {
+    console.warn(`[getSignedUrlForImage] Rate limit exceeded for: ${originalUrl}`)
+    return null
+  }
+
   try {
+    imageRateLimiter.recordAttempt(originalUrl)
+    
     const u = new URL(originalUrl)
     const key = u.pathname.replace(/^\/+/, '')
     const res = await apiRequest<{ url: string }>(`/uploads/signed-url?key=${encodeURIComponent(key)}`, {
@@ -27,15 +36,21 @@ export async function resolveImageUrl(originalUrl: string, requireAuth = false):
   
   // For S3 URLs, always use signed URLs since bucket blocks public access
   if (originalUrl.includes('.s3.') || originalUrl.includes('s3-') || originalUrl.includes('amazonaws.com')) {
+    // Check rate limit before attempting
+    if (!imageRateLimiter.canAttempt(originalUrl)) {
+      console.warn(`[resolveImageUrl] Rate limit exceeded, using placeholder for: ${originalUrl}`)
+      return placeholder
+    }
+
     try {
       const signed = await getSignedUrlForImage(originalUrl, requireAuth)
       if (signed) {
         return signed
       }
-      return originalUrl
+      return placeholder // Return placeholder instead of broken URL
     } catch (error) {
       console.error('Error getting signed URL:', error)
-      return originalUrl
+      return placeholder // Return placeholder on error
     }
   }
   
