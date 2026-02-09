@@ -34,8 +34,14 @@ export async function resolveImageUrl(originalUrl: string, requireAuth = false):
     return originalUrl
   }
   
-  // For S3 URLs, always use signed URLs since bucket blocks public access
+  // For S3 URLs
   if (originalUrl.includes('.s3.') || originalUrl.includes('s3-') || originalUrl.includes('amazonaws.com')) {
+    // Gallery and news images are public - use direct URLs without signed URL
+    if (originalUrl.includes('/uploads/gallery/') || originalUrl.includes('/uploads/news/')) {
+      return originalUrl
+    }
+    
+    // For other S3 URLs (like documents), use signed URLs
     // Check rate limit before attempting
     if (!imageRateLimiter.canAttempt(originalUrl)) {
       console.warn(`[resolveImageUrl] Rate limit exceeded, using placeholder for: ${originalUrl}`)

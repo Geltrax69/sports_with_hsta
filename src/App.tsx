@@ -38,6 +38,7 @@ import { NewsManagement } from './pages/admin/NewsManagement'
 import { DocumentsManagement } from './pages/admin/DocumentsManagement'
 import { WebsiteContentManagement } from './pages/admin/WebsiteContentManagement'
 import { TournamentRegistrations } from './pages/admin/TournamentRegistrations'
+import { AdminCertificates } from './pages/admin/AdminCertificates'
 import { PlayerLayout } from './components/player/PlayerLayout'
 import { PlayerDashboard } from './pages/player/PlayerDashboard'
 import { PlayerProfile } from './pages/player/PlayerProfile'
@@ -118,7 +119,7 @@ export default function App() {
                       <Route path="website" element={<WebsiteContentManagement />} />
                       <Route path="news" element={<NewsManagement />} />
                       <Route path="documents" element={<DocumentsManagement />} />
-                      <Route path="certificates" element={<div className="p-6"><MaintenanceNotice title="Certificate Generator" message="The automated certificate generation and verification system is under final testing for the 2024 season." icon="card_membership" /></div>} />
+                      <Route path="certificates" element={<AdminCertificates />} />
                       <Route path="settings" element={<div className="p-6"><MaintenanceNotice title="System Settings" message="Advanced configuration and system administration tools are currently restricted for maintenance." icon="settings" /></div>} />
                       <Route path="reports" element={<div className="p-6"><MaintenanceNotice title="Analytical Reports" message="Match performance data and registration metrics reports are being compiled." icon="bar_chart" /></div>} />
                       <Route path="legacy" element={<AdminPage />} />

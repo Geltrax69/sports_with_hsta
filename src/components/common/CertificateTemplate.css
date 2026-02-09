@@ -1,0 +1,263 @@
+/* Certificate Template Styles */
+/* Defines the container for container queries */
+.certificate-container {
+    container-type: inline-size;
+    position: relative;
+    width: 100%;
+    font-family: 'Times New Roman', serif;
+    color: #1a1a1a;
+    background-color: white;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.certificate-aspect-ratio {
+    aspect-ratio: 1.414;
+    /* Landscape A4/Certificate ratio */
+    position: relative;
+    width: 100%;
+}
+
+.certificate-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+}
+
+.certificate-content {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    padding: 8% 5% 8% 5%;
+    /* Increased bottom padding to push signatures up */
+}
+
+/* --- LOGOS SECTION --- */
+.certificate-logos {
+    display: flex;
+    justify-content: space-evenly;
+    /* Evenly space items */
+    align-items: center;
+    width: 100%;
+    margin-bottom: 1cqw;
+    margin-top: 0.8cqw;
+    /* Brought down as requested */
+}
+
+.logo-img {
+    height: 5cqw;
+    /* Standard height */
+    width: auto;
+    max-width: 6cqw;
+    /* Ensure they don't get too wide */
+    object-fit: contain;
+}
+
+.logo-placeholder {
+    height: 5cqw;
+    width: 5cqw;
+    border: 1px dashed #ccc;
+    background-color: transparent;
+    /* Cleaner look */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7cqw;
+    color: #666;
+    border-radius: 4px;
+}
+
+/* --- HEADER SECTION --- */
+.header-association-name {
+    font-family: 'Arial Black', 'Impact', sans-serif;
+    color: #d32f2f;
+    /* Red */
+    text-transform: uppercase;
+    font-size: 3.5cqw;
+    line-height: 1;
+    text-align: center;
+    margin-bottom: 0.5cqw;
+    letter-spacing: 0.02em;
+    text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.1);
+}
+
+.header-affiliation {
+    font-family: sans-serif;
+    font-size: 1.1cqw;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 0.2cqw;
+    color: #333;
+}
+
+.header-recognition {
+    font-family: sans-serif;
+    font-size: 0.9cqw;
+    font-weight: 600;
+    text-align: center;
+    max-width: 90%;
+    margin: 0 auto;
+    line-height: 1.3;
+    color: #444;
+}
+
+/* --- CHAMPIONSHIP TITLE --- */
+.championship-title {
+    font-family: 'Arial Black', 'Impact', sans-serif;
+    color: #b71c1c;
+    /* Darker Red */
+    text-transform: uppercase;
+    font-size: 1.8cqw;
+    /* Reduced font size to fit better */
+    text-align: center;
+    margin-top: 1.5cqw;
+    line-height: 1.2;
+    max-width: 90%;
+    /* Ensure it doesn't touch the edges */
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.championship-subtitle {
+    font-family: sans-serif;
+    font-weight: bold;
+    font-size: 1.4cqw;
+    text-align: center;
+    margin-top: 0.3cqw;
+    color: #000;
+}
+
+.organised-by {
+    font-family: sans-serif;
+    font-size: 1.2cqw;
+    font-weight: bold;
+    text-align: center;
+    margin-top: 0.5cqw;
+    color: #000;
+}
+
+.organised-by span {
+    color: #1b5e20;
+    /* Green */
+}
+
+/* --- MIDDLE ROW (Sr No & Photo) --- */
+.middle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 0 6%;
+    /* Increased padding to bring Sr No inside */
+    margin-top: 1cqw;
+    position: relative;
+}
+
+.photo-box {
+    width: 10cqw;
+    height: 10cqw;
+    /* Adjusted to square as per 300x300 request */
+    border: 2px solid #555;
+    background-color: #f5f5f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+/* --- CERTIFICATE TITLE (Blue Pill) --- */
+.certificate-title-container {
+    text-align: center;
+    margin: 0.5cqw 0 1cqw 0;
+    /* Reduced top margin to bring it up */
+}
+
+.certificate-title-pill {
+    background: linear-gradient(to bottom, #1e88e5, #1565c0);
+    /* Blue Gradient */
+    color: white;
+    font-family: sans-serif;
+    font-weight: 800;
+    font-size: 2.2cqw;
+    padding: 0.4cqw 3cqw;
+    border-radius: 50px;
+    /* Pill shape */
+    border: 0.2cqw solid #0d47a1;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+    display: inline-block;
+    letter-spacing: 0.02em;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* --- BODY TEXT --- */
+.certificate-body {
+    font-size: 1.5cqw;
+    /* Increased font size */
+    line-height: 1.8;
+    text-align: center;
+    /* Changed from justify to center */
+    padding: 0 1%;
+    font-family: 'Times New Roman', serif;
+    font-weight: 500;
+}
+
+.variable-field {
+    font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;
+    /* Handwriting style fallback */
+    font-weight: bold;
+    color: #000;
+    border-bottom: 2px dotted #555;
+    /* Dotted line */
+    padding: 0 0.5cqw;
+    margin: 0 0.2cqw;
+    display: inline-block;
+    text-align: center;
+    min-width: 2em;
+}
+
+/* --- FOOTER SIGNATURES --- */
+.footer-signatures {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1cqw;
+    margin-top: auto;
+    /* Pushes to bottom */
+    padding-bottom: 2cqw;
+    padding-left: 1%;
+    padding-right: 1%;
+    text-align: center;
+}
+
+.signature-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.signature-placeholder {
+    height: 3cqw;
+    width: 6cqw;
+    /* border: 1px dashed #ccc; */
+    /* Optional borders for signature area */
+    margin-bottom: 0.2cqw;
+}
+
+.signer-name {
+    font-weight: bold;
+    font-size: 1.1cqw;
+    color: #1a1a1a;
+    line-height: 1.2;
+}
+
+.signer-title {
+    font-size: 0.8cqw;
+    color: #444;
+    border-top: 1px solid #777;
+    width: 90%;
+    padding-top: 0.3cqw;
+    margin-top: 0.2cqw;
+    font-weight: 600;
+}
