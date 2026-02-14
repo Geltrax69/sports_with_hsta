@@ -2,6 +2,22 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { apiRequest } from '../../lib/api'
 import { DatePickerField } from '../../components/DatePickerField'
+import { Autocomplete, TextField, Chip } from '@mui/material'
+
+type Player = {
+  _id: string
+  fullName: string
+  district?: string
+  profilePhoto?: string
+}
+
+type Registration = {
+  _id: string
+  userId: string
+  accountRole: 'player' | 'coach'
+  applicant?: Player
+  status: string
+}
 
 type AdminTournament = {
   _id: string
@@ -17,7 +33,13 @@ type AdminTournament = {
   pincode?: string
   genderCategory?: 'male' | 'female' | 'both'
   imageUrl?: string
+
   status?: string
+  winners?: {
+    first: Player[]
+    second: Player[]
+    third: Player[]
+  }
 }
 
 const PRESET_TYPES = [
@@ -66,7 +88,28 @@ export function EditTournament() {
   })
 
   const [genderCategory, setGenderCategory] = useState<'male' | 'female' | 'both'>('both')
+
   const [customTournamentType, setCustomTournamentType] = useState('')
+
+  const [registrations, setRegistrations] = useState<Registration[]>([])
+  const [winners, setWinners] = useState<{
+    first: Player[]
+    second: Player[]
+    third: Player[]
+  }>({
+    first: [],
+    second: [],
+    third: []
+  })
+
+  // Derived list of players from registrations for the dropdown
+  const playerOptions = useMemo(() => {
+    // Filter for approved player registrations
+    return registrations
+      .filter((r) => r.accountRole === 'player' && r.applicant) // && r.status === 'approved' ?
+      .map((r) => r.applicant!)
+      .filter((p, index, self) => index === self.findIndex((t) => t._id === p._id)) // Unique players
+  }, [registrations])
 
   const resolvedTournamentType = useMemo(() => {
     return formData.tournamentType === '__custom__' ? customTournamentType.trim() : formData.tournamentType.trim()
@@ -103,7 +146,26 @@ export function EditTournament() {
         })
 
         setCustomTournamentType(isPreset ? '' : type)
+
         setGenderCategory(t.genderCategory || 'both')
+
+        if (t.winners) {
+          setWinners({
+            first: t.winners.first || [],
+            second: t.winners.second || [],
+            third: t.winners.third || []
+          })
+        }
+
+        // Fetch registrations to populate the player dropdown
+        const regRes = await apiRequest<{ registrations: Registration[] }>(
+          `/admin/tournaments/${tournamentId}/registrations`,
+          { auth: true },
+        )
+        if (!cancelled && regRes.registrations) {
+          setRegistrations(regRes.registrations)
+        }
+
       } catch (e) {
         if (cancelled) return
         setError(e instanceof Error ? e.message : 'Failed to load tournament')
@@ -158,6 +220,13 @@ export function EditTournament() {
       fd.append('city', formData.city)
       fd.append('pincode', formData.pincode)
       fd.append('genderCategory', genderCategory)
+      fd.append('genderCategory', genderCategory)
+      fd.append('winners', JSON.stringify({
+        first: winners.first.map(p => p._id),
+        second: winners.second.map(p => p._id),
+        third: winners.third.map(p => p._id),
+      }))
+
       if (imageFile) fd.append('image', imageFile)
 
       await apiRequest(`/admin/tournaments/${tournamentId}`, {
@@ -442,6 +511,137 @@ export function EditTournament() {
                 />
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Tournament Winners */}
+        <div className="border-t border-gray-200 pt-8">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-[#5a0a8f] rounded-lg flex items-center justify-center">
+              <span className="material-symbols-outlined text-white">emoji_events</span>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900">Tournament Winners</h2>
+          </div>
+
+          <div className="space-y-6 pl-13">
+
+            {/* 1st Place */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                1st Place (Gold)
+              </label>
+              <Autocomplete
+                multiple
+                options={playerOptions}
+                getOptionLabel={(option) => `${option.fullName} (${option.district || 'N/A'})`}
+                value={winners.first}
+                onChange={(_, newValue) => {
+                  setWinners(prev => ({ ...prev, first: newValue }))
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Select Winner(s)"
+                    variant="outlined"
+                    className="bg-white"
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '0.5rem' } }}
+                  />
+                )}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => {
+                    const { key, ...tagProps } = getTagProps({ index });
+                    return (
+                      <Chip
+                        key={key}
+                        variant="outlined"
+                        label={option.fullName}
+                        {...tagProps}
+                      />
+                    );
+                  })
+                }
+                isOptionEqualToValue={(option, value) => option._id === value._id}
+              />
+            </div>
+
+            {/* 2nd Place */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                2nd Place (Silver)
+              </label>
+              <Autocomplete
+                multiple
+                options={playerOptions}
+                getOptionLabel={(option) => `${option.fullName} (${option.district || 'N/A'})`}
+                value={winners.second}
+                onChange={(_, newValue) => {
+                  setWinners(prev => ({ ...prev, second: newValue }))
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Select Winner(s)"
+                    variant="outlined"
+                    className="bg-white"
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '0.5rem' } }}
+                  />
+                )}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => {
+                    const { key, ...tagProps } = getTagProps({ index });
+                    return (
+                      <Chip
+                        key={key}
+                        variant="outlined"
+                        label={option.fullName}
+                        {...tagProps}
+                      />
+                    );
+                  })
+                }
+                isOptionEqualToValue={(option, value) => option._id === value._id}
+              />
+            </div>
+
+            {/* 3rd Place */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                3rd Place (Bronze)
+              </label>
+              <Autocomplete
+                multiple
+                options={playerOptions}
+                getOptionLabel={(option) => `${option.fullName} (${option.district || 'N/A'})`}
+                value={winners.third}
+                onChange={(_, newValue) => {
+                  setWinners(prev => ({ ...prev, third: newValue }))
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Select Winner(s)"
+                    variant="outlined"
+                    className="bg-white"
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '0.5rem' } }}
+                  />
+                )}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => {
+                    const { key, ...tagProps } = getTagProps({ index });
+                    return (
+                      <Chip
+                        key={key}
+                        variant="outlined"
+                        label={option.fullName}
+                        {...tagProps}
+                      />
+                    );
+                  })
+                }
+                isOptionEqualToValue={(option, value) => option._id === value._id}
+              />
+            </div>
+
           </div>
         </div>
 

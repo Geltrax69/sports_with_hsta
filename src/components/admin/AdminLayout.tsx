@@ -29,13 +29,10 @@ export function AdminLayout() {
         />
       )}
       <aside
-        className={`${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } md:translate-x-0 ${
-          sidebarOpen ? 'w-[80vw] max-w-[20rem]' : 'w-[80vw] max-w-[20rem]'
-        } ${
-          sidebarOpen ? 'md:w-64' : 'md:w-20'
-        } bg-[#5a0a8f] text-white transition-transform md:transition-all duration-300 flex flex-col fixed h-full z-30`}
+        className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          } md:translate-x-0 ${sidebarOpen ? 'w-[80vw] max-w-[20rem]' : 'w-[80vw] max-w-[20rem]'
+          } ${sidebarOpen ? 'md:w-64' : 'md:w-20'
+          } bg-[#5a0a8f] text-white transition-transform md:transition-all duration-300 flex flex-col fixed h-full z-30`}
       >
         {/* Logo */}
         <div className="p-6 border-b border-white/10">
@@ -62,10 +59,9 @@ export function AdminLayout() {
             to="/admin/dashboard"
             end
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-white/20 text-white font-semibold'
-                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
               }`
             }
           >
@@ -82,10 +78,9 @@ export function AdminLayout() {
           <NavLink
             to="/admin/districts"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-white/20 text-white font-semibold'
-                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
               }`
             }
           >
@@ -96,10 +91,9 @@ export function AdminLayout() {
           <NavLink
             to="/admin/officials"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-white/20 text-white font-semibold'
-                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
               }`
             }
           >
@@ -110,10 +104,9 @@ export function AdminLayout() {
           <NavLink
             to="/admin/players"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-white/20 text-white font-semibold'
-                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
               }`
             }
           >
@@ -124,10 +117,9 @@ export function AdminLayout() {
           <NavLink
             to="/admin/tournaments"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-white/20 text-white font-semibold'
-                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
               }`
             }
           >
@@ -138,10 +130,9 @@ export function AdminLayout() {
           <NavLink
             to="/admin/coaches"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-white/20 text-white font-semibold'
-                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
               }`
             }
           >
@@ -152,10 +143,9 @@ export function AdminLayout() {
           <NavLink
             to="/admin/referees"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-white/20 text-white font-semibold'
-                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
               }`
             }
           >
@@ -172,10 +162,9 @@ export function AdminLayout() {
           <NavLink
             to="/admin/website"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-white/20 text-white font-semibold'
-                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
               }`
             }
           >
@@ -186,10 +175,9 @@ export function AdminLayout() {
           <NavLink
             to="/admin/news"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-white/20 text-white font-semibold'
-                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
               }`
             }
           >
@@ -200,10 +188,9 @@ export function AdminLayout() {
           <NavLink
             to="/admin/documents"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-white/20 text-white font-semibold'
-                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
               }`
             }
           >
@@ -220,10 +207,9 @@ export function AdminLayout() {
           <NavLink
             to="/admin/certificates"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-white/20 text-white font-semibold'
-                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
               }`
             }
           >
@@ -232,12 +218,24 @@ export function AdminLayout() {
           </NavLink>
 
           <NavLink
+            to="/admin/certificates/list"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <span className="material-symbols-outlined text-xl">file_download</span>
+            {sidebarOpen && <span>Generated Certificates</span>}
+          </NavLink>
+
+          <NavLink
             to="/admin/settings"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-white/20 text-white font-semibold'
-                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
               }`
             }
           >
@@ -248,10 +246,9 @@ export function AdminLayout() {
           <NavLink
             to="/admin/reports"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-white/20 text-white font-semibold'
-                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
               }`
             }
           >

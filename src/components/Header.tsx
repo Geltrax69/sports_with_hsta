@@ -18,6 +18,7 @@ export function Header() {
       { name: 'Events', to: '/events' },
       { name: 'Documents', to: '/documents' },
       { name: 'News', to: '/news' },
+      { name: 'Certificates', to: '/certificates' },
       { name: 'Contact Us', to: '/contact' },
     ],
     [],

@@ -280,7 +280,7 @@ export function CoachManagement() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">{registration.id}</div>
+                        <div className="text-sm font-medium text-gray-900">{registration.coachId || registration.id}</div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-600">{registration.phone || 'N/A'}</div>
@@ -421,7 +421,7 @@ export function CoachManagement() {
                   <h3 className="text-2xl font-bold text-gray-900 mb-2">{selectedRegistration.fullName}</h3>
                   <div className="space-y-1 text-sm text-gray-600">
                     <div>
-                      <span className="font-semibold">Registration ID:</span> {selectedRegistration.id}
+                      <span className="font-semibold">Coach ID:</span> {selectedRegistration.coachId || selectedRegistration.id}
                     </div>
                     <div>
                       <span className="font-semibold">Type:</span> Coach

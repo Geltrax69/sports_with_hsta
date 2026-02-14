@@ -28,13 +28,20 @@ interface CertificateTemplateProps {
         treasurer?: string
         orgSecretary?: string
     }
+    signatureImages?: {
+        president?: string
+        secretary?: string
+        treasurer?: string
+        orgSecretary?: string
+    }
 }
 
 export const CertificateTemplate: FC<CertificateTemplateProps> = ({
     backgroundImage,
     data,
     logos = [], // Default to empty array
-    signatures // For future use
+    signatures, // For future use
+    signatureImages
 }) => {
     // Ensure we always have 7 slots for structure, filling missing ones with empty strings
     // If fewer than 7 logos are provided, we show placeholders for the rest
@@ -59,7 +66,7 @@ export const CertificateTemplate: FC<CertificateTemplateProps> = ({
                             logo ? (
                                 <img key={index} src={logo} alt={`Logo ${index + 1}`} className="logo-img" />
                             ) : (
-                                <div key={index} className="logo-placeholder">Logo {index + 1}</div>
+                                <div key={index} className="logo-placeholder">Logo</div>
                             )
                         ))}
                     </div>
@@ -93,32 +100,19 @@ export const CertificateTemplate: FC<CertificateTemplateProps> = ({
 
                     {/* Photo and Serial Number Row */}
                     <div className="middle-row">
-                        {/* Serial No (Left) */}
-                        <div className="mb-[0.5cqw]">
-                            <span className="sr-no-label">Sr. No. </span>
-                            <span className="sr-no-value">
-                                {data.serialNumber}
-                            </span>
+                        <div className="sr-number">
+                            <span className="sr-no-label">Sr. No.</span>
+                            <span className="sr-no-value">{data.serialNumber}</span>
                         </div>
 
-                        {/* Certificate Title (Center - moved here or below photo row? Design usually has title below photo row or centered. Image shows title below Photo row)
-                            Wait, in the image 2, title "Certificate of Merit/Participation" is BELOW the Sr No / Photo line.
-                        */}
-                    </div>
-
-                    {/* Photo (Right) - Actually in the image provided, Photo is on the right, Sr No on the left.
-                         But the Title "Certificate..." is centered.
-                         Let's put the photo absolutely positioned or floated? No, flex row is fine.
-                         But I need to make sure the photo doesn't push the title if title is below.
-                         The image shows Sr No left, Photo right. Title is centered below them.
-                     */}
-                    <div style={{ position: 'absolute', right: '10%', top: '37%', zIndex: 20 }}>
-                        <div className="photo-box">
-                            {data.photoUrl ? (
-                                <img src={data.photoUrl} alt="Player" className="photo-img" />
-                            ) : (
-                                <span className="photo-placeholder">Photo</span>
-                            )}
+                        <div className="photo-wrapper">
+                            <div className="photo-box">
+                                {data.photoUrl ? (
+                                    <img src={data.photoUrl} alt="Player" className="photo-img" />
+                                ) : (
+                                    <span className="photo-placeholder">Photo</span>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -159,11 +153,16 @@ export const CertificateTemplate: FC<CertificateTemplateProps> = ({
                         <p style={{ marginTop: '0.5cqw' }}>
                             from <span style={{ fontWeight: 'bold' }}>{data.dates}</span> as a&nbsp;
                             <span className="variable-field">{data.role}</span>
-                            &nbsp;and secured&nbsp;
-                            <span className="variable-field" style={{ minWidth: '3em' }}>
-                                {data.position || 'Participated'}
-                            </span>
-                            &nbsp;place in the&nbsp;
+                            {data.position && !['Participation', 'Coach', 'Referee'].includes(data.position) && (
+                                <>
+                                    &nbsp;and secured&nbsp;
+                                    <span className="variable-field" style={{ minWidth: '3em' }}>
+                                        {data.position}
+                                    </span>
+                                    &nbsp;place
+                                </>
+                            )}
+                            &nbsp;in the&nbsp;
                             <span className="variable-field">{data.event}</span>
                             &nbsp;Event.
                         </p>
@@ -175,25 +174,41 @@ export const CertificateTemplate: FC<CertificateTemplateProps> = ({
                     {/* Footer Signatures */}
                     <div className="footer-signatures">
                         <div className="signature-block">
-                            <div className="signature-placeholder"></div>
+                            <div className="signature-placeholder">
+                                {signatureImages?.president && (
+                                    <img src={signatureImages.president} alt="President Signature" className="signature-image" />
+                                )}
+                            </div>
                             <div className="signer-name">{signatures?.president}</div>
                             <div className="signer-title">President HSTA</div>
                         </div>
 
                         <div className="signature-block">
-                            <div className="signature-placeholder"></div>
+                            <div className="signature-placeholder">
+                                {signatureImages?.secretary && (
+                                    <img src={signatureImages.secretary} alt="Secretary Signature" className="signature-image" />
+                                )}
+                            </div>
                             <div className="signer-name">{signatures?.secretary}</div>
                             <div className="signer-title">General Secretary HSTA</div>
                         </div>
 
                         <div className="signature-block">
-                            <div className="signature-placeholder"></div>
+                            <div className="signature-placeholder">
+                                {signatureImages?.treasurer && (
+                                    <img src={signatureImages.treasurer} alt="Treasurer Signature" className="signature-image" />
+                                )}
+                            </div>
                             <div className="signer-name">{signatures?.treasurer}</div>
                             <div className="signer-title">Treasurer HSTA</div>
                         </div>
 
                         <div className="signature-block">
-                            <div className="signature-placeholder"></div>
+                            <div className="signature-placeholder">
+                                {signatureImages?.orgSecretary && (
+                                    <img src={signatureImages.orgSecretary} alt="Org Secretary Signature" className="signature-image" />
+                                )}
+                            </div>
                             <div className="signer-name">{signatures?.orgSecretary}</div>
                             <div className="signer-title">Org. Secretary</div>
                         </div>

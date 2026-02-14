@@ -4,6 +4,7 @@ import { apiRequest } from '../../lib/api'
 import { UpdateScoreModal } from '../../components/admin/UpdateScoreModal'
 import { GenerateScoreCardModal } from '../../components/admin/GenerateScoreCardModal'
 import type { ScoreCardData } from '../../components/admin/GenerateScoreCardModal'
+import { Autocomplete, TextField, Chip } from '@mui/material'
 
 type AdminTournament = {
   _id: string
@@ -13,6 +14,11 @@ type AdminTournament = {
   venueName?: string
   city?: string
   status?: string
+  winners?: {
+    first: Player[]
+    second: Player[]
+    third: Player[]
+  }
 }
 
 type Applicant = {
@@ -145,7 +151,59 @@ export function TournamentRegistrations() {
   const [selectedRegistration, setSelectedRegistration] = useState<string | null>(null)
 
   // UI State
-  const [activeTab, setActiveTab] = useState<'registrations' | 'matches'>('registrations')
+  const [activeTab, setActiveTab] = useState<'registrations' | 'matches' | 'winners'>('registrations')
+
+  const [winners, setWinners] = useState<{
+    first: Player[]
+    second: Player[]
+    third: Player[]
+  }>({
+    first: [],
+    second: [],
+    third: []
+  })
+  const [savingWinners, setSavingWinners] = useState(false)
+
+  // Derived list of players from registrations for the winners dropdown
+  const playerOptions = useMemo(() => {
+    return registrations
+      .filter((r) => r.registerAs === 'player' && r.applicant)
+      .map((r) => ({
+        _id: r.applicant!._id,
+        fullName: r.applicant!.fullName,
+        playerId: r.applicant!._id, // Using _id as fallback
+        district: r.applicant!.district
+      }))
+      .filter((p, index, self) => index === self.findIndex((t) => t._id === p._id))
+  }, [registrations])
+
+  const handleSaveWinners = async () => {
+    if (!tournamentId) return
+    setSavingWinners(true)
+    try {
+      // Map back to just IDs for the backend
+      const winnersData = {
+        first: winners.first.map(p => p._id),
+        second: winners.second.map(p => p._id),
+        third: winners.third.map(p => p._id)
+      }
+
+      await apiRequest(`/admin/tournaments/${tournamentId}`, {
+        method: 'PATCH',
+        auth: true,
+        body: JSON.stringify({ winners: winnersData })
+      })
+
+      // Update local tournament state
+      setTournament(prev => prev ? { ...prev, winners } : null)
+
+      alert('Winners saved successfully!')
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to save winners')
+    } finally {
+      setSavingWinners(false)
+    }
+  }
 
   // Score Card Modal State
   const [isScoreCardModalOpen, setIsScoreCardModalOpen] = useState(false)
@@ -192,6 +250,13 @@ export function TournamentRegistrations() {
   const [isScoreModalOpen, setIsScoreModalOpen] = useState(false)
   const [selectedMatchForScore, setSelectedMatchForScore] = useState<Match | null>(null)
 
+  // Quick Registration Modal State
+  const [isQuickRegModalOpen, setIsQuickRegModalOpen] = useState(false)
+  const [quickRegSearch, setQuickRegSearch] = useState('')
+  const [quickRegType, setQuickRegType] = useState<'player' | 'coach' | 'referee'>('player')
+  const [quickRegResults, setQuickRegResults] = useState<any[]>([])
+  const [quickRegLoading, setQuickRegLoading] = useState(false)
+
   // Fetch tournament details
   useEffect(() => {
     if (!tournamentId) return
@@ -202,6 +267,13 @@ export function TournamentRegistrations() {
           { auth: true }
         )
         setTournament(res.tournament)
+        if (res.tournament.winners) {
+          setWinners({
+            first: res.tournament.winners.first || [],
+            second: res.tournament.winners.second || [],
+            third: res.tournament.winners.third || []
+          })
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to fetch tournament')
       }
@@ -689,7 +761,70 @@ export function TournamentRegistrations() {
         setRegistrations(Array.isArray(res.registrations) ? res.registrations : [])
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to approve registration')
+      alert(e instanceof Error ? e.message : 'Failed to approve')
+    }
+  }
+
+  // Quick Registration Handlers
+  const handleQuickRegSearch = async (query: string) => {
+    setQuickRegSearch(query)
+    if (query.trim().length < 2) {
+      setQuickRegResults([])
+      return
+    }
+
+    try {
+      let endpoint = ''
+      if (quickRegType === 'player') endpoint = '/admin/players/search'
+      else if (quickRegType === 'coach') endpoint = '/admin/coaches/search'
+      else if (quickRegType === 'referee') endpoint = '/admin/referees/search'
+
+      const res = await apiRequest<any>(`${endpoint}?q=${encodeURIComponent(query)}`, { auth: true })
+
+      if (quickRegType === 'player') {
+        setQuickRegResults(res.players || [])
+      } else if (quickRegType === 'coach') {
+        setQuickRegResults(res.coaches || [])
+      } else if (quickRegType === 'referee') {
+        setQuickRegResults(res.referees || [])
+      }
+    } catch (e) {
+      console.error('Search error:', e)
+      setQuickRegResults([])
+    }
+  }
+
+  const handleQuickRegister = async (userId: string) => {
+    if (!tournamentId) return
+
+    setQuickRegLoading(true)
+    try {
+      await apiRequest(`/admin/tournaments/${tournamentId}/registrations`, {
+        method: 'POST',
+        auth: true,
+        body: JSON.stringify({
+          userId,
+          registerAs: quickRegType
+        })
+      })
+
+      // Refresh registrations
+      const res = await apiRequest<{ registrations: TournamentRegistration[] }>(
+        `/admin/tournaments/${tournamentId}/registrations`,
+        { auth: true }
+      )
+      setRegistrations(Array.isArray(res.registrations) ? res.registrations : [])
+
+      // Close modal and reset
+      setIsQuickRegModalOpen(false)
+      setQuickRegSearch('')
+      setQuickRegResults([])
+
+      alert('Participant registered successfully!')
+    } catch (e: any) {
+      alert(e?.message || 'Failed to register participant')
+    } finally {
+      setQuickRegLoading(false)
     }
   }
 
@@ -1443,6 +1578,15 @@ export function TournamentRegistrations() {
         >
           Matches & Teams
         </button>
+        <button
+          onClick={() => setActiveTab('winners')}
+          className={`pb-3 px-6 text-sm font-bold uppercase tracking-wide transition-colors relative ${activeTab === 'winners'
+            ? 'text-[#5a0a8f] border-b-2 border-[#5a0a8f]'
+            : 'text-gray-500 hover:text-gray-700'
+            }`}
+        >
+          Winners
+        </button>
       </div>
 
       {activeTab === 'registrations' && (
@@ -1465,6 +1609,17 @@ export function TournamentRegistrations() {
               <div className="text-3xl font-black text-red-600 mb-1">{stats.rejected}</div>
               <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Rejected</div>
             </div>
+          </div>
+
+          {/* Quick Register Button */}
+          <div className="flex justify-end mb-4">
+            <button
+              onClick={() => setIsQuickRegModalOpen(true)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#5a0a8f] to-[#7b1fa2] text-white rounded-lg font-bold shadow-md hover:shadow-lg hover:from-[#7b1fa2] hover:to-[#5a0a8f] transition-all duration-200"
+            >
+              <span className="material-symbols-outlined text-xl">person_add</span>
+              Quick Register
+            </button>
           </div>
 
           {/* Search and Filters */}
@@ -1616,202 +1771,469 @@ export function TournamentRegistrations() {
         </>
       )}
 
-      {activeTab === 'matches' && (
-        <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Matches & Teams</h2>
-              <p className="text-gray-500 mt-1">Create teams and schedule matches for this tournament</p>
-            </div>
-            <button
-              onClick={startCreateMatch}
-              className="px-6 py-3 bg-[#5a0a8f] hover:bg-[#400466] text-white rounded-xl font-bold transition-all shadow-md flex items-center gap-2 transform hover:scale-105 active:scale-95"
-            >
-              <span className="material-symbols-outlined">add_circle</span>
-              Create Match
-            </button>
-          </div>
-
-          {/* Teams List */}
-          <div className="mb-10">
-            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <span className="material-symbols-outlined text-blue-600">groups</span>
-              Teams Created
-            </h3>
-
-            {teams.length === 0 ? (
-              <div className="bg-gray-50 rounded-xl p-8 text-center border-2 border-dashed border-gray-200">
-                <span className="material-symbols-outlined text-4xl text-gray-300 mb-2">sports_kabaddi</span>
-                <p className="text-gray-500 font-medium">No teams created yet. Create a match to automatically generate teams.</p>
+      {
+        activeTab === 'matches' && (
+          <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Matches & Teams</h2>
+                <p className="text-gray-500 mt-1">Create teams and schedule matches for this tournament</p>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {teams.map(team => (
-                  <div key={team._id} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-4">
-                      <h4 className="font-bold text-xl text-gray-900">{team.name}</h4>
-                      <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-100">
-                        {team.members.length} Players
-                      </span>
-                    </div>
+              <button
+                onClick={startCreateMatch}
+                className="px-6 py-3 bg-[#5a0a8f] hover:bg-[#400466] text-white rounded-xl font-bold transition-all shadow-md flex items-center gap-2 transform hover:scale-105 active:scale-95"
+              >
+                <span className="material-symbols-outlined">add_circle</span>
+                Create Match
+              </button>
+            </div>
 
-                    <div className="space-y-2">
-                      <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Roster</div>
-                      <div className="flex flex-wrap gap-2">
-                        {team.members.map((m: any, idx) => (
-                          <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-50 text-gray-700 text-sm border border-gray-200">
-                            {m.fullName || m.name || 'Player'}
-                          </span>
-                        ))}
-                        {team.members.length === 0 && (
-                          <span className="text-gray-400 text-sm italic">No players assigned</span>
-                        )}
+            {/* Teams List */}
+            <div className="mb-10">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined text-blue-600">groups</span>
+                Teams Created
+              </h3>
+
+              {teams.length === 0 ? (
+                <div className="bg-gray-50 rounded-xl p-8 text-center border-2 border-dashed border-gray-200">
+                  <span className="material-symbols-outlined text-4xl text-gray-300 mb-2">sports_kabaddi</span>
+                  <p className="text-gray-500 font-medium">No teams created yet. Create a match to automatically generate teams.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {teams.map(team => (
+                    <div key={team._id} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-start mb-4">
+                        <h4 className="font-bold text-xl text-gray-900">{team.name}</h4>
+                        <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-100">
+                          {team.members.length} Players
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Roster</div>
+                        <div className="flex flex-wrap gap-2">
+                          {team.members.map((m: any, idx) => (
+                            <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-50 text-gray-700 text-sm border border-gray-200">
+                              {m.fullName || m.name || 'Player'}
+                            </span>
+                          ))}
+                          {team.members.length === 0 && (
+                            <span className="text-gray-400 text-sm italic">No players assigned</span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Scheduled Matches */}
+            {matches.length > 0 && (
+              <div className="border-t border-gray-100 pt-8">
+                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-purple-600">calendar_month</span>
+                  Scheduled Matches
+                </h3>
+
+                <div className="space-y-4">
+                  {matches.map((match, idx) => (
+                    <div key={idx} className={`bg-white rounded-xl border p-0 overflow-hidden transition-colors ${match.status === 'completed' ? 'border-purple-200 shadow-sm' : 'border-gray-200'
+                      }`}>
+                      <div className="flex flex-col md:flex-row">
+                        {/* Date/Time Column */}
+                        <div className="bg-gray-50 p-6 flex flex-col justify-center items-center min-w-[150px] border-b md:border-b-0 md:border-r border-gray-200">
+                          <div className="text-2xl font-black text-gray-700">
+                            {new Date(match.date).getDate()}
+                          </div>
+                          <div className="text-sm font-bold text-gray-500 uppercase tracking-wide">
+                            {new Date(match.date).toLocaleDateString('en-US', { month: 'short' })}
+                          </div>
+                          <div className="mt-2 px-3 py-1 bg-white rounded-full text-xs font-bold text-gray-600 border border-gray-200 shadow-sm">
+                            {new Date(`2000-01-01T${match.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                          </div>
+                          {match.status === 'completed' && (
+                            <div className="mt-3 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-black uppercase tracking-wide border border-green-200">
+                              Completed
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Match Details */}
+                        <div className="flex-1 p-6 flex flex-col justify-center">
+                          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                            {/* Team 1 */}
+                            <div className={`flex-1 text-center md:text-right ${match.winner === 'team1' ? 'opacity-100' : match.winner ? 'opacity-50' : ''}`}>
+                              <div className="text-xl font-black text-gray-900">{match.team1}</div>
+                              {match.status === 'completed' && match.score && (
+                                <div className="text-3xl font-black text-[#5a0a8f] mt-1">{match.score.team1} Sets</div>
+                              )}
+                            </div>
+
+                            {/* VS Badge / Score */}
+                            <div className="flex flex-col items-center">
+                              {match.status === 'completed' ? (
+                                <div className="flex flex-col items-center gap-1">
+                                  <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-green-700 font-black text-sm border-4 border-white shadow-sm ring-1 ring-green-100">
+                                    ✓
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-black text-sm border-4 border-white shadow-sm ring-1 ring-purple-100">
+                                  VS
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Team 2 */}
+                            <div className={`flex-1 text-center md:text-left ${match.winner === 'team2' ? 'opacity-100' : match.winner ? 'opacity-50' : ''}`}>
+                              <div className="text-xl font-black text-gray-900">{match.team2}</div>
+                              {match.status === 'completed' && match.score && (
+                                <div className="text-3xl font-black text-[#5a0a8f] mt-1">{match.score.team2} Sets</div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Set Scores */}
+                          {match.status === 'completed' && match.sets && match.sets.length > 0 && (
+                            <div className="mt-6 pt-4 border-t border-gray-100 flex flex-col items-center">
+                              <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Set Scores</div>
+                              <div className="flex flex-wrap justify-center gap-3">
+                                {match.sets.map((set, idx) => (
+                                  <div key={idx} className="flex flex-col items-center px-4 py-2 bg-gray-50 rounded-lg border border-gray-200">
+                                    <div className="text-xs font-bold text-gray-400 mb-1">SET {set.setNumber}</div>
+                                    <div className="font-mono font-bold text-gray-900 text-lg">
+                                      <span className={set.team1Score > set.team2Score ? 'text-green-600' : ''}>{set.team1Score}</span>
+                                      <span className="mx-1 text-gray-300">-</span>
+                                      <span className={set.team2Score > set.team1Score ? 'text-green-600' : ''}>{set.team2Score}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Description/Location footer */}
+                          {match.description && (
+                            <div className="mt-4 pt-4 border-t border-gray-100 text-center">
+                              <span className="inline-block px-3 py-1 bg-gray-50 text-gray-600 text-sm font-medium rounded-lg">
+                                {match.description}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Update Score Button - Separate column for better visibility */}
+                        <div className="border-t md:border-t-0 md:border-l border-gray-200 bg-gray-50 p-4 flex flex-col gap-2 items-center justify-center min-w-[180px]">
+                          <button
+                            onClick={() => {
+                              setSelectedMatchForScore(match)
+                              setIsScoreModalOpen(true)
+                            }}
+                            className="w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 shadow-sm"
+                          >
+                            <span className="material-symbols-outlined text-lg">edit_square</span>
+                            Update Score
+                          </button>
+                          <button
+                            onClick={() => handleDownloadMatchPdf(match._id)}
+                            className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
+                          >
+                            <span className="material-symbols-outlined text-lg">download</span>
+                            Download PDF
+                          </button>
+
+                          {match.status === 'completed' && (
+                            <button
+                              onClick={() => handleOpenScoreCardModal(match)}
+                              className="w-full px-4 py-2 bg-[#5a0a8f] hover:bg-[#400466] text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 shadow-sm"
+                            >
+                              <span className="material-symbols-outlined text-lg">sports_score</span>
+                              Score Card
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteMatch(match._id, match.team1, match.team2)}
+                            className="w-full px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 border border-red-200"
+                          >
+                            <span className="material-symbols-outlined text-lg">delete</span>
+                            Delete Match
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
+        )}
 
-          {/* Scheduled Matches */}
-          {matches.length > 0 && (
-            <div className="border-t border-gray-100 pt-8">
-              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <span className="material-symbols-outlined text-purple-600">calendar_month</span>
-                Scheduled Matches
-              </h3>
+      {activeTab === 'winners' && (
+        <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Tournament Winners</h2>
+              <p className="text-gray-500 mt-1">Select the top performers for this tournament</p>
+            </div>
+            <button
+              onClick={handleSaveWinners}
+              disabled={savingWinners}
+              className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold transition-all shadow-md flex items-center gap-2 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="material-symbols-outlined">save</span>
+              {savingWinners ? 'Saving...' : 'Save Winners'}
+            </button>
+          </div>
 
-              <div className="space-y-4">
-                {matches.map((match, idx) => (
-                  <div key={idx} className={`bg-white rounded-xl border p-0 overflow-hidden transition-colors ${match.status === 'completed' ? 'border-purple-200 shadow-sm' : 'border-gray-200'
-                    }`}>
-                    <div className="flex flex-col md:flex-row">
-                      {/* Date/Time Column */}
-                      <div className="bg-gray-50 p-6 flex flex-col justify-center items-center min-w-[150px] border-b md:border-b-0 md:border-r border-gray-200">
-                        <div className="text-2xl font-black text-gray-700">
-                          {new Date(match.date).getDate()}
-                        </div>
-                        <div className="text-sm font-bold text-gray-500 uppercase tracking-wide">
-                          {new Date(match.date).toLocaleDateString('en-US', { month: 'short' })}
-                        </div>
-                        <div className="mt-2 px-3 py-1 bg-white rounded-full text-xs font-bold text-gray-600 border border-gray-200 shadow-sm">
-                          {new Date(`2000-01-01T${match.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                        </div>
-                        {match.status === 'completed' && (
-                          <div className="mt-3 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-black uppercase tracking-wide border border-green-200">
-                            Completed
-                          </div>
-                        )}
-                      </div>
+          <div className="space-y-8 max-w-4xl">
+            {/* 1st Place */}
+            <div className="p-6 rounded-xl border-2 border-yellow-100 bg-yellow-50/30">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center shadow-sm">
+                  <span className="material-symbols-outlined text-white">emoji_events</span>
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">1st Place (Gold)</h3>
+              </div>
+              <Autocomplete
+                multiple
+                options={playerOptions}
+                getOptionLabel={(option) => `${option.fullName} (${option.district || 'N/A'})`}
+                value={winners.first}
+                onChange={(_, newValue) => {
+                  setWinners(prev => ({ ...prev, first: newValue }))
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Search and select winner(s)"
+                    variant="outlined"
+                    className="bg-white"
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '0.75rem' } }}
+                  />
+                )}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => {
+                    const { key, ...tagProps } = getTagProps({ index });
+                    return (
+                      <Chip
+                        key={key}
+                        variant="outlined"
+                        label={option.fullName}
+                        color="primary"
+                        {...tagProps}
+                      />
+                    );
+                  })
+                }
+                isOptionEqualToValue={(option, value) => option._id === value._id}
+              />
+            </div>
 
-                      {/* Match Details */}
-                      <div className="flex-1 p-6 flex flex-col justify-center">
-                        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                          {/* Team 1 */}
-                          <div className={`flex-1 text-center md:text-right ${match.winner === 'team1' ? 'opacity-100' : match.winner ? 'opacity-50' : ''}`}>
-                            <div className="text-xl font-black text-gray-900">{match.team1}</div>
-                            {match.status === 'completed' && match.score && (
-                              <div className="text-3xl font-black text-[#5a0a8f] mt-1">{match.score.team1} Sets</div>
-                            )}
-                          </div>
+            {/* 2nd Place */}
+            <div className="p-6 rounded-xl border-2 border-gray-100 bg-gray-50/30">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center shadow-sm">
+                  <span className="material-symbols-outlined text-white">emoji_events</span>
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">2nd Place (Silver)</h3>
+              </div>
+              <Autocomplete
+                multiple
+                options={playerOptions}
+                getOptionLabel={(option) => `${option.fullName} (${option.district || 'N/A'})`}
+                value={winners.second}
+                onChange={(_, newValue) => {
+                  setWinners(prev => ({ ...prev, second: newValue }))
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Search and select winner(s)"
+                    variant="outlined"
+                    className="bg-white"
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '0.75rem' } }}
+                  />
+                )}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => {
+                    const { key, ...tagProps } = getTagProps({ index });
+                    return (
+                      <Chip
+                        key={key}
+                        variant="outlined"
+                        label={option.fullName}
+                        {...tagProps}
+                      />
+                    );
+                  })
+                }
+                isOptionEqualToValue={(option, value) => option._id === value._id}
+              />
+            </div>
 
-                          {/* VS Badge / Score */}
-                          <div className="flex flex-col items-center">
-                            {match.status === 'completed' ? (
-                              <div className="flex flex-col items-center gap-1">
-                                <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-green-700 font-black text-sm border-4 border-white shadow-sm ring-1 ring-green-100">
-                                  ✓
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-black text-sm border-4 border-white shadow-sm ring-1 ring-purple-100">
-                                VS
-                              </div>
-                            )}
-                          </div>
+            {/* 3rd Place */}
+            <div className="p-6 rounded-xl border-2 border-orange-100 bg-orange-50/30">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-orange-400 rounded-full flex items-center justify-center shadow-sm">
+                  <span className="material-symbols-outlined text-white">emoji_events</span>
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">3rd Place (Bronze)</h3>
+              </div>
+              <Autocomplete
+                multiple
+                options={playerOptions}
+                getOptionLabel={(option) => `${option.fullName} (${option.district || 'N/A'})`}
+                value={winners.third}
+                onChange={(_, newValue) => {
+                  setWinners(prev => ({ ...prev, third: newValue }))
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Search and select winner(s)"
+                    variant="outlined"
+                    className="bg-white"
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '0.75rem' } }}
+                  />
+                )}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => {
+                    const { key, ...tagProps } = getTagProps({ index });
+                    return (
+                      <Chip
+                        key={key}
+                        variant="outlined"
+                        label={option.fullName}
+                        {...tagProps}
+                      />
+                    );
+                  })
+                }
+                isOptionEqualToValue={(option, value) => option._id === value._id}
+              />
+            </div>
+            {/* Participation - players who are approved but not in winners */}
+            {(() => {
+              const winnerIds = new Set([
+                ...winners.first.map(p => p._id),
+                ...winners.second.map(p => p._id),
+                ...winners.third.map(p => p._id),
+              ])
+              const participationPlayers = registrations
+                .filter(r => r.registerAs === 'player' && r.status === 'approved' && r.applicant && !winnerIds.has(r.applicant._id))
+                .map(r => r.applicant!)
 
-                          {/* Team 2 */}
-                          <div className={`flex-1 text-center md:text-left ${match.winner === 'team2' ? 'opacity-100' : match.winner ? 'opacity-50' : ''}`}>
-                            <div className="text-xl font-black text-gray-900">{match.team2}</div>
-                            {match.status === 'completed' && match.score && (
-                              <div className="text-3xl font-black text-[#5a0a8f] mt-1">{match.score.team2} Sets</div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Set Scores */}
-                        {match.status === 'completed' && match.sets && match.sets.length > 0 && (
-                          <div className="mt-6 pt-4 border-t border-gray-100 flex flex-col items-center">
-                            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Set Scores</div>
-                            <div className="flex flex-wrap justify-center gap-3">
-                              {match.sets.map((set, idx) => (
-                                <div key={idx} className="flex flex-col items-center px-4 py-2 bg-gray-50 rounded-lg border border-gray-200">
-                                  <div className="text-xs font-bold text-gray-400 mb-1">SET {set.setNumber}</div>
-                                  <div className="font-mono font-bold text-gray-900 text-lg">
-                                    <span className={set.team1Score > set.team2Score ? 'text-green-600' : ''}>{set.team1Score}</span>
-                                    <span className="mx-1 text-gray-300">-</span>
-                                    <span className={set.team2Score > set.team1Score ? 'text-green-600' : ''}>{set.team2Score}</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Description/Location footer */}
-                        {match.description && (
-                          <div className="mt-4 pt-4 border-t border-gray-100 text-center">
-                            <span className="inline-block px-3 py-1 bg-gray-50 text-gray-600 text-sm font-medium rounded-lg">
-                              {match.description}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Update Score Button - Separate column for better visibility */}
-                      <div className="border-t md:border-t-0 md:border-l border-gray-200 bg-gray-50 p-4 flex flex-col gap-2 items-center justify-center min-w-[180px]">
-                        <button
-                          onClick={() => {
-                            setSelectedMatchForScore(match)
-                            setIsScoreModalOpen(true)
-                          }}
-                          className="w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 shadow-sm"
-                        >
-                          <span className="material-symbols-outlined text-lg">edit_square</span>
-                          Update Score
-                        </button>
-                        <button
-                          onClick={() => handleDownloadMatchPdf(match._id)}
-                          className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
-                        >
-                          <span className="material-symbols-outlined text-lg">download</span>
-                          Download PDF
-                        </button>
-
-                        {match.status === 'completed' && (
-                          <button
-                            onClick={() => handleOpenScoreCardModal(match)}
-                            className="w-full px-4 py-2 bg-[#5a0a8f] hover:bg-[#400466] text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 shadow-sm"
-                          >
-                            <span className="material-symbols-outlined text-lg">sports_score</span>
-                            Score Card
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteMatch(match._id, match.team1, match.team2)}
-                          className="w-full px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 border border-red-200"
-                        >
-                          <span className="material-symbols-outlined text-lg">delete</span>
-                          Delete Match
-                        </button>
-                      </div>
+              return (
+                <div className="p-6 rounded-xl border-2 border-blue-100 bg-blue-50/30">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center shadow-sm">
+                      <span className="material-symbols-outlined text-white">groups</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Participation</h3>
+                      <p className="text-sm text-gray-500">{participationPlayers.length} player{participationPlayers.length !== 1 ? 's' : ''}</p>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                  {participationPlayers.length === 0 ? (
+                    <p className="text-sm text-gray-400 italic">No participants yet</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {participationPlayers.map(p => (
+                        <div key={p._id} className="flex items-center gap-3 bg-white rounded-xl p-3 border border-blue-100">
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                            {p.fullName?.charAt(0)?.toUpperCase() || '?'}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-semibold text-gray-900 text-sm truncate">{p.fullName}</div>
+                            <div className="text-xs text-gray-500 truncate">{p.district || '—'}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Coaches */}
+            {(() => {
+              const coaches = registrations
+                .filter(r => r.registerAs === 'coach' && r.status === 'approved' && r.applicant)
+                .map(r => r.applicant!)
+
+              return (
+                <div className="p-6 rounded-xl border-2 border-purple-100 bg-purple-50/30">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center shadow-sm">
+                      <span className="material-symbols-outlined text-white">sports</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Coaches</h3>
+                      <p className="text-sm text-gray-500">{coaches.length} coach{coaches.length !== 1 ? 'es' : ''}</p>
+                    </div>
+                  </div>
+                  {coaches.length === 0 ? (
+                    <p className="text-sm text-gray-400 italic">No coaches registered</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {coaches.map(c => (
+                        <div key={c._id} className="flex items-center gap-3 bg-white rounded-xl p-3 border border-purple-100">
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                            {c.fullName?.charAt(0)?.toUpperCase() || '?'}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-semibold text-gray-900 text-sm truncate">{c.fullName}</div>
+                            <div className="text-xs text-gray-500 truncate">{c.email || c.district || '—'}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Referees */}
+            {(() => {
+              const referees = registrations
+                .filter(r => r.registerAs === 'referee' && r.status === 'approved' && r.applicant)
+                .map(r => r.applicant!)
+
+              return (
+                <div className="p-6 rounded-xl border-2 border-orange-100 bg-orange-50/30">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center shadow-sm">
+                      <span className="material-symbols-outlined text-white">flag</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Referees</h3>
+                      <p className="text-sm text-gray-500">{referees.length} referee{referees.length !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                  {referees.length === 0 ? (
+                    <p className="text-sm text-gray-400 italic">No referees registered</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {referees.map(r => (
+                        <div key={r._id} className="flex items-center gap-3 bg-white rounded-xl p-3 border border-orange-100">
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                            {r.fullName?.charAt(0)?.toUpperCase() || '?'}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-semibold text-gray-900 text-sm truncate">{r.fullName}</div>
+                            <div className="text-xs text-gray-500 truncate">{r.email || r.district || '—'}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+          </div>
         </div>
       )}
 
@@ -1831,7 +2253,7 @@ export function TournamentRegistrations() {
 
             <div className="p-6">
               {(() => {
-                const tr = filteredRegistrations.find((r) => r._id === selectedRegistration)
+                const tr = registrations.find((r) => r._id === selectedRegistration)
                 if (!tr) return null
 
                 return (
@@ -1929,6 +2351,7 @@ export function TournamentRegistrations() {
         preSelectedTournamentId={tournamentId}
         preSelectedMatch={selectedMatchForScore || undefined}
       />
+
       {isScoreCardModalOpen && selectedMatchForScoreCard && (
         <GenerateScoreCardModal
           isOpen={isScoreCardModalOpen}
@@ -1939,6 +2362,143 @@ export function TournamentRegistrations() {
           onGenerate={handleGenerateScoreCard}
           matchTitle={`${typeof selectedMatchForScoreCard.team1 === 'string' ? selectedMatchForScoreCard.team1 : selectedMatchForScoreCard.team1} vs ${typeof selectedMatchForScoreCard.team2 === 'string' ? selectedMatchForScoreCard.team2 : selectedMatchForScoreCard.team2}`}
         />
+      )}
+
+      {/* Quick Registration Modal */}
+      {isQuickRegModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-[#5a0a8f] to-[#400466] p-5 text-white flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-black flex items-center gap-2">
+                  <span className="material-symbols-outlined">person_add</span>
+                  Quick Registration
+                </h2>
+                <p className="text-purple-200 text-sm mt-1">Add a player, coach, or referee to this tournament</p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsQuickRegModalOpen(false)
+                  setQuickRegSearch('')
+                  setQuickRegResults([])
+                }}
+                className="text-white hover:text-gray-200 transition-colors"
+              >
+                <span className="material-symbols-outlined text-2xl">close</span>
+              </button>
+            </div>
+
+            {/* Type Selector */}
+            <div className="px-5 pt-4">
+              <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
+                {(['player', 'coach', 'referee'] as const).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => {
+                      setQuickRegType(type)
+                      setQuickRegSearch('')
+                      setQuickRegResults([])
+                    }}
+                    className={`flex-1 py-2 px-3 text-sm font-bold rounded-md transition-all duration-200 capitalize ${quickRegType === type
+                      ? 'bg-white text-[#5a0a8f] shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Search Input */}
+            <div className="px-5 pt-4">
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  search
+                </span>
+                <input
+                  type="text"
+                  placeholder={`Search ${quickRegType}s by name...`}
+                  value={quickRegSearch}
+                  onChange={(e) => handleQuickRegSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 transition-colors"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* Results */}
+            <div className="px-5 py-4 max-h-[300px] overflow-y-auto">
+              {quickRegSearch.trim().length < 2 ? (
+                <div className="text-center text-gray-400 py-8">
+                  <span className="material-symbols-outlined text-4xl mb-2 block">search</span>
+                  <p className="text-sm">Type at least 2 characters to search</p>
+                </div>
+              ) : quickRegResults.length === 0 ? (
+                <div className="text-center text-gray-400 py-8">
+                  <span className="material-symbols-outlined text-4xl mb-2 block">person_off</span>
+                  <p className="text-sm">No {quickRegType}s found</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {quickRegResults.map((person: any) => {
+                    const alreadyRegistered = registrations.some(
+                      (r) => r.userId === person._id && r.registerAs === quickRegType
+                    )
+                    return (
+                      <div
+                        key={person._id}
+                        className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all duration-200 ${alreadyRegistered
+                          ? 'border-green-200 bg-green-50'
+                          : 'border-gray-100 hover:border-[#5a0a8f]/30 hover:bg-purple-50'
+                          }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#5a0a8f] to-[#400466] flex items-center justify-center text-white font-bold text-sm">
+                            {person.fullName?.charAt(0)?.toUpperCase() || '?'}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-gray-900 text-sm">{person.fullName || '—'}</div>
+                            <div className="text-xs text-gray-500">
+                              {person.email || person.district || person.playerId || ''}
+                            </div>
+                          </div>
+                        </div>
+
+                        {alreadyRegistered ? (
+                          <span className="flex items-center gap-1 text-green-600 text-xs font-bold">
+                            <span className="material-symbols-outlined text-base">check_circle</span>
+                            Registered
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleQuickRegister(person._id)}
+                            disabled={quickRegLoading}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-[#5a0a8f] text-white text-xs font-bold rounded-lg hover:bg-[#7b1fa2] transition-colors disabled:opacity-50"
+                          >
+                            <span className="material-symbols-outlined text-base">add</span>
+                            Register
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer Note */}
+            <div className="px-5 pb-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
+                <span className="material-symbols-outlined text-blue-500 text-lg mt-0.5">info</span>
+                <p className="text-xs text-blue-700">
+                  Admin registrations are <strong>auto-approved</strong> and bypass registration status checks.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

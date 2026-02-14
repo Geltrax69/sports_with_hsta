@@ -23,6 +23,7 @@ import { RegisterPage } from './pages/RegisterPage'
 import { LoginPage } from './pages/LoginPage'
 import { TournamentApplication } from './pages/TournamentApplication'
 import { ContactPage } from './pages/ContactPage'
+import { CertificatesPage } from './pages/CertificatesPage'
 import { ProtectedRoute } from './components/admin/ProtectedRoute'
 import { AdminPage } from './pages/admin/AdminPage'
 import { AdminDashboard } from './pages/admin/AdminDashboard'
@@ -39,6 +40,7 @@ import { DocumentsManagement } from './pages/admin/DocumentsManagement'
 import { WebsiteContentManagement } from './pages/admin/WebsiteContentManagement'
 import { TournamentRegistrations } from './pages/admin/TournamentRegistrations'
 import { AdminCertificates } from './pages/admin/AdminCertificates'
+import { CertificateList } from './pages/admin/CertificateList'
 import { PlayerLayout } from './components/player/PlayerLayout'
 import { PlayerDashboard } from './pages/player/PlayerDashboard'
 import { PlayerProfile } from './pages/player/PlayerProfile'
@@ -89,6 +91,7 @@ export default function App() {
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/tournaments/:tournamentId/apply" element={<TournamentApplication />} />
                     <Route path="/contact" element={<ContactPage />} />
+                    <Route path="/certificates" element={<CertificatesPage />} />
 
                     {/* Compatibility redirects for old static URLs */}
                     <Route path="/index.html" element={<Navigate to="/" replace />} />
@@ -120,6 +123,7 @@ export default function App() {
                       <Route path="news" element={<NewsManagement />} />
                       <Route path="documents" element={<DocumentsManagement />} />
                       <Route path="certificates" element={<AdminCertificates />} />
+                      <Route path="certificates/list" element={<CertificateList />} />
                       <Route path="settings" element={<div className="p-6"><MaintenanceNotice title="System Settings" message="Advanced configuration and system administration tools are currently restricted for maintenance." icon="settings" /></div>} />
                       <Route path="reports" element={<div className="p-6"><MaintenanceNotice title="Analytical Reports" message="Match performance data and registration metrics reports are being compiled." icon="bar_chart" /></div>} />
                       <Route path="legacy" element={<AdminPage />} />
