@@ -134,23 +134,15 @@ export const CertificateTemplate: FC<CertificateTemplateProps> = ({
                             <span className="variable-field">{data.motherName}</span>
                         </p>
 
-                        <p className="flex flex-wrap items-center justify-center gap-[0.2cqw]">
-                            Aadhaar Card No&nbsp;
-                            <span className="variable-field">{data.aadhaar}</span>
-                            &nbsp;D.O.B.&nbsp;
-                            <span className="variable-field">{data.dob}</span>
-                            &nbsp;of&nbsp;
-                            <span className="variable-field">{data.district}</span>
+                        <p>
+                            Aadhaar Card No&nbsp;<span className="variable-field">{data.aadhaar}</span>
+                            &nbsp;D.O.B.&nbsp;<span className="variable-field">{data.dob}</span>
+                            &nbsp;of&nbsp;<span className="variable-field">{data.district}</span>
                             &nbsp;district has participated in the {data.championshipName} for Men & Women held at
+                            &nbsp;<span className="variable-field" style={{ textTransform: 'uppercase', borderBottom: 'none', minWidth: 'auto' }}>{data.venue}</span>
                         </p>
 
-                        <p className="mt-[0.5cqw] font-bold">
-                            <span className="variable-field" style={{ textTransform: 'uppercase', fontSize: '1.1em', minWidth: '80%', borderBottom: 'none', display: 'inline-block' }}>
-                                {data.venue}
-                            </span>
-                        </p>
-
-                        <p style={{ marginTop: '0.5cqw' }}>
+                        <p style={{ marginTop: '0.4cqw' }}>
                             from <span style={{ fontWeight: 'bold' }}>{data.dates}</span> as a&nbsp;
                             <span className="variable-field">{data.role}</span>
                             {data.position && !['Participation', 'Coach', 'Referee'].includes(data.position) && (
@@ -159,7 +151,7 @@ export const CertificateTemplate: FC<CertificateTemplateProps> = ({
                                     <span className="variable-field" style={{ minWidth: '3em' }}>
                                         {data.position}
                                     </span>
-                                    &nbsp;place
+                                    {(!data.position.toLowerCase().includes('place') && !data.position.toLowerCase().includes('position')) && <>&nbsp;place</>}
                                 </>
                             )}
                             &nbsp;in the&nbsp;
@@ -168,10 +160,7 @@ export const CertificateTemplate: FC<CertificateTemplateProps> = ({
                         </p>
                     </div>
 
-                    {/* Spacer */}
-                    <div className="flex-grow"></div>
-
-                    {/* Footer Signatures */}
+                    {/* Footer Signatures - Space already pulled up by margin-top in CSS */}
                     <div className="footer-signatures">
                         <div className="signature-block">
                             <div className="signature-placeholder">

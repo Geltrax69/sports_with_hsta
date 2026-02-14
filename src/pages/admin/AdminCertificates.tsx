@@ -15,7 +15,7 @@ export function AdminCertificates() {
     const [loadingParticipants, setLoadingParticipants] = useState(false)
     const [participantTab, setParticipantTab] = useState<'all' | '1st' | '2nd' | '3rd' | 'participation' | 'player' | 'coach' | 'referee'>('all')
     const [winners, setTournamentWinners] = useState<{ first: string[], second: string[], third: string[] }>({ first: [], second: [], third: [] })
-    const [position, setPosition] = useState<string>('Registration')
+    const [position, setPosition] = useState<string>('1st Place')
     const [eventType, setEventType] = useState<string>('Regu')
 
     // Signature State
