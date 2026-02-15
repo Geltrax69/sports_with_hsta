@@ -19,6 +19,20 @@ export type JourneyItem = {
   order: number
 }
 
+export type Official = {
+  id: string
+  name: string
+  title: string
+  role?: string
+  region?: string
+  email?: string
+  phone?: string
+  photoUrl?: string
+  order: number
+  createdAt?: string
+  updatedAt?: string
+}
+
 export type HomepageSettings = {
   featuredNewsIds: string[] // IDs of news items to show on homepage
   featuredTournamentIds: string[] // IDs of tournaments to show on homepage
@@ -33,6 +47,7 @@ export type AboutPageSettings = {
   mission?: string
   vision?: string
   aboutText?: string
+  officials?: Official[]
 }
 
 export type EventsPageSettings = {
@@ -61,6 +76,10 @@ type WebsiteContentContextType = {
   updateJourneyItem: (id: string, updates: Partial<JourneyItem>) => void
   removeJourneyItem: (id: string) => void
   updateJourneyItemOrder: (id: string, newOrder: number) => void
+  addOfficial: (official: Omit<Official, 'id' | 'order' | 'createdAt' | 'updatedAt'>) => void
+  updateOfficial: (id: string, updates: Partial<Official>) => void
+  removeOfficial: (id: string) => void
+  updateOfficialOrder: (id: string, newOrder: number) => void
 }
 
 const WebsiteContentContext = createContext<WebsiteContentContextType | undefined>(undefined)
@@ -73,6 +92,7 @@ const DEFAULT_WEBSITE_CONTENT: WebsiteContent = {
   },
   aboutPage: {
     journeyItems: [],
+    officials: [],
   },
   eventsPage: {
     featuredEventIds: [],
@@ -289,6 +309,79 @@ export function WebsiteContentProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const addOfficial = async (official: Omit<Official, 'id' | 'order' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      await updateContentOnServer('/officials', official, 'POST')
+      const updatedContent = await fetchWebsiteContent()
+      setContent(updatedContent)
+    } catch (error) {
+      console.error('Failed to add official:', error)
+    }
+  }
+
+  const updateOfficial = async (id: string, updates: Partial<Official>) => {
+    const oldContent = content
+    setContent({
+      ...content,
+      aboutPage: {
+        ...content.aboutPage,
+        officials: content.aboutPage.officials?.map((official) =>
+          official.id === id ? { ...official, ...updates } : official,
+        ),
+      },
+    })
+    try {
+      const token = getAuthToken()
+      await fetch(`${API_BASE_URL}/website-content/officials/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(updates),
+      })
+    } catch (error) {
+      setContent(oldContent)
+    }
+  }
+
+  const removeOfficial = async (id: string) => {
+    const oldContent = content
+    setContent({
+      ...content,
+      aboutPage: {
+        ...content.aboutPage,
+        officials: content.aboutPage.officials?.filter((official) => official.id !== id),
+      },
+    })
+    try {
+      const token = getAuthToken()
+      const response = await fetch(`${API_BASE_URL}/website-content/officials/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      })
+      if (!response.ok) {
+        throw new Error('Failed to delete official')
+      }
+    } catch (error) {
+      console.error('Failed to delete official:', error)
+      setContent(oldContent)
+    }
+  }
+
+  const updateOfficialOrder = async (id: string, newOrder: number) => {
+    try {
+      await updateContentOnServer(`/officials/${id}/order`, { newOrder })
+      const updatedContent = await fetchWebsiteContent()
+      setContent(updatedContent)
+    } catch (error) {
+      console.error('Failed to update official order:', error)
+    }
+  }
+
   return (
     <WebsiteContentContext.Provider
       value={{
@@ -303,6 +396,10 @@ export function WebsiteContentProvider({ children }: { children: ReactNode }) {
         updateJourneyItem,
         removeJourneyItem,
         updateJourneyItemOrder,
+        addOfficial,
+        updateOfficial,
+        removeOfficial,
+        updateOfficialOrder,
       }}
     >
       {children}

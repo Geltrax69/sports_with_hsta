@@ -1,9 +1,93 @@
+import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { useWebsiteContent } from '../../context/WebsiteContentContext'
+import { API_BASE_URL, getAuthToken } from '../../lib/api'
+
+const emptyForm = {
+  name: '',
+  title: '',
+  role: '',
+  region: '',
+  email: '',
+  phone: '',
+  photoUrl: '',
+}
 
 export function OfficialsManagement() {
+  const { content, addOfficial, updateOfficial, removeOfficial } = useWebsiteContent()
+  const officials = [...(content.aboutPage.officials || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+  const [form, setForm] = useState(emptyForm)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const handleChange = (field: keyof typeof emptyForm) => (e: ChangeEvent<HTMLInputElement>) => {
+    setForm({ ...form, [field]: e.target.value })
+  }
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!form.name || !form.title) return
+    setSubmitting(true)
+    try {
+      if (editingId) {
+        await updateOfficial(editingId, form)
+      } else {
+        await addOfficial(form)
+      }
+      setForm(emptyForm)
+      setEditingId(null)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const startEdit = (officialId: string) => {
+    const current = officials.find((o) => o.id === officialId)
+    if (!current) return
+    setForm({
+      name: current.name || '',
+      title: current.title || '',
+      role: current.role || '',
+      region: current.region || '',
+      email: current.email || '',
+      phone: current.phone || '',
+      photoUrl: current.photoUrl || '',
+    })
+    setEditingId(current.id)
+  }
+
+  const handlePhotoSelect = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadError(null)
+    setUploading(true)
+    try {
+      const token = getAuthToken()
+      const formData = new FormData()
+      formData.append('image', file)
+      formData.append('name', file.name)
+      const response = await fetch(`${API_BASE_URL}/uploads/images`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: formData,
+      })
+      if (!response.ok) {
+        throw new Error('Upload failed')
+      }
+      const data = await response.json()
+      setForm({ ...form, photoUrl: data.url })
+    } catch (err) {
+      setUploadError('Photo upload failed. Please try again.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   return (
     <div>
-      {/* Breadcrumbs */}
       <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
         <Link to="/admin/dashboard" className="hover:text-[#5a0a8f]">
           Admin
@@ -12,304 +96,166 @@ export function OfficialsManagement() {
         <span className="text-gray-900 font-medium">Officials</span>
       </div>
 
-      {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-3xl md:text-4xl font-black text-gray-900 mb-2">Manage Officials</h1>
-          <p className="text-gray-600">Create, view, and manage federation official profiles and assignments.</p>
+          <p className="text-gray-600">Create, view, and manage federation official profiles.</p>
         </div>
-        <button className="flex items-center gap-2 bg-[#5a0a8f] hover:bg-[#400466] text-white px-5 py-2.5 rounded-lg font-bold transition-colors">
-          <span className="material-symbols-outlined">person_add</span>
-          Register New Official
-        </button>
+        <div className="text-sm text-gray-500">Total officials: {officials.length}</div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-xl border-2 border-purple-100 p-6 relative overflow-hidden">
-          <div className="absolute right-0 top-0 opacity-10">
-            <span className="material-symbols-outlined text-6xl text-purple-500">groups</span>
-          </div>
-          <div className="relative">
-            <div className="text-3xl font-black text-gray-900 mb-1">124</div>
-            <div className="flex items-center gap-2 text-sm mb-2">
-              <span className="text-green-600 font-bold">+12% this month</span>
-              <span className="material-symbols-outlined text-green-600 text-lg">trending_up</span>
-            </div>
-            <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Total Officials</div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border-2 border-green-100 p-6 relative overflow-hidden">
-          <div className="absolute right-0 top-0 opacity-10">
-            <span className="material-symbols-outlined text-6xl text-green-500">check_circle</span>
-          </div>
-          <div className="relative">
-            <div className="text-3xl font-black text-gray-900 mb-1">45</div>
-            <div className="flex items-center gap-2 text-sm mb-2">
-              <span className="text-green-600 font-bold">Healthy engagement</span>
-              <span className="material-symbols-outlined text-green-600 text-lg">check</span>
-            </div>
-            <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Active Today</div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border-2 border-red-100 p-6 relative overflow-hidden">
-          <div className="absolute right-0 top-0 opacity-10">
-            <span className="material-symbols-outlined text-6xl text-red-500">description</span>
-          </div>
-          <div className="relative">
-            <div className="text-3xl font-black text-gray-900 mb-1">5</div>
-            <div className="flex items-center gap-2 text-sm mb-2">
-              <span className="text-red-600 font-bold">! Action required</span>
-              <span className="material-symbols-outlined text-red-600 text-lg">error</span>
-            </div>
-            <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Pending Approval</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Search and Filter */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-        <div className="flex flex-col md:flex-row gap-4 items-center">
-          <div className="flex-1 relative w-full">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              search
-            </span>
-            <input
-              type="text"
-              placeholder="Search by name, ID, or email..."
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900"
-            />
-          </div>
-          <select className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white">
-            <option>All Roles</option>
-            <option>District Official</option>
-            <option>State Secretary</option>
-            <option>Technical Director</option>
-          </select>
-          <select className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white">
-            <option>All Statuses</option>
-            <option>Active</option>
-            <option>Pending Review</option>
-            <option>On Leave</option>
-            <option>Suspended</option>
-          </select>
-          <button className="p-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-            <span className="material-symbols-outlined text-gray-600">tune</span>
+      <form className="bg-white rounded-xl border border-gray-200 p-6 mb-8" onSubmit={handleSubmit}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-gray-900">Register New Official</h2>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex items-center gap-2 bg-[#5a0a8f] hover:bg-[#400466] disabled:opacity-60 text-white px-4 py-2 rounded-lg font-bold transition-colors"
+          >
+            <span className="material-symbols-outlined text-sm">person_add</span>
+            {submitting ? 'Saving...' : editingId ? 'Update Official' : 'Add Official'}
           </button>
         </div>
-      </div>
-
-      {/* Officials Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">
-                  OFFICIAL
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">
-                  ROLE & JURISDICTION
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">
-                  CONTACT
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">
-                  STATUS
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">
-                  ACTIONS
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              <tr className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src="https://ui-avatars.com/api/?name=Rajesh+Kumar&background=5a0a8f&color=fff"
-                      alt="Rajesh Kumar"
-                      className="w-12 h-12 rounded-full"
-                    />
-                    <div>
-                      <div className="font-semibold text-gray-900">Rajesh Kumar</div>
-                      <div className="text-xs text-gray-500">ID: OFF-2023-001</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div>
-                    <div className="font-medium text-gray-900">District Official</div>
-                    <div className="text-sm text-gray-600">Pune, Maharashtra</div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="space-y-1 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-base">mail</span>
-                      rajesh.k@stfi.in
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-base">phone</span>
-                      +91 98765 43210
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex items-center gap-2">
-                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                    <span className="text-sm font-medium text-gray-900">Active</span>
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <button className="text-[#5a0a8f] hover:underline text-sm font-medium">View</button>
-                </td>
-              </tr>
-
-              <tr className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-purple-700 font-bold">
-                      AS
-                    </div>
-                    <div>
-                      <div className="font-semibold text-gray-900">Anita Singh</div>
-                      <div className="text-xs text-gray-500">ID: OFF-2023-042</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div>
-                    <div className="font-medium text-gray-900">State Secretary</div>
-                    <div className="text-sm text-gray-600">Uttar Pradesh</div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="space-y-1 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-base">mail</span>
-                      anita.singh@stfi.in
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-base">phone</span>
-                      +91 88888 11111
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex items-center gap-2">
-                    <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
-                    <span className="text-sm font-medium text-gray-900">Pending Review</span>
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <button className="text-[#5a0a8f] hover:underline text-sm font-medium">Review</button>
-                </td>
-              </tr>
-
-              <tr className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src="https://ui-avatars.com/api/?name=Vikram+Malhotra&background=10b981&color=fff"
-                      alt="Vikram Malhotra"
-                      className="w-12 h-12 rounded-full"
-                    />
-                    <div>
-                      <div className="font-semibold text-gray-900">Vikram Malhotra</div>
-                      <div className="text-xs text-gray-500">ID: OFF-2022-110</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div>
-                    <div className="font-medium text-gray-900">Technical Director</div>
-                    <div className="text-sm text-gray-600">National</div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="space-y-1 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-base">mail</span>
-                      vikram.m@stfi.in
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-base">phone</span>
-                      +91 77777 22222
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex items-center gap-2">
-                    <span className="w-2 h-2 bg-gray-500 rounded-full"></span>
-                    <span className="text-sm font-medium text-gray-900">On Leave</span>
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <button className="text-[#5a0a8f] hover:underline text-sm font-medium">View</button>
-                </td>
-              </tr>
-
-              <tr className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center text-red-700 font-bold">
-                      MK
-                    </div>
-                    <div>
-                      <div className="font-semibold text-gray-900">Manoj Kumar</div>
-                      <div className="text-xs text-gray-500">ID: OFF-2021-005</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div>
-                    <div className="font-medium text-gray-900">District Official</div>
-                    <div className="text-sm text-gray-600">Delhi, DL</div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="space-y-1 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-base">mail</span>
-                      manoj.k@stfi.in
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-base">phone</span>
-                      +91 99999 88888
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex items-center gap-2">
-                    <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                    <span className="text-sm font-medium text-gray-900">Suspended</span>
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <button className="text-gray-500 hover:underline text-sm font-medium">View</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-          <div className="text-sm text-gray-600">
-            Showing <span className="font-bold text-gray-900">1 to 4</span> of <span className="font-bold text-gray-900">124</span> results
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-gray-700">Name *</label>
+            <input
+              required
+              value={form.name}
+              onChange={handleChange('name')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] text-gray-900 placeholder-gray-400"
+            />
           </div>
-          <div className="flex items-center gap-2">
-            <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed">
-              Previous
-            </button>
-            <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium">
-              Next
-            </button>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-gray-700">Title *</label>
+            <input
+              required
+              value={form.title}
+              onChange={handleChange('title')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] text-gray-900 placeholder-gray-400"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-gray-700">Role</label>
+            <input
+              value={form.role}
+              onChange={handleChange('role')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] text-gray-900 placeholder-gray-400"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-gray-700">Region / Jurisdiction</label>
+            <input
+              value={form.region}
+              onChange={handleChange('region')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] text-gray-900 placeholder-gray-400"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-gray-700">Email</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={handleChange('email')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] text-gray-900 placeholder-gray-400"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-gray-700">Phone</label>
+            <input
+              value={form.phone}
+              onChange={handleChange('phone')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] text-gray-900 placeholder-gray-400"
+            />
+          </div>
+          <div className="flex flex-col gap-2 md:col-span-2">
+            <label className="text-sm font-medium text-gray-700">Photo</label>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoSelect}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+              >
+                {uploading ? 'Uploading...' : 'Choose & Upload Photo'}
+              </button>
+              {uploadError && <span className="text-sm text-red-600">{uploadError}</span>}
+            </div>
+            {form.photoUrl && (
+              <div className="flex items-center gap-3 mt-2">
+                <img src={form.photoUrl} alt="Official" className="w-16 h-16 rounded-full object-cover border" />
+                <span className="text-sm text-gray-600 break-all">{form.photoUrl}</span>
+              </div>
+            )}
           </div>
         </div>
+      </form>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h2 className="text-lg font-bold text-gray-900 mb-4">Current Officials</h2>
+        {officials.length === 0 ? (
+          <div className="text-gray-600">No officials added yet.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {officials.map((official) => (
+              <div key={official.id} className="border border-gray-200 rounded-lg p-4 flex gap-3 items-start">
+                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-purple-700 font-bold uppercase">
+                  {official.name.slice(0, 2)}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-semibold text-gray-900">{official.name}</div>
+                      <div className="text-sm text-gray-600">{official.title}</div>
+                      <div className="text-xs text-gray-500">{official.role || official.region || 'National'}</div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => startEdit(official.id)}
+                        className="text-[#5a0a8f] hover:text-[#400466] text-sm flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-base">edit</span>
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => removeOfficial(official.id)}
+                        className="text-red-600 hover:text-red-700 text-sm flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-base">delete</span>
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-3 text-sm text-gray-700 space-y-1">
+                    {official.email && (
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-base">mail</span>
+                        <a className="text-[#5a0a8f] hover:underline" href={`mailto:${official.email}`}>
+                          {official.email}
+                        </a>
+                      </div>
+                    )}
+                    {official.phone && (
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-base">call</span>
+                        <a className="text-[#5a0a8f] hover:underline" href={`tel:${official.phone}`}>
+                          {official.phone}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

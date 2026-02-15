@@ -9,6 +9,9 @@ export function AboutPage() {
   const withBase = (url: string) => (url.startsWith('/') ? `${import.meta.env.BASE_URL}${url.slice(1)}` : url)
   
   const getPlaceholder = () => `${import.meta.env.BASE_URL}assets/images/placeholder.svg`
+  const officials = [...(websiteContent.aboutPage.officials || [])].sort(
+    (a, b) => (a.order ?? 0) - (b.order ?? 0),
+  )
 
   useEffect(() => {
     // Trigger entry animations on mount
@@ -236,117 +239,64 @@ export function AboutPage() {
           <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-4">
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wider text-gray-600">LEADERSHIP</h2>
-              <h3 className="mt-2 text-3xl font-black text-gray-900 sm:text-4xl">Office Bearers</h3>
+              <h3 className="mt-2 text-3xl font-black text-gray-900 sm:text-4xl">Officials Directory</h3>
               <p className="mt-2 text-gray-600 max-w-2xl">
-                Meet the dedicated team leading the federation towards excellence.
+                Meet the dedicated officials guiding the federation across the country.
               </p>
             </div>
-            <a className="text-[#5a0a8f] font-bold text-sm hover:underline flex items-center gap-1" href="#">
-              View Organizational Chart{' '}
-              <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </a>
+            <div className="text-sm text-gray-500"></div>
           </div>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="group relative flex flex-col overflow-hidden rounded-xl shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl">
-              <div className="aspect-[3/4] w-full overflow-hidden bg-[#f5f3f0]">
-                <div
-                  className="h-full w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                  data-alt="Portrait of the President, a professional man in a suit"
-                  style={{
-                    backgroundImage:
-                      'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCkVm7ICpGuvfBaNkf1IQzLMMo8-74TC39hyDJTNfcq8gv7BVwIXJ5Jb53TOAsS0wrgCTF3DnnoQYIADoQq2tTc9ixZQX_xI_hN-Y_ae1jaC-tOV1RoCpiXndJcbAbj-4rLx3yR9cdFlm2IAeVxzJUz-Csj8USFNwxsbXlY15G35S4-VbHfrgQrHYGT4jaywjt1Kg8nZPh6XLF2EzN4uFTItVztVlp6fuYQy12wMZVtczhe9wPxyfCzRDtwQ4wX8GWYmM5ErvM0lKA")',
-                  }}
-                ></div>
-              </div>
-              <div className="flex flex-1 flex-col p-5 bg-[#2c3e50]">
-                <h4 className="text-lg font-bold text-white mb-1">Shri. Prem Singh</h4>
-                <p className="text-sm font-medium text-white uppercase tracking-wide mb-4">PRESIDENT</p>
-                <div className="mt-auto flex gap-3 pt-4 border-t border-white/20">
-                  <a className="text-white/80 hover:text-white transition-colors" href="#">
-                    <span className="material-symbols-outlined text-lg">mail</span>
-                  </a>
-                  <a className="text-white/80 hover:text-white transition-colors" href="#">
-                    <span className="material-symbols-outlined text-lg">call</span>
-                  </a>
-                </div>
-              </div>
+          {officials.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-gray-600">
+              Officials will appear here once added by the admin.
             </div>
-
-            <div className="group relative flex flex-col overflow-hidden rounded-xl shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl">
-              <div className="aspect-[3/4] w-full overflow-hidden bg-[#f5f3f0]">
+          ) : (
+            <div className="grid justify-center grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {officials.map((official) => (
                 <div
-                  className="h-full w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                  data-alt="Portrait of the General Secretary, a professional woman in business attire"
-                  style={{
-                    backgroundImage:
-                      'url("https://lh3.googleusercontent.com/aida-public/AB6AXuD6WecTFDzi02HUHFCqhBAn_O3X4SWoJO-_ZW3Ve2ithZ4cuIYojUYu3S437rdiHBuP101vyh3nDgPV5nlR0iGrY2HPEqwhEMLQrpGcICL7mwI8-SQ1ADv44MrEuK5Y-hEfPJrbyLi1IkLEMR8rnr45GpiYB-T0tgT5OC8dlv9nwsSn1EWSl-wuZijspoFOJRwvFoTUD8xkITE9WYbQq6bLYq508Ua8jQ7HCBbkGxeGIvz4FsTQ50ZxKZRuXNpxggMeQfu4ESgnD2M")',
-                  }}
-                ></div>
-              </div>
-              <div className="flex flex-1 flex-col p-5 bg-[#2c3e50]">
-                <h4 className="text-lg font-bold text-white mb-1">Smt. Anita Roy</h4>
-                <p className="text-sm font-medium text-white uppercase tracking-wide mb-4">GENERAL SECRETARY</p>
-                <div className="mt-auto flex gap-3 pt-4 border-t border-white/20">
-                  <a className="text-white/80 hover:text-white transition-colors" href="#">
-                    <span className="material-symbols-outlined text-lg">mail</span>
-                  </a>
-                  <a className="text-white/80 hover:text-white transition-colors" href="#">
-                    <span className="material-symbols-outlined text-lg">call</span>
-                  </a>
+                  key={official.id}
+                  className="group relative flex w-full max-w-xs flex-col overflow-hidden rounded-xl shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl"
+                >
+                  <div className="aspect-[4/5] w-full overflow-hidden bg-[#f5f3f0]">
+                    <img
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      src={official.photoUrl ? withBase(official.photoUrl) : getPlaceholder()}
+                      alt={official.name}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        target.src = getPlaceholder()
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-1 flex-col p-5 bg-[#2c3e50]">
+                    <h4 className="text-lg font-bold text-white mb-1">{official.name}</h4>
+                    <p className="text-sm font-semibold text-white uppercase tracking-wide mb-2">
+                      {official.title || 'Official'}
+                    </p>
+                    <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
+                      <span className="material-symbols-outlined text-base">badge</span>
+                      {official.role || official.region || 'National'}
+                    </div>
+                    <div className="mt-auto space-y-2 pt-3 border-t border-white/20 text-white/80 text-sm">
+                      {official.email && (
+                        <a className="hover:text-white transition-colors flex items-center gap-2" href={`mailto:${official.email}`}>
+                          <span className="material-symbols-outlined text-lg">mail</span>
+                          <span className="break-all">{official.email}</span>
+                        </a>
+                      )}
+                      {official.phone && (
+                        <a className="hover:text-white transition-colors flex items-center gap-2" href={`tel:${official.phone}`}>
+                          <span className="material-symbols-outlined text-lg">call</span>
+                          <span>{official.phone}</span>
+                        </a>
+                      )}
+                      {!official.email && !official.phone && <span>No contact provided</span>}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
-
-            <div className="group relative flex flex-col overflow-hidden rounded-xl shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl">
-              <div className="aspect-[3/4] w-full overflow-hidden bg-[#f5f3f0]">
-                <div
-                  className="h-full w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                  data-alt="Portrait of the Treasurer, a smiling man with glasses"
-                  style={{
-                    backgroundImage:
-                      'url("https://lh3.googleusercontent.com/aida-public/AB6AXuA4jifj84R4gr_b8eaJ1UpFpmvpx50cvakzmc-bBfGNWwKJ9aSIYOerM1ldiMuUmz8Jzec9MJJ363jaUufjN2_CTCogX0336WF8BZZsbXh20ML3dGat1VHWxf9gV-Eh9m_wVmh3ayUhKn1-oCXxME8xY4vvj8IjEBvLpLrDYSKVWzf_TN6w8XhxymEuq1hhwQ_FyCyy1Mc6nXDA2W5vGjUJCtco8e3p05W_427RxF_d7FrhYt-4eIkXvbFGmc3gyxGdcg6coBg_5pw")',
-                  }}
-                ></div>
-              </div>
-              <div className="flex flex-1 flex-col p-5 bg-[#2c3e50]">
-                <h4 className="text-lg font-bold text-white mb-1">Mr. Rajesh Kumar</h4>
-                <p className="text-sm font-medium text-white uppercase tracking-wide mb-4">TREASURER</p>
-                <div className="mt-auto flex gap-3 pt-4 border-t border-white/20">
-                  <a className="text-white/80 hover:text-white transition-colors" href="#">
-                    <span className="material-symbols-outlined text-lg">mail</span>
-                  </a>
-                  <a className="text-white/80 hover:text-white transition-colors" href="#">
-                    <span className="material-symbols-outlined text-lg">call</span>
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            <div className="group relative flex flex-col overflow-hidden rounded-xl shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl">
-              <div className="aspect-[3/4] w-full overflow-hidden bg-[#f5f3f0]">
-                <div
-                  className="h-full w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                  data-alt="Portrait of an Executive Member, a professional man in a dark suit"
-                  style={{
-                    backgroundImage:
-                      'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCZhhObvddmwCtK7fldudo1dTJ1XOawpznF_2-xWrzRc17yWvsJWsTj9DGzEUUQduGqXnlIWVt7C_EsZnrBsH1nbz4RAcADjUlmJKdKYILDeh4hdM341wRbqjhzdvXPnYTj9SwADCS-oCu-PW0ywMAsEextylRYagQEVzWy9Xr_VUMUJmbLYqhU2r9qoiqBtugal8Pxqrc48Wg9fPilOBo4xN-3xP8wbpmExe-uOl3Wih_KCfnx9DBmws3zljKiTTW1ga3dmDLaYAo")',
-                  }}
-                ></div>
-              </div>
-              <div className="flex flex-1 flex-col p-5 bg-[#2c3e50]">
-                <h4 className="text-lg font-bold text-white mb-1">Mr. Vinod Sharma</h4>
-                <p className="text-sm font-medium text-white uppercase tracking-wide mb-4">VICE PRESIDENT</p>
-                <div className="mt-auto flex gap-3 pt-4 border-t border-white/20">
-                  <a className="text-white/80 hover:text-white transition-colors" href="#">
-                    <span className="material-symbols-outlined text-lg">mail</span>
-                  </a>
-                  <a className="text-white/80 hover:text-white transition-colors" href="#">
-                    <span className="material-symbols-outlined text-lg">call</span>
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </section>
     </main>
