@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { useRegistrations } from '../../context/RegistrationsContext'
 import { useDistricts } from '../../context/DistrictsContext'
-import { apiRequest, API_BASE_URL } from '../../lib/api'
+import { apiRequest } from '../../lib/api'
 import { UpdateScoreModal } from '../../components/admin/UpdateScoreModal'
 
 export function AdminDashboard() {
