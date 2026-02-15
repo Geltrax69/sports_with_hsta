@@ -57,20 +57,6 @@ export function CoachLayout() {
           </NavLink>
 
           <NavLink
-            to="/coach/profile"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors border ${
-                isActive
-                  ? 'bg-[#5a0a8f]/10 text-[#5a0a8f] border-[#5a0a8f]/20 font-semibold'
-                  : 'text-gray-700 hover:bg-gray-50 border-transparent'
-              }`
-            }
-          >
-            <span className="material-symbols-outlined text-xl">person</span>
-            {sidebarOpen && <span>My Profile</span>}
-          </NavLink>
-
-          <NavLink
             to="/coach/tournaments"
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors border ${
@@ -85,7 +71,7 @@ export function CoachLayout() {
           </NavLink>
 
           <NavLink
-            to="/coach/team"
+            to="/coach/matches"
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors border ${
                 isActive
@@ -94,8 +80,8 @@ export function CoachLayout() {
               }`
             }
           >
-            <span className="material-symbols-outlined text-xl">groups</span>
-            {sidebarOpen && <span>My Team</span>}
+            <span className="material-symbols-outlined text-xl">sports</span>
+            {sidebarOpen && <span>My Matches</span>}
           </NavLink>
 
           <NavLink
@@ -112,19 +98,6 @@ export function CoachLayout() {
             {sidebarOpen && <span>Certificates</span>}
           </NavLink>
 
-          <NavLink
-            to="/coach/settings"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors border ${
-                isActive
-                  ? 'bg-[#5a0a8f]/10 text-[#5a0a8f] border-[#5a0a8f]/20 font-semibold'
-                  : 'text-gray-700 hover:bg-gray-50 border-transparent'
-              }`
-            }
-          >
-            <span className="material-symbols-outlined text-xl">settings</span>
-            {sidebarOpen && <span>Settings</span>}
-          </NavLink>
         </nav>
 
         {/* Logout */}

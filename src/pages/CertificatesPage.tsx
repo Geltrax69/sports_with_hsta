@@ -69,7 +69,7 @@ export function CertificatesPage() {
                 <div className="text-center">
                     <h1 className="text-4xl font-black text-gray-900 mb-4">Certificate Verification</h1>
                     <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                        Search and download your certificates by Serial Number, Name, or Tournament.
+                        Search and download your certificates by Serial Number, Player ID, or Tournament.
                     </p>
                 </div>
 
@@ -80,14 +80,14 @@ export function CertificatesPage() {
                             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
                             <input
                                 type="text"
-                                placeholder="Enter Serial Number or Name..."
-                                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
+                                placeholder="Enter Serial Number or Player ID..."
+                                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-gray-900"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                         <select
-                            className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none transition-all bg-white"
+                            className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none transition-all bg-white text-gray-900"
                             value={selectedTournament}
                             onChange={(e) => setSelectedTournament(e.target.value)}
                         >
@@ -147,7 +147,9 @@ export function CertificatesPage() {
                                                     className="w-16 h-16 rounded-2xl object-cover ring-4 ring-gray-50"
                                                 />
                                                 <div>
-                                                    <h3 className="font-black text-gray-900 text-lg uppercase leading-tight">{cert.participant?.fullName}</h3>
+                                                    <h3 className="font-black text-gray-900 text-lg uppercase leading-tight">
+                                                        {cert.participant?.playerId || cert.participant?.coachId || cert.participant?.refereeId || 'ID PENDING'}
+                                                    </h3>
                                                     <p className="text-sm font-bold text-gray-500">{cert.role}</p>
                                                     {cert.position && <p className="text-xs text-purple-600 font-bold">{cert.position}</p>}
                                                 </div>

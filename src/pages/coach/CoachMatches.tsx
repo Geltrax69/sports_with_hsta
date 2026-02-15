@@ -18,7 +18,7 @@ type MyTournamentRegistration = {
   appliedAt: string
 }
 
-export function RefereeMatches() {
+export function CoachMatches() {
   const [registrations, setRegistrations] = useState<MyTournamentRegistration[]>([])
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [loading, setLoading] = useState(true)
@@ -47,18 +47,18 @@ export function RefereeMatches() {
     void run()
   }, [])
 
-  const refereeRegs = useMemo(
-    () => registrations.filter((r) => r.registerAs === 'referee'),
+  const coachRegs = useMemo(
+    () => registrations.filter((r) => r.registerAs === 'coach'),
     [registrations]
   )
 
   const uniqueTournamentCount = useMemo(() => {
-    const ids = new Set(refereeRegs.map((r) => String(r.tournamentId)))
+    const ids = new Set(coachRegs.map((r) => String(r.tournamentId)))
     return ids.size
-  }, [refereeRegs])
+  }, [coachRegs])
 
-  const approvedCount = refereeRegs.filter((r) => r.status === 'approved').length
-  const pendingCount = refereeRegs.filter((r) => r.status === 'pending').length
+  const approvedCount = coachRegs.filter((r) => r.status === 'approved').length
+  const pendingCount = coachRegs.filter((r) => r.status === 'pending').length
 
   const formatDateRange = (start?: string, end?: string) => {
     if (!start && !end) return '—'
@@ -78,7 +78,7 @@ export function RefereeMatches() {
     <div className="bg-white rounded-xl border border-gray-200 p-6">
       <div className="flex flex-col gap-2 mb-4">
         <h1 className="text-2xl font-black text-gray-900">My Matches</h1>
-        <p className="text-gray-600">Track where you are registered to officiate.</p>
+        <p className="text-gray-600">Track tournaments you are registered to coach.</p>
       </div>
 
       {loading ? (
@@ -95,7 +95,7 @@ export function RefereeMatches() {
           <div className="border border-gray-200 rounded-lg p-4">
             <div className="text-sm text-gray-600">Approved</div>
             <div className="text-3xl font-black text-green-600 mt-1">{approvedCount}</div>
-            <div className="text-xs text-gray-500 mt-1">Accepted referee slots</div>
+            <div className="text-xs text-gray-500 mt-1">Accepted coaching slots</div>
           </div>
           <div className="border border-gray-200 rounded-lg p-4">
             <div className="text-sm text-gray-600">Pending</div>
@@ -108,16 +108,16 @@ export function RefereeMatches() {
       <div className="bg-white border border-gray-200 rounded-lg mt-6">
         <div className="p-4 border-b border-gray-200">
           <h2 className="text-lg font-bold text-gray-900">Your Registrations</h2>
-          <p className="text-sm text-gray-600">Tournaments where you have registered as referee</p>
+          <p className="text-sm text-gray-600">Tournaments where you have registered as coach</p>
         </div>
 
         {loading || loadingTournaments ? (
           <div className="p-6 text-gray-500">Loading tournaments...</div>
-        ) : refereeRegs.length === 0 ? (
+        ) : coachRegs.length === 0 ? (
           <div className="p-6 text-gray-500">You have not registered for any tournaments yet.</div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {refereeRegs.map((reg) => {
+            {coachRegs.map((reg) => {
               const t = tournaments.find((x) => String(x._id) === String(reg.tournamentId))
               return (
                 <div key={reg._id} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

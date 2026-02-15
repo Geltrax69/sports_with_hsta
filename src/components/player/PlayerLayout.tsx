@@ -57,20 +57,6 @@ export function PlayerLayout() {
           </NavLink>
 
           <NavLink
-            to="/player/profile"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors border ${
-                isActive
-                  ? 'bg-[#5a0a8f]/10 text-[#5a0a8f] border-[#5a0a8f]/20 font-semibold'
-                  : 'text-gray-700 hover:bg-gray-50 border-transparent'
-              }`
-            }
-          >
-            <span className="material-symbols-outlined text-xl">person</span>
-            {sidebarOpen && <span>My Profile</span>}
-          </NavLink>
-
-          <NavLink
             to="/player/events"
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors border ${
@@ -112,19 +98,6 @@ export function PlayerLayout() {
             {sidebarOpen && <span>Certificates</span>}
           </NavLink>
 
-          <NavLink
-            to="/player/settings"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors border ${
-                isActive
-                  ? 'bg-[#5a0a8f]/10 text-[#5a0a8f] border-[#5a0a8f]/20 font-semibold'
-                  : 'text-gray-700 hover:bg-gray-50 border-transparent'
-              }`
-            }
-          >
-            <span className="material-symbols-outlined text-xl">settings</span>
-            {sidebarOpen && <span>Settings</span>}
-          </NavLink>
         </nav>
 
         {/* Logout */}

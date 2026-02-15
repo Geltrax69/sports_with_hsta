@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { useWebsiteContent } from '../context/WebsiteContentContext'
 import { useSiteContent } from '../content/SiteContentContext'
 import { useAuth } from '../context/AuthContext'
-import { ScoreCard } from '../components/ScoreCard'
 import type { TournamentStatus } from '../content/types'
 import { apiRequest } from '../lib/api'
 
@@ -16,15 +15,7 @@ type MatchResult = {
   actionType: 'scorecard' | 'squad'
 }
 
-type ScoreCardData = {
-  tournamentName: string
-  matchDate: string
-  team1: string
-  team2: string
-  sets: Array<{ setNumber: number; team1Score: number; team2Score: number }>
-  winner: string
-  venue?: string
-}
+
 
 type Match = {
   _id?: string
@@ -47,8 +38,6 @@ export function EventsPage() {
   const { content: websiteContent } = useWebsiteContent()
   const { content: siteContent } = useSiteContent()
   const { isAuthenticated } = useAuth()
-  const [selectedScoreCard, setSelectedScoreCard] = useState<ScoreCardData | null>(null)
-  const [isScoreCardOpen, setIsScoreCardOpen] = useState(false)
   const [selectedTournamentForDetails, setSelectedTournamentForDetails] = useState<string | null>(null)
   const [matchesForDetails, setMatchesForDetails] = useState<Match[]>([])
   const [loadingMatches, setLoadingMatches] = useState(false)
@@ -64,6 +53,11 @@ export function EventsPage() {
       city?: string
       status?: TournamentStatus
       imageUrl?: string
+      winners?: {
+        first?: any[]
+        second?: any[]
+        third?: any[]
+      }
     }>
   >([])
   const [loadingTournaments, setLoadingTournaments] = useState(true)
@@ -72,7 +66,7 @@ export function EventsPage() {
   const displayedTournaments = useMemo(() => {
     // If API returned tournaments, use them
     if (tournaments.length > 0) {
-      const list = tournaments.filter((t) => t.status !== 'TENTATIVE')
+      const list = tournaments.filter((t) => t.status !== 'TENTATIVE' && t.status !== 'COMPLETED')
       const featured = (websiteContent.eventsPage.featuredEventIds || []).map(String)
       if (featured.length > 0) {
         const m = new Map(list.map((t) => [t._id, t]))
@@ -138,56 +132,22 @@ export function EventsPage() {
     }
   }
 
-  const recentResults: MatchResult[] = [
-    {
-      id: '1',
-      date: 'Sep 15, 2024',
-      tournament: 'National Federation Cup',
-      location: 'Goa',
-      winner: 'Manipur',
-      actionType: 'scorecard',
-    },
-    {
-      id: '2',
-      date: 'Aug 02, 2024',
-      tournament: 'Asian Games Selection Trial',
-      location: 'Bangalore SAI Center',
-      winner: 'N/A',
-      actionType: 'squad',
-    },
-    {
-      id: '3',
-      date: 'Jul 20, 2024',
-      tournament: 'East Zone Championship',
-      location: 'Patna, Bihar',
-      winner: 'Assam',
-      actionType: 'scorecard',
-    },
-  ]
-
-  const handleViewScorecard = (result: MatchResult) => {
-    if (result.actionType === 'scorecard') {
-      // Mock scorecard data - in real app, this would come from API
-      const scoreCardData: ScoreCardData = {
-        tournamentName: result.tournament,
-        matchDate: result.date,
-        team1: result.winner,
-        team2: result.winner === 'Manipur' ? 'Kerala' : 'West Bengal',
-        sets: [
-          { setNumber: 1, team1Score: 21, team2Score: 18 },
-          { setNumber: 2, team1Score: 19, team2Score: 21 },
-          { setNumber: 3, team1Score: 21, team2Score: 15 },
-        ],
-        winner: result.winner,
-        venue: result.location,
-      }
-      setSelectedScoreCard(scoreCardData)
-      setIsScoreCardOpen(true)
-    } else {
-      // Handle squad view
-      alert('Squad view coming soon!')
-    }
-  }
+  const recentResults = useMemo<MatchResult[]>(() => {
+    return tournaments
+      .filter((t) => t.status === 'COMPLETED')
+      .map((t) => {
+        const firstPlace = t.winners?.first || []
+        const winnerNames = firstPlace.map((p: any) => p.fullName).join(', ')
+        return {
+          id: t._id,
+          date: t.endDate ? new Date(t.endDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '—',
+          tournament: t.title,
+          location: [t.venueName, t.city].filter(Boolean).join(', ') || '—',
+          winner: winnerNames || 'N/A',
+          actionType: winnerNames ? 'scorecard' : 'squad',
+        }
+      })
+  }, [tournaments])
 
   const handleViewDetails = async (tournamentId: string) => {
     setSelectedTournamentForDetails(tournamentId)
@@ -206,6 +166,12 @@ export function EventsPage() {
       setLoadingMatches(false)
     }
   }
+
+  const stats = useMemo(() => {
+    const upcoming = tournaments.filter((t) => t.status !== 'COMPLETED' && t.status !== 'TENTATIVE').length
+    const completed = tournaments.filter((t) => t.status === 'COMPLETED').length
+    return { upcoming, completed }
+  }, [tournaments])
 
   return (
     <main id="page-content" className="flex-grow bg-white">
@@ -232,11 +198,11 @@ export function EventsPage() {
             </div>
             <div className="flex flex-col gap-6 border-t md:border-t-0 md:border-l border-white/20 pt-4 md:pt-0 md:pl-8">
               <div>
-                <span className="block text-4xl font-bold text-white">12</span>
+                <span className="block text-4xl font-bold text-white">{stats.upcoming}</span>
                 <span className="text-xs text-white/80 uppercase tracking-wider font-semibold">UPCOMING</span>
               </div>
               <div>
-                <span className="block text-4xl font-bold text-white">45</span>
+                <span className="block text-4xl font-bold text-white">{stats.completed}</span>
                 <span className="text-xs text-white/80 uppercase tracking-wider font-semibold">COMPLETED</span>
               </div>
             </div>
@@ -419,8 +385,6 @@ export function EventsPage() {
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Date</th>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Tournament</th>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Location</th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Winner</th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -429,15 +393,6 @@ export function EventsPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{result.date}</td>
                         <td className="px-6 py-4 text-sm text-gray-900">{result.tournament}</td>
                         <td className="px-6 py-4 text-sm text-gray-600">{result.location}</td>
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">{result.winner}</td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <button
-                            onClick={() => handleViewScorecard(result)}
-                            className="text-sm font-bold text-[#5a0a8f] hover:text-[#400466] transition-colors"
-                          >
-                            {result.actionType === 'scorecard' ? 'View Scorecard' : 'View Selected Squad'}
-                          </button>
-                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -452,9 +407,6 @@ export function EventsPage() {
           </div>
         </div>
       </section>
-
-      {/* ScoreCard Modal */}
-      <ScoreCard data={selectedScoreCard} isOpen={isScoreCardOpen} onClose={() => setIsScoreCardOpen(false)} />
 
       {/* Match Schedule Modal */}
       {selectedTournamentForDetails && (

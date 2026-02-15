@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRegistrations } from '../../context/RegistrationsContext'
 import { useDistricts } from '../../context/DistrictsContext'
+import { apiRequest, API_BASE_URL } from '../../lib/api'
 import { UpdateScoreModal } from '../../components/admin/UpdateScoreModal'
 
 export function AdminDashboard() {
@@ -9,12 +10,47 @@ export function AdminDashboard() {
   const { districts } = useDistricts()
   const [isScoreModalOpen, setIsScoreModalOpen] = useState(false)
 
+  const [tournaments, setTournaments] = useState<any[]>([])
+  const [coachCertificates, setCoachCertificates] = useState<any[]>([])
+  const [refereeCertificates, setRefereeCertificates] = useState<any[]>([])
+  const [loadingCertificates, setLoadingCertificates] = useState(false)
+
+  useEffect(() => {
+    apiRequest<{ tournaments: any[] }>('/admin/tournaments', { auth: true })
+      .then((res) => setTournaments(res.tournaments || []))
+      .catch(() => setTournaments([]))
+  }, [])
+
+  useEffect(() => {
+    const fetchCertificates = async () => {
+      setLoadingCertificates(true)
+      try {
+        const [coachRes, refereeRes] = await Promise.all([
+          apiRequest<{ certificates: any[] }>('/admin/certificates?search=Coach', { auth: true }),
+          apiRequest<{ certificates: any[] }>('/admin/certificates?search=Referee', { auth: true })
+        ])
+
+        setCoachCertificates((coachRes.certificates || []).slice(0, 4))
+        setRefereeCertificates((refereeRes.certificates || []).slice(0, 4))
+      } catch (error) {
+        console.error('Error fetching certificates', error)
+        setCoachCertificates([])
+        setRefereeCertificates([])
+      } finally {
+        setLoadingCertificates(false)
+      }
+    }
+
+    void fetchCertificates()
+  }, [])
+
   const stats = useMemo(() => {
     const players = registrations.filter((r) => r.type === 'player')
     const approvedPlayers = players.filter((r) => r.status === 'approved').length
     const pendingPlayers = players.filter((r) => r.status === 'pending').length
-    return { approvedPlayers, pendingPlayers }
-  }, [registrations])
+    const activeTournaments = tournaments.filter((t) => t.status === 'REGISTRATION OPEN').length
+    return { approvedPlayers, pendingPlayers, activeTournaments }
+  }, [registrations, tournaments])
 
   const recentPendingPlayers = useMemo(() => {
     return registrations
@@ -27,6 +63,17 @@ export function AdminDashboard() {
   const districtName = (code: string) => {
     const d = districts.find((x) => x.id === code)
     return d?.name || code
+  }
+
+  const handleDownload = (certId: string, fileName: string) => {
+    const url = `${API_BASE_URL}/certificates/${certId}/download`
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    link.target = '_blank'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   return (
@@ -58,9 +105,9 @@ export function AdminDashboard() {
             <span className="material-symbols-outlined text-6xl text-orange-500">emoji_events</span>
           </div>
           <div className="relative">
-            <div className="text-3xl font-black text-gray-900 mb-1">3</div>
-            <div className="text-sm text-gray-600 mb-2">National Level</div>
-            <div className="text-xs text-gray-500">Next finals in 4 days</div>
+            <div className="text-3xl font-black text-gray-900 mb-1">{stats.activeTournaments}</div>
+            <div className="text-sm text-gray-600 mb-2">Registration Open</div>
+            <div className="text-xs text-gray-500">Managing current lifecycle</div>
             <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide mt-2">Active Tournaments</div>
           </div>
         </div>
@@ -266,6 +313,56 @@ export function AdminDashboard() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Referee & Coach Certificates */}
+      <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {[{ title: 'Referee Certificates', data: refereeCertificates, accentClass: 'text-blue-500' }, { title: 'Coach Certificates', data: coachCertificates, accentClass: 'text-green-500' }].map(({ title, data, accentClass }) => (
+          <div key={title} className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+                <p className="text-xs text-gray-500">Latest generated certificates</p>
+              </div>
+              <span className={`material-symbols-outlined text-2xl ${accentClass}`}>workspace_premium</span>
+            </div>
+
+            {loadingCertificates ? (
+              <div className="flex items-center gap-3 text-sm text-gray-500">
+                <div className="w-5 h-5 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" aria-hidden></div>
+                <span>Loading certificates...</span>
+              </div>
+            ) : data.length === 0 ? (
+              <div className="text-sm text-gray-500">No certificates found.</div>
+            ) : (
+              <div className="space-y-3">
+                {data.map((cert) => (
+                  <div key={cert._id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={cert.participant?.profilePhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(cert.participant?.fullName || 'N A')}&background=random`}
+                        alt={cert.participant?.fullName || 'Participant'}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                      <div>
+                        <div className="font-semibold text-gray-900">{cert.participant?.fullName || 'Unknown'}</div>
+                        <div className="text-xs text-gray-500">Serial #{cert.serialNumber}</div>
+                        <div className="text-xs text-gray-500">{cert.tournament?.title || 'Tournament'}</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDownload(cert._id, `Cert_${cert.serialNumber}.png`)}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-semibold text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-sm">download</span>
+                      Download
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div >
   )

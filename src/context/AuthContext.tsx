@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import { apiRequest, getAuthToken, setAuthToken } from '../lib/api'
 
-export type UserRole = 'admin' | 'coach' | 'player'
+export type UserRole = 'admin' | 'coach' | 'player' | 'referee'
 
 export type User = {
   id: string

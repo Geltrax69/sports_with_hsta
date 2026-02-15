@@ -102,6 +102,10 @@ export function PlayerDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const availableTournaments = useMemo(() => {
+    return tournaments.filter((t) => t.status !== 'COMPLETED' && t.status !== 'TENTATIVE')
+  }, [tournaments])
+
   const myRegsByTournament = useMemo(() => {
     const m = new Map<string, MyTournamentRegistration[]>()
     for (const r of myRegistrations) {
@@ -333,13 +337,13 @@ export function PlayerDashboard() {
               </div>
             )}
 
-            {!loadingTournaments && !loadingRegs && !loadingProfile && tournaments.length === 0 && (
+            {!loadingTournaments && !loadingRegs && !loadingProfile && availableTournaments.length === 0 && (
               <div className="p-5 text-gray-600">No tournaments available.</div>
             )}
 
             {!loadingTournaments &&
               !loadingRegs &&
-              tournaments.map((t, idx) => {
+              availableTournaments.map((t, idx) => {
                 const regs = myRegsByTournament.get(t._id) || []
                 const playerReg = regs.find((r) => r.registerAs === 'player')
 
@@ -369,8 +373,8 @@ export function PlayerDashboard() {
                           <div className="flex gap-1 flex-shrink-0">
                             {t.status && (
                               <span className={`px-2 py-1 rounded-full text-[10px] font-bold whitespace-nowrap ${t.status === 'COMPLETED'
-                                  ? 'bg-amber-100 text-amber-700'
-                                  : 'bg-gray-100 text-gray-700'
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-gray-100 text-gray-700'
                                 }`}>
                                 {t.status}
                               </span>

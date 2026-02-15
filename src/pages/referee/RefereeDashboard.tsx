@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { apiRequest } from '../../lib/api'
+import { apiRequest, API_BASE_URL } from '../../lib/api'
+import { RefereeIDCard } from '../../components/referee/RefereeIDCard'
 
 type Tournament = {
   _id: string
@@ -30,10 +31,14 @@ export function RefereeDashboard() {
   const { user } = useAuth()
 
   const [tournaments, setTournaments] = useState<Tournament[]>([])
+  const [profile, setProfile] = useState<any>(null)
   const [myRegistrations, setMyRegistrations] = useState<MyTournamentRegistration[]>([])
   const [loadingTournaments, setLoadingTournaments] = useState(true)
   const [loadingRegs, setLoadingRegs] = useState(true)
+  const [showIdCard, setShowIdCard] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [certificates, setCertificates] = useState<any[]>([])
+  const [loadingCertificates, setLoadingCertificates] = useState(false)
 
   const refreshMyRegistrations = async () => {
     setLoadingRegs(true)
@@ -57,18 +62,35 @@ export function RefereeDashboard() {
       setError(null)
       setLoadingTournaments(true)
       try {
-        const t = await apiRequest<{ tournaments: Tournament[] }>('/tournaments')
+        const [t, p] = await Promise.all([
+          apiRequest<{ tournaments: Tournament[] }>('/tournaments'),
+          apiRequest<{ profile: any }>('/referees/me', { auth: true })
+        ])
         if (cancelled) return
         setTournaments(Array.isArray(t.tournaments) ? t.tournaments : [])
+        setProfile(p.profile)
       } catch (e) {
         if (cancelled) return
-        setError(e instanceof Error ? e.message : 'Failed to load tournaments')
+        setError(e instanceof Error ? e.message : 'Failed to load dashboard data')
       } finally {
-        if (!cancelled) setLoadingTournaments(false)
+        if (!cancelled) {
+          setLoadingTournaments(false)
+        }
       }
 
       if (!cancelled) {
         await refreshMyRegistrations()
+      }
+      if (!cancelled) {
+        setLoadingCertificates(true)
+        try {
+          const c = await apiRequest<{ certificates: any[] }>('/certificates/me', { auth: true })
+          if (!cancelled) setCertificates(Array.isArray(c.certificates) ? c.certificates : [])
+        } catch (e) {
+          if (!cancelled) setCertificates([])
+        } finally {
+          if (!cancelled) setLoadingCertificates(false)
+        }
       }
     }
 
@@ -87,6 +109,10 @@ export function RefereeDashboard() {
     }
     return m
   }, [myRegistrations])
+
+  const availableTournaments = useMemo(() => {
+    return tournaments.filter((t) => t.status !== 'COMPLETED' && t.status !== 'TENTATIVE')
+  }, [tournaments])
 
   const formatDateRange = (start?: string, end?: string) => {
     if (!start && !end) return '—'
@@ -134,8 +160,17 @@ export function RefereeDashboard() {
   }
 
   const refereeRegistrations = myRegistrations.filter((r) => r.registerAs === 'referee')
-  const approvedCount = refereeRegistrations.filter((r) => r.status === 'approved').length
-  const pendingCount = refereeRegistrations.filter((r) => r.status === 'pending').length
+
+  const handleDownload = (certId: string, fileName: string) => {
+    const url = `${API_BASE_URL}/certificates/${certId}/download`
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    link.target = '_blank'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
 
   return (
     <div>
@@ -143,7 +178,7 @@ export function RefereeDashboard() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8">
         <div>
           <h1 className="text-3xl md:text-4xl font-black text-gray-900 mb-2">
-            Welcome back, Referee {user?.name || ''}
+            Welcome back, {user?.name || 'Referee'}
           </h1>
           <p className="text-gray-600">Manage your tournament assignments and officiating duties.</p>
         </div>
@@ -151,17 +186,18 @@ export function RefereeDashboard() {
         <div className="flex items-center gap-3">
           <button
             type="button"
+            onClick={() => setShowIdCard(true)}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-gray-900 font-semibold hover:bg-gray-50 transition-colors"
           >
             <span className="material-symbols-outlined text-lg">badge</span>
             Referee ID
           </button>
           <Link
-            to="/referee/tournaments"
+            to="/events"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#5a0a8f] text-white font-semibold hover:bg-[#400466] transition-colors"
           >
             <span className="material-symbols-outlined text-lg">event_available</span>
-            View All Tournaments
+            Register for Event
           </Link>
         </div>
       </div>
@@ -171,11 +207,11 @@ export function RefereeDashboard() {
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-sm font-medium text-gray-600">Tournaments Registered</div>
-              <div className="text-3xl font-black text-gray-900 mt-2">{refereeRegistrations.length}</div>
+              <div className="text-sm font-medium text-gray-600">District Games</div>
+              <div className="text-3xl font-black text-gray-900 mt-2">{profile?.districtGames || '0'}</div>
             </div>
             <div className="w-10 h-10 rounded-lg bg-[#5a0a8f]/10 flex items-center justify-center">
-              <span className="material-symbols-outlined text-[#5a0a8f]">emoji_events</span>
+              <span className="material-symbols-outlined text-[#5a0a8f]">location_on</span>
             </div>
           </div>
         </div>
@@ -183,11 +219,11 @@ export function RefereeDashboard() {
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-sm font-medium text-gray-600">Approved Assignments</div>
-              <div className="text-3xl font-black text-gray-900 mt-2">{approvedCount}</div>
+              <div className="text-sm font-medium text-gray-600">State Games</div>
+              <div className="text-3xl font-black text-gray-900 mt-2">{profile?.stateGames || '0'}</div>
             </div>
             <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-              <span className="material-symbols-outlined text-green-600">check_circle</span>
+              <span className="material-symbols-outlined text-green-600">flag</span>
             </div>
           </div>
         </div>
@@ -195,11 +231,11 @@ export function RefereeDashboard() {
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-sm font-medium text-gray-600">Pending Approvals</div>
-              <div className="text-3xl font-black text-gray-900 mt-2">{pendingCount}</div>
+              <div className="text-sm font-medium text-gray-600">National Games</div>
+              <div className="text-3xl font-black text-gray-900 mt-2">{profile?.nationalGames || '0'}</div>
             </div>
             <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
-              <span className="material-symbols-outlined text-yellow-700">hourglass_empty</span>
+              <span className="material-symbols-outlined text-yellow-700">stars</span>
             </div>
           </div>
         </div>
@@ -207,11 +243,11 @@ export function RefereeDashboard() {
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-sm font-medium text-gray-600">Matches Officiated</div>
-              <div className="text-3xl font-black text-gray-900 mt-2">0</div>
+              <div className="text-sm font-medium text-gray-600">International Games</div>
+              <div className="text-3xl font-black text-gray-900 mt-2">{profile?.internationalGames || '0'}</div>
             </div>
-            <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
-              <span className="material-symbols-outlined text-orange-600">sports_score</span>
+            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+              <span className="material-symbols-outlined text-blue-600">public</span>
             </div>
           </div>
         </div>
@@ -240,11 +276,11 @@ export function RefereeDashboard() {
 
         {loadingTournaments ? (
           <div className="p-8 text-center text-gray-500">Loading tournaments...</div>
-        ) : tournaments.length === 0 ? (
+        ) : availableTournaments.length === 0 ? (
           <div className="p-8 text-center text-gray-500">No tournaments available at the moment.</div>
         ) : (
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {tournaments.slice(0, 6).map((t) => {
+            {availableTournaments.slice(0, 6).map((t) => {
               const myRegs = myRegsByTournament.get(String(t._id)) || []
               const refereeReg = myRegs.find((r) => r.registerAs === 'referee')
 
@@ -273,13 +309,12 @@ export function RefereeDashboard() {
 
                     {refereeReg ? (
                       <div
-                        className={`w-full px-3 py-2 rounded text-xs font-bold text-center ${
-                          refereeReg.status === 'approved'
-                            ? 'bg-green-100 text-green-700'
-                            : refereeReg.status === 'pending'
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : 'bg-red-100 text-red-700'
-                        }`}
+                        className={`w-full px-3 py-2 rounded text-xs font-bold text-center ${refereeReg.status === 'approved'
+                          ? 'bg-green-100 text-green-700'
+                          : refereeReg.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-red-100 text-red-700'
+                          }`}
                       >
                         {refereeReg.status === 'approved'
                           ? '✓ Registered as Referee'
@@ -300,6 +335,53 @@ export function RefereeDashboard() {
                 </div>
               )
             })}
+          </div>
+        )}
+      </div>
+
+      {/* Certificates */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-8">
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-black text-gray-900">My Certificates</h2>
+            <p className="text-sm text-gray-600 mt-1">View and download your referee certificates</p>
+          </div>
+          <Link to="/referee/certificates" className="text-[#5a0a8f] font-semibold text-sm hover:underline">
+            View All →
+          </Link>
+        </div>
+
+        {loadingCertificates ? (
+          <div className="p-6 text-gray-500">Loading certificates...</div>
+        ) : certificates.length === 0 ? (
+          <div className="p-6 text-gray-500">No certificates found.</div>
+        ) : (
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {certificates.slice(0, 6).map((cert) => (
+              <div key={cert._id} className="border border-gray-200 rounded-lg p-4 flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+                    <img
+                      src={cert.fileUrl}
+                      alt="Certificate"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-900">Serial #{cert.serialNumber}</div>
+                    <div className="text-xs text-gray-500">{cert.tournament?.title || 'Tournament'}</div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleDownload(cert._id, `Cert_${cert.serialNumber}.png`)}
+                  className="inline-flex items-center gap-1 px-3 py-2 bg-gray-900 text-white rounded-lg text-sm font-semibold hover:bg-gray-800 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-sm">download</span>
+                  Download
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -356,13 +438,12 @@ export function RefereeDashboard() {
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={`px-2 py-1 rounded text-xs font-bold ${
-                            reg.status === 'approved'
-                              ? 'bg-green-100 text-green-700'
-                              : reg.status === 'pending'
-                                ? 'bg-yellow-100 text-yellow-700'
-                                : 'bg-red-100 text-red-700'
-                          }`}
+                          className={`px-2 py-1 rounded text-xs font-bold ${reg.status === 'approved'
+                            ? 'bg-green-100 text-green-700'
+                            : reg.status === 'pending'
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-red-100 text-red-700'
+                            }`}
                         >
                           {reg.status.toUpperCase()}
                         </span>
@@ -376,6 +457,10 @@ export function RefereeDashboard() {
           </div>
         )}
       </div>
+
+      {showIdCard && (
+        <RefereeIDCard profile={profile} onClose={() => setShowIdCard(false)} />
+      )}
     </div>
   )
 }

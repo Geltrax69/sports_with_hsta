@@ -26,7 +26,7 @@ export function LoginPage() {
     setLoading(true)
 
     try {
-      const role = selectedRole as 'admin' | 'coach' | 'player'
+      const role = selectedRole as 'admin' | 'coach' | 'player' | 'referee'
       const success = await login(email, password, role)
 
       if (success) {
@@ -197,6 +197,7 @@ export function LoginPage() {
                   <option value="admin">ADMIN</option>
                   <option value="coach">COACHES</option>
                   <option value="player">PLAYERS</option>
+                  <option value="referee">REFEREES</option>
                 </select>
                 <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
                   keyboard_arrow_down
