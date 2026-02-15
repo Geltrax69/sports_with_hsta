@@ -8,18 +8,31 @@ interface EditPlayerModalProps {
 }
 
 export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerModalProps) {
+    const normalizeDateForInput = (dateStr: string) => {
+        if (!dateStr) return ''
+        // If already YYYY-MM-DD, return as is
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr
+        // If DD/MM/YYYY, convert to YYYY-MM-DD
+        const parts = dateStr.split('/')
+        if (parts.length === 3) {
+            const [d, m, y] = parts
+            return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+        }
+        return dateStr
+    }
+
     const [formData, setFormData] = useState({
-        fullName: registration.fullName,
-        fatherName: registration.fatherName,
-        motherName: registration.motherName,
+        fullName: registration.fullName || '',
+        fatherName: registration.fatherName || '',
+        motherName: registration.motherName || '',
         phone: registration.phone || '',
-        dateOfBirth: registration.dateOfBirth,
-        aadhaarNumber: registration.aadhaarNumber,
+        dateOfBirth: normalizeDateForInput(registration.dateOfBirth || ''),
+        aadhaarNumber: registration.aadhaarNumber || '',
         passportNumber: registration.passportNumber || '',
-        passportExpiryDate: registration.passportExpiryDate || '',
+        passportExpiryDate: normalizeDateForInput(registration.passportExpiryDate || ''),
         passportIssuedPlace: registration.passportIssuedPlace || '',
-        email: registration.email,
-        district: registration.district,
+        email: registration.email || '',
+        district: registration.district || '',
         category: registration.category || '',
         gender: registration.gender || '',
         tShirtSize: registration.tShirtSize || '',
@@ -62,7 +75,7 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                                 value={formData.fullName}
                                 onChange={handleChange}
                                 required
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none text-gray-900"
                             />
                         </div>
                         <div>
@@ -83,7 +96,7 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                                 name="phone"
                                 value={formData.phone}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none text-gray-900"
                             />
                         </div>
                         <div>
@@ -93,7 +106,7 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                                 name="fatherName"
                                 value={formData.fatherName}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none text-gray-900"
                             />
                         </div>
                         <div>
@@ -103,7 +116,7 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                                 name="motherName"
                                 value={formData.motherName}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none text-gray-900"
                             />
                         </div>
                         <div>
@@ -114,7 +127,7 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                                 value={formData.dateOfBirth}
                                 onChange={handleChange}
                                 required
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none text-gray-900"
                             />
                         </div>
                         <div>
@@ -124,7 +137,7 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                                 name="aadhaarNumber"
                                 value={formData.aadhaarNumber}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none text-gray-900"
                             />
                         </div>
                         <div>
@@ -135,7 +148,7 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                                 value={formData.passportNumber}
                                 onChange={handleChange}
                                 placeholder="Enter passport number"
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none text-gray-900"
                             />
                         </div>
                         <div>
@@ -145,7 +158,7 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                                 name="passportExpiryDate"
                                 value={formData.passportExpiryDate}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none text-gray-900"
                             />
                         </div>
                         <div>
@@ -156,7 +169,7 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                                 value={formData.passportIssuedPlace}
                                 onChange={handleChange}
                                 placeholder="City/State"
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none text-gray-900"
                             />
                         </div>
                         <div>
@@ -165,12 +178,12 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                                 name="gender"
                                 value={formData.gender}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900"
                             >
                                 <option value="">Select Gender</option>
-                                <option value="male">Male</option>
-                                <option value="female">Female</option>
-                                <option value="other">Other</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
                             </select>
                         </div>
                         <div>
@@ -179,7 +192,7 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                                 name="category"
                                 value={formData.category}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900"
                             >
                                 <option value="">Select Category</option>
                                 <option value="SC">SC</option>
@@ -190,18 +203,29 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                             </select>
                         </div>
                         <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">District Association</label>
+                            <input
+                                type="text"
+                                name="district"
+                                value={formData.district}
+                                onChange={handleChange}
+                                placeholder="District ID"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none text-gray-900"
+                            />
+                        </div>
+                        <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1">T-Shirt Size</label>
                             <select
                                 name="tShirtSize"
                                 value={formData.tShirtSize}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900"
                             >
                                 <option value="">Select Size</option>
-                                <option value="S">S</option>
-                                <option value="M">M</option>
-                                <option value="L">L</option>
-                                <option value="XL">XL</option>
+                                <option value="S">Small (S)</option>
+                                <option value="M">Medium (M)</option>
+                                <option value="L">Large (L)</option>
+                                <option value="XL">Extra Large (XL)</option>
                                 <option value="XXL">XXL</option>
                             </select>
                         </div>
@@ -211,13 +235,13 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                                 name="trackSuitSize"
                                 value={formData.trackSuitSize}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white text-gray-900"
                             >
                                 <option value="">Select Size</option>
-                                <option value="S">S</option>
-                                <option value="M">M</option>
-                                <option value="L">L</option>
-                                <option value="XL">XL</option>
+                                <option value="S">Small (S)</option>
+                                <option value="M">Medium (M)</option>
+                                <option value="L">Large (L)</option>
+                                <option value="XL">Extra Large (XL)</option>
                                 <option value="XXL">XXL</option>
                             </select>
                         </div>
@@ -228,7 +252,7 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                                 name="shoesSize"
                                 value={formData.shoesSize}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none text-gray-900"
                             />
                         </div>
                         <div>
@@ -238,7 +262,7 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                                 name="pantSize"
                                 value={formData.pantSize}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none text-gray-900"
                             />
                         </div>
                         <div>
@@ -248,7 +272,7 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                                 name="districtGames"
                                 value={formData.districtGames}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none text-gray-900"
                             />
                         </div>
                         <div>
@@ -258,7 +282,7 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                                 name="stateGames"
                                 value={formData.stateGames}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none text-gray-900"
                             />
                         </div>
                         <div>
@@ -268,7 +292,7 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                                 name="nationalGames"
                                 value={formData.nationalGames}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none text-gray-900"
                             />
                         </div>
                         <div>
@@ -278,7 +302,7 @@ export function EditPlayerModal({ registration, onClose, onSave }: EditPlayerMod
                                 name="internationalGames"
                                 value={formData.internationalGames}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none text-gray-900"
                             />
                         </div>
                     </div>

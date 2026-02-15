@@ -228,6 +228,7 @@ export function TournamentManagement() {
             <option value="REGISTRATION OPEN">Registration Open</option>
             <option value="CONFIRMED">Confirmed</option>
             <option value="TENTATIVE">Tentative</option>
+            <option value="COMPLETED">Completed</option>
           </select>
           <select className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white">
             <option>2023-2024</option>
@@ -326,7 +327,9 @@ export function TournamentManagement() {
                               ? 'bg-green-500'
                               : tournament.status === 'CONFIRMED'
                                 ? 'bg-blue-500'
-                                : 'bg-gray-500'
+                                : tournament.status === 'COMPLETED'
+                                  ? 'bg-amber-500'
+                                  : 'bg-gray-500'
                               }`}
                           ></span>
                           <span
@@ -334,7 +337,9 @@ export function TournamentManagement() {
                               ? 'bg-green-100 text-green-700'
                               : tournament.status === 'CONFIRMED'
                                 ? 'bg-blue-100 text-blue-700'
-                                : 'bg-gray-100 text-gray-700'
+                                : tournament.status === 'COMPLETED'
+                                  ? 'bg-amber-100 text-amber-700 font-black'
+                                  : 'bg-gray-100 text-gray-700'
                               }`}
                           >
                             {tournament.status}

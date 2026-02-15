@@ -13,7 +13,7 @@ export type NewsItem = {
   imageUrl: string
 }
 
-export type TournamentStatus = 'CONFIRMED' | 'REGISTRATION OPEN' | 'TENTATIVE'
+export type TournamentStatus = 'CONFIRMED' | 'REGISTRATION OPEN' | 'TENTATIVE' | 'COMPLETED'
 
 export type TournamentItem = {
   id: string

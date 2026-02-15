@@ -39,6 +39,7 @@ type Match = {
 function statusBadgeClasses(status?: TournamentStatus) {
   if (status === 'REGISTRATION OPEN') return 'bg-green-100 text-green-700 border-green-200'
   if (status === 'CONFIRMED') return 'bg-blue-100 text-blue-700 border-blue-200'
+  if (status === 'COMPLETED') return 'bg-amber-100 text-amber-700 border-amber-200'
   return 'bg-gray-100 text-gray-600 border-gray-200'
 }
 
@@ -325,7 +326,9 @@ export function EventsPage() {
                           ? 'bg-green-500 border-green-400'
                           : tournament.status === 'CONFIRMED'
                             ? 'bg-blue-600 border-blue-500'
-                            : 'bg-gray-500 border-gray-400'
+                            : tournament.status === 'COMPLETED'
+                              ? 'bg-amber-500 border-amber-400'
+                              : 'bg-gray-500 border-gray-400'
                           }`}>
                           {tournament.status}
                         </span>

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { apiRequest } from '../../lib/api'
+import { PlayerIDCard } from '../../components/player/PlayerIDCard'
 
 type Tournament = {
   _id: string
@@ -33,6 +34,13 @@ export function PlayerDashboard() {
   const [myRegistrations, setMyRegistrations] = useState<MyTournamentRegistration[]>([])
   const [loadingTournaments, setLoadingTournaments] = useState(true)
   const [loadingRegs, setLoadingRegs] = useState(true)
+  const [profile, setProfile] = useState<any>(null)
+  const [loadingProfile, setLoadingProfile] = useState(true)
+  const [myCertificates, setMyCertificates] = useState<any[]>([])
+  const [loadingCerts, setLoadingCerts] = useState(true)
+  const [myMatches, setMyMatches] = useState<any[]>([])
+  const [loadingMatches, setLoadingMatches] = useState(true)
+  const [showIdCard, setShowIdCard] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const refreshMyRegistrations = async () => {
@@ -56,15 +64,30 @@ export function PlayerDashboard() {
     const run = async () => {
       setError(null)
       setLoadingTournaments(true)
+      setLoadingProfile(true)
       try {
-        const t = await apiRequest<{ tournaments: Tournament[] }>('/tournaments')
+        const [t, p, c, m] = await Promise.all([
+          apiRequest<{ tournaments: Tournament[] }>('/tournaments'),
+          apiRequest<{ profile: any }>('/players/me', { auth: true }),
+          apiRequest<{ certificates: any[] }>('/certificates/me', { auth: true }),
+          apiRequest<{ matches: any[] }>('/tournaments/matches/me', { auth: true })
+        ])
+
         if (cancelled) return
         setTournaments(Array.isArray(t.tournaments) ? t.tournaments : [])
+        setProfile(p.profile)
+        setMyCertificates(Array.isArray(c.certificates) ? c.certificates : [])
+        setMyMatches(Array.isArray(m.matches) ? m.matches : [])
       } catch (e) {
         if (cancelled) return
-        setError(e instanceof Error ? e.message : 'Failed to load tournaments')
+        setError(e instanceof Error ? e.message : 'Failed to load dashboard data')
       } finally {
-        if (!cancelled) setLoadingTournaments(false)
+        if (!cancelled) {
+          setLoadingTournaments(false)
+          setLoadingProfile(false)
+          setLoadingCerts(false)
+          setLoadingMatches(false)
+        }
       }
 
       if (!cancelled) {
@@ -147,6 +170,7 @@ export function PlayerDashboard() {
         <div className="flex items-center gap-3">
           <button
             type="button"
+            onClick={() => setShowIdCard(true)}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-gray-900 font-semibold hover:bg-gray-50 transition-colors"
           >
             <span className="material-symbols-outlined text-lg">badge</span>
@@ -167,11 +191,11 @@ export function PlayerDashboard() {
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-sm font-medium text-gray-600">Total Matches</div>
-              <div className="text-3xl font-black text-gray-900 mt-2">42</div>
+              <div className="text-sm font-medium text-gray-600">District Games</div>
+              <div className="text-3xl font-black text-gray-900 mt-2">{profile?.districtGames || '0'}</div>
             </div>
             <div className="w-10 h-10 rounded-lg bg-[#5a0a8f]/10 flex items-center justify-center">
-              <span className="material-symbols-outlined text-[#5a0a8f]">fitness_center</span>
+              <span className="material-symbols-outlined text-[#5a0a8f]">location_on</span>
             </div>
           </div>
         </div>
@@ -179,11 +203,11 @@ export function PlayerDashboard() {
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-sm font-medium text-gray-600">Win Rate</div>
-              <div className="text-3xl font-black text-gray-900 mt-2">68%</div>
+              <div className="text-sm font-medium text-gray-600">State Games</div>
+              <div className="text-3xl font-black text-gray-900 mt-2">{profile?.stateGames || '0'}</div>
             </div>
             <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-              <span className="material-symbols-outlined text-green-600">trending_up</span>
+              <span className="material-symbols-outlined text-green-600">flag</span>
             </div>
           </div>
         </div>
@@ -191,33 +215,105 @@ export function PlayerDashboard() {
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-sm font-medium text-gray-600">National Rank</div>
-              <div className="text-3xl font-black text-gray-900 mt-2">#12</div>
+              <div className="text-sm font-medium text-gray-600">National Games</div>
+              <div className="text-3xl font-black text-gray-900 mt-2">{profile?.nationalGames || '0'}</div>
             </div>
             <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
-              <span className="material-symbols-outlined text-yellow-700">bar_chart</span>
+              <span className="material-symbols-outlined text-yellow-700">stars</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-[#5a0a8f] rounded-xl p-6 text-white">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-sm font-medium text-white/80">Next Match</div>
-              <div className="text-3xl font-black mt-2">12 Days</div>
-              <div className="text-sm text-white/80 mt-1">28th Senior National</div>
+              <div className="text-sm font-medium text-gray-600">International Games</div>
+              <div className="text-3xl font-black text-gray-900 mt-2">{profile?.internationalGames || '0'}</div>
             </div>
-            <div className="w-10 h-10 rounded-lg bg-white/15 flex items-center justify-center">
-              <span className="material-symbols-outlined">schedule</span>
+            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+              <span className="material-symbols-outlined text-blue-600">public</span>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Recent Results */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-gray-900">Recent Results</h2>
+          <Link to="/player/results" className="text-sm font-semibold text-[#5a0a8f] hover:underline">
+            View all
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Matches Section */}
+          {(loadingMatches || loadingCerts) && (
+            <div className="md:col-span-3 py-8 flex flex-col items-center justify-center text-gray-400">
+              <div className="w-5 h-5 border-2 border-[#5a0a8f] border-t-transparent rounded-full animate-spin mb-2"></div>
+              <p className="text-[10px] font-bold uppercase tracking-widest">Loading Results...</p>
+            </div>
+          )}
+
+          {!loadingMatches && !loadingCerts && myMatches.slice(0, 3).map((match) => (
+            <div key={match._id} className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-black text-[#5a0a8f] uppercase tracking-wider">{match.tournament?.title || 'MATCH'}</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${match.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                  {match.status.toUpperCase()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 text-center">
+                  <div className="text-xs font-bold text-gray-900 truncate">{match.team1}</div>
+                  <div className="text-lg font-black text-gray-900">{match.score?.team1 || 0}</div>
+                </div>
+                <div className="text-[10px] font-bold text-gray-400">VS</div>
+                <div className="flex-1 text-center">
+                  <div className="text-xs font-bold text-gray-900 truncate">{match.team2}</div>
+                  <div className="text-lg font-black text-gray-900">{match.score?.team2 || 0}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* Certificates (Ranks) Section */}
+          {myCertificates.length > 0 ? (
+            myCertificates.slice(0, 2).map((cert) => (
+              <div key={cert._id} className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-yellow-50 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-yellow-600">emoji_events</span>
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-gray-900">{cert.tournament?.title || 'Championship'}</div>
+                    <div className="text-xs font-medium text-purple-700">{cert.position === 'Participation' ? 'Participation' : `Rank: ${cert.position}`}</div>
+                  </div>
+                </div>
+                <a
+                  href={cert.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 text-[#5a0a8f] hover:bg-purple-50 rounded-lg transition-colors"
+                  title="Download Certificate"
+                >
+                  <span className="material-symbols-outlined">download</span>
+                </a>
+              </div>
+            ))
+          ) : null}
+
+          {myMatches.length === 0 && myCertificates.length === 0 && (
+            <div className="md:col-span-3 bg-gray-50 rounded-xl border border-dashed border-gray-300 p-6 text-center text-gray-500 italic">
+              No recent results available. Complete tournament matches to see your results.
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Main grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         {/* Upcoming tournaments */}
-        <div className="lg:col-span-2">
+        <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-gray-900">Upcoming Tournaments</h2>
             <Link to="/events" className="text-sm font-semibold text-[#5a0a8f] hover:underline">
@@ -230,9 +326,14 @@ export function PlayerDashboard() {
               <div className="p-4 border-b border-gray-200 bg-red-50 text-red-700">{error}</div>
             )}
 
-            {(loadingTournaments || loadingRegs) && <div className="p-5 text-gray-600">Loading…</div>}
+            {(loadingTournaments || loadingRegs || loadingProfile) && (
+              <div className="p-10 flex flex-col items-center justify-center text-gray-500">
+                <div className="w-8 h-8 border-4 border-[#5a0a8f] border-t-transparent rounded-full animate-spin mb-4"></div>
+                <p className="font-medium">Loading your dashboard...</p>
+              </div>
+            )}
 
-            {!loadingTournaments && !loadingRegs && tournaments.length === 0 && (
+            {!loadingTournaments && !loadingRegs && !loadingProfile && tournaments.length === 0 && (
               <div className="p-5 text-gray-600">No tournaments available.</div>
             )}
 
@@ -241,8 +342,6 @@ export function PlayerDashboard() {
               tournaments.map((t, idx) => {
                 const regs = myRegsByTournament.get(t._id) || []
                 const playerReg = regs.find((r) => r.registerAs === 'player')
-                const coachReg = regs.find((r) => r.registerAs === 'coach')
-                const refereeReg = regs.find((r) => r.registerAs === 'referee')
 
                 const location = [t.venueName, t.city].filter(Boolean).join(', ') || '—'
 
@@ -256,23 +355,32 @@ export function PlayerDashboard() {
                 return (
                   <div
                     key={t._id}
-                    className={idx === 0 ? 'p-5 border-b border-gray-200' : 'p-5'}
+                    className={`p-5 ${idx !== tournaments.length - 1 ? 'border-b border-gray-200' : ''}`}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-24 h-16 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
+                    <div className="flex flex-col md:flex-row gap-4">
+                      {/* Tournament Image - Larger on mobile */}
+                      <div className="w-full md:w-24 h-40 md:h-16 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                         <TournamentThumb url={t.imageUrl} title={t.title} />
                       </div>
 
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <div className="font-bold text-gray-900">{t.title}</div>
-                          {t.status && (
-                            <span className="px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700">
-                              {t.status}
-                            </span>
-                          )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <div className="font-bold text-gray-900 line-clamp-2 md:line-clamp-1">{t.title}</div>
+                          <div className="flex gap-1 flex-shrink-0">
+                            {t.status && (
+                              <span className={`px-2 py-1 rounded-full text-[10px] font-bold whitespace-nowrap ${t.status === 'COMPLETED'
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : 'bg-gray-100 text-gray-700'
+                                }`}>
+                                {t.status}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 mb-3">
                           {t.genderCategory && (
-                            <span className="px-2 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-700">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">
                               {t.genderCategory === 'both'
                                 ? 'Male & Female'
                                 : t.genderCategory === 'male'
@@ -282,125 +390,49 @@ export function PlayerDashboard() {
                           )}
                         </div>
 
-                        <div className="text-sm text-gray-600 mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                          <span className="inline-flex items-center gap-1">
-                            <span className="material-symbols-outlined text-base">calendar_today</span>
-                            {formatDateRange(t.startDate, t.endDate)}
-                          </span>
-                          <span className="inline-flex items-center gap-1">
-                            <span className="material-symbols-outlined text-base">location_on</span>
-                            {location}
-                          </span>
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 text-xs text-gray-600">
+                            <span className="material-symbols-outlined text-sm text-gray-400">calendar_today</span>
+                            <span className="font-medium">{formatDateRange(t.startDate, t.endDate)}</span>
+                          </div>
+                          <div className="flex items-start gap-2 text-xs text-gray-600">
+                            <span className="material-symbols-outlined text-sm text-gray-400 mt-0.5">location_on</span>
+                            <span className="font-medium line-clamp-2">{location}</span>
+                          </div>
                         </div>
 
-                        {(playerReg || coachReg || refereeReg) && (
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {playerReg && (
-                              <span className={`px-2 py-1 rounded text-xs font-bold ${badge(playerReg.status)}`}>
-                                Player: {playerReg.status.toUpperCase()}
-                              </span>
-                            )}
-                            {coachReg && (
-                              <span className={`px-2 py-1 rounded text-xs font-bold ${badge(coachReg.status)}`}>
-                                Coach: {coachReg.status.toUpperCase()}
-                              </span>
-                            )}
-                            {refereeReg && (
-                              <span className={`px-2 py-1 rounded text-xs font-bold ${badge(refereeReg.status)}`}>
-                                Referee: {refereeReg.status.toUpperCase()}
-                              </span>
-                            )}
+                        {playerReg && (
+                          <div className="mt-3">
+                            <span className={`inline-flex items-center px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${badge(playerReg.status)}`}>
+                              {playerReg.status}
+                            </span>
                           </div>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 flex-wrap justify-end">
+                      <div className="flex items-center justify-end md:justify-center flex-shrink-0">
                         {!playerReg && (
-                          <button
-                            onClick={() => void register(t._id, 'player')}
-                            className="px-3 py-2 rounded-lg bg-[#5a0a8f] text-white text-sm font-semibold hover:bg-[#400466] transition-colors"
-                          >
-                            Register as Player
-                          </button>
-                        )}
-                        {!coachReg && (
-                          <button
-                            onClick={() => void register(t._id, 'coach')}
-                            className="px-3 py-2 rounded-lg border border-gray-200 text-gray-900 text-sm font-semibold hover:bg-gray-50 transition-colors"
-                          >
-                            Register as Coach
-                          </button>
-                        )}
-                        {!refereeReg && (
-                          <button
-                            onClick={() => void register(t._id, 'referee')}
-                            className="px-3 py-2 rounded-lg border border-gray-200 text-gray-900 text-sm font-semibold hover:bg-gray-50 transition-colors"
-                          >
-                            Register as Referee
-                          </button>
+                          t.status === 'COMPLETED' ? (
+                            <button
+                              disabled
+                              className="w-full md:w-auto px-6 py-2.5 rounded-xl bg-gray-100 text-gray-400 text-xs font-bold cursor-not-allowed"
+                            >
+                              Tournament Completed
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => void register(t._id, 'player')}
+                              className="w-full md:w-auto px-6 py-2.5 rounded-xl bg-[#5a0a8f] text-white text-xs font-bold hover:bg-[#400466] transition-all shadow-md shadow-purple-900/10 active:scale-95"
+                            >
+                              Register as Player
+                            </button>
+                          )
                         )}
                       </div>
                     </div>
                   </div>
                 )
               })}
-          </div>
-        </div>
-
-        {/* Right column */}
-        <div className="space-y-6">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900">Recent Results</h2>
-              <Link to="/player/results" className="text-sm font-semibold text-[#5a0a8f] hover:underline">
-                View all
-              </Link>
-            </div>
-
-            <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-bold text-gray-900">Vs. Kerala State</div>
-                  <div className="text-xs text-gray-500">21 Sept 2026</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="text-sm font-bold text-gray-900">2 - 1</div>
-                  <span className="px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">WIN</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-bold text-gray-900">Vs. Manipur Team A</div>
-                  <div className="text-xs text-gray-500">18 Sept 2026</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="text-sm font-bold text-gray-900">0 - 2</div>
-                  <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">LOST</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-bold text-gray-900">Vs. Delhi Club</div>
-                  <div className="text-xs text-gray-500">15 Sept 2026</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="text-sm font-bold text-gray-900">2 - 0</div>
-                  <span className="px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">WIN</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gray-900 rounded-xl p-6 text-white border border-gray-800">
-            <div className="text-lg font-bold mb-2">Federation News</div>
-            <div className="text-sm text-white/80 mb-4">
-              New regulations for the upcoming season have been published. Please review them.
-            </div>
-            <button className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-sm font-semibold">
-              Read Announcement
-            </button>
           </div>
         </div>
       </div>
@@ -414,40 +446,63 @@ export function PlayerDashboard() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="w-full h-28 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center">
-              <span className="text-xs font-semibold text-gray-500">PARTICIPATION</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {loadingCerts && (
+            <div className="md:col-span-4 py-12 flex flex-col items-center justify-center text-gray-500">
+              <div className="w-6 h-6 border-2 border-[#5a0a8f] border-t-transparent rounded-full animate-spin mb-2"></div>
+              <p className="text-xs">Loading certificates...</p>
             </div>
-            <div className="mt-4">
-              <div className="text-sm font-bold text-gray-900">Participation</div>
-              <div className="text-xs text-gray-500">2026 Nationals</div>
-            </div>
-          </div>
+          )}
 
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="w-full h-28 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center">
-              <span className="text-xs font-semibold text-gray-500">LICENSE</span>
+          {!loadingCerts && myCertificates.map((cert) => (
+            <div key={cert._id} className="bg-white rounded-xl border border-gray-200 p-6 flex flex-col">
+              <div className="w-full h-32 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden mb-4 relative group">
+                <img src={cert.fileUrl} alt="Certificate" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <span className="text-white font-bold text-xs">VIEW</span>
+                </div>
+              </div>
+              <div className="flex-1">
+                <div className="text-[10px] font-black tracking-wider text-[#5a0a8f] uppercase mb-1">
+                  {cert.position === 'Participation' ? 'PARTICIPATION' : 'ACHIEVEMENT'}
+                </div>
+                <div className="text-sm font-bold text-gray-900 truncate">{cert.tournament?.title || 'Tournament'}</div>
+                <div className="text-xs text-gray-500 mt-0.5">{cert.position}</div>
+              </div>
+              <a
+                href={cert.fileUrl}
+                download
+                className="mt-4 w-full py-2 rounded-lg border border-gray-200 text-gray-700 text-xs font-bold hover:bg-gray-50 flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined text-sm">download</span>
+                Download
+              </a>
             </div>
-            <div className="mt-4">
-              <div className="text-sm font-bold text-gray-900">License</div>
-              <div className="text-xs text-gray-500">Level 2</div>
+          ))}
+
+          {!loadingCerts && myCertificates.length === 0 && (
+            <div className="md:col-span-4 bg-gray-50 rounded-xl border border-dashed border-gray-300 p-12 text-center">
+              <span className="material-symbols-outlined text-4xl text-gray-300 mb-3">workspace_premium</span>
+              <p className="text-gray-500 text-sm">You haven't earned any certificates yet.</p>
             </div>
-          </div>
+          )}
 
           <button
             type="button"
-            className="bg-white rounded-xl border-2 border-dashed border-gray-300 p-6 hover:border-[#5a0a8f] transition-colors flex items-center justify-center"
+            className="bg-white rounded-xl border-2 border-dashed border-gray-300 p-6 hover:border-[#5a0a8f] transition-colors flex flex-col items-center justify-center min-h-[220px]"
           >
-            <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
-                <span className="material-symbols-outlined text-gray-500">add</span>
-              </div>
-              <div className="mt-3 text-sm font-semibold text-gray-700">Upload New</div>
+            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+              <span className="material-symbols-outlined text-gray-500">add</span>
             </div>
+            <div className="text-sm font-semibold text-gray-700">Upload New</div>
+            <div className="text-[10px] text-gray-400 mt-1 uppercase">External Certificates</div>
           </button>
         </div>
       </div>
+
+      {showIdCard && (
+        <PlayerIDCard profile={profile} onClose={() => setShowIdCard(false)} />
+      )}
     </div>
   )
 }

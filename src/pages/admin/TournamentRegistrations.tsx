@@ -194,10 +194,14 @@ export function TournamentRegistrations() {
         body: JSON.stringify({ winners: winnersData })
       })
 
-      // Update local tournament state
-      setTournament(prev => prev ? { ...prev, winners } : null)
+      // Fetch updated tournament details to get the new status
+      const res = await apiRequest<{ tournament: AdminTournament }>(
+        `/admin/tournaments/${tournamentId}`,
+        { auth: true }
+      )
+      setTournament(res.tournament)
 
-      alert('Winners saved successfully!')
+      alert('Winners saved successfully! Tournament marked as COMPLETED.')
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Failed to save winners')
     } finally {
@@ -1552,7 +1556,14 @@ export function TournamentRegistrations() {
             </div>
             <div>
               <div className="text-sm opacity-90 mb-1">Status</div>
-              <div className="text-lg font-bold">{tournament.status || '—'}</div>
+              <div className="flex items-center gap-2">
+                <div className="text-lg font-bold">{tournament.status || '—'}</div>
+                {tournament.status === 'COMPLETED' && (
+                  <span className="bg-amber-400 text-[#400466] px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest shadow-lg">
+                    🏆 Completed
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
