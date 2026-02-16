@@ -270,13 +270,13 @@ export function AboutPage() {
                   </div>
                   <div className="flex flex-1 flex-col p-5 bg-[#2c3e50]">
                     <h4 className="text-lg font-bold text-white mb-1">{official.name}</h4>
-                    <p className="text-sm font-semibold text-white uppercase tracking-wide mb-2">
-                      {official.title || 'Official'}
-                    </p>
-                    <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
+                    <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
                       <span className="material-symbols-outlined text-base">badge</span>
                       {official.role || official.region || 'National'}
                     </div>
+                    <p className="text-sm font-semibold text-white uppercase tracking-wide mb-2">
+                      {official.title || 'Official'}
+                    </p>
                     <div className="mt-auto space-y-2 pt-3 border-t border-white/20 text-white/80 text-sm">
                       {official.email && (
                         <a className="hover:text-white transition-colors flex items-center gap-2" href={`mailto:${official.email}`}>

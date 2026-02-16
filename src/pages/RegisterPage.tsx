@@ -1088,7 +1088,7 @@ export function RegisterPage() {
                   {/* Certificate Images */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-900 mb-2">
-                      Enter your 10th Certificate Image(s)
+                      10th / Birth Certificate / PAN Card
                     </label>
                     <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 md:p-6 hover:border-[#5a0a8f] transition-colors">
                       {certificatePreviews.length > 0 ? (
