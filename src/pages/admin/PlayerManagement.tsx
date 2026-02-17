@@ -276,6 +276,7 @@ export function PlayerManagement() {
                     .join('')
                     .toUpperCase()
                     .slice(0, 2)
+                  const displayId = registration.playerId || registration.coachId || registration.refereeId || registration.id
 
                   return (
                     <tr key={registration.id} className="hover:bg-gray-50 transition-colors">
@@ -302,7 +303,7 @@ export function PlayerManagement() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">{registration.playerId || registration.id}</div>
+                        <div className="text-sm font-medium text-gray-900">{displayId}</div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-600">{formatDate(registration.dateOfBirth)}</div>
