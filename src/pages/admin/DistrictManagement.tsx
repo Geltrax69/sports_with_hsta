@@ -34,8 +34,8 @@ export function DistrictManagement() {
   const filteredDistricts = districts.filter((district) => {
     const matchesSearch =
       district.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      district.secretary?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      district.contact?.email.toLowerCase().includes(searchQuery.toLowerCase())
+      district.secretary?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      district.contact?.email?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesZone = filterZone === 'all' || district.zone === filterZone
     return matchesSearch && matchesZone
   })
@@ -77,7 +77,9 @@ export function DistrictManagement() {
       players: district.stats?.players.toString() || '',
       status: district.status,
     })
-    setEditingDistrict(district)
+    // Preserve the identifier; prefer code if available, normalized to uppercase for API.
+    const idOrCode = (district.id || (district as any).code || '').trim().toUpperCase()
+    setEditingDistrict({ ...district, id: idOrCode })
     setShowAddModal(true)
   }
 
@@ -118,19 +120,29 @@ export function DistrictManagement() {
           : undefined,
     }
 
-    if (editingDistrict) {
-      await updateDistrict(editingDistrict.id, districtData)
-    } else {
-      await addDistrict(districtData)
-    }
+    try {
+      if (editingDistrict) {
+        await updateDistrict(editingDistrict.id, districtData)
+      } else {
+        await addDistrict(districtData)
+      }
 
-    setShowAddModal(false)
-    setEditingDistrict(null)
+      setShowAddModal(false)
+      setEditingDistrict(null)
+    } catch (err: any) {
+      const message = err?.message || 'Failed to save district. Please try again.'
+      window.alert(message)
+    }
   }
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this district?')) {
+    if (!window.confirm('Are you sure you want to delete this district?')) return
+
+    try {
       await deleteDistrict(id)
+    } catch (err: any) {
+      const message = err?.message || 'Failed to delete district. Please try again.'
+      window.alert(message)
     }
   }
 
@@ -282,8 +294,11 @@ export function DistrictManagement() {
                   </td>
                 </tr>
               ) : (
-                filteredDistricts.map((district) => (
-                  <tr key={district.id} className="hover:bg-gray-50 transition-colors">
+                filteredDistricts.map((district) => {
+                  const actionId = (district.id || (district as any).code || '').trim().toUpperCase()
+                  const hasActionId = !!actionId
+                  return (
+                    <tr key={actionId || district.name} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <div>
                         <div className="font-semibold text-gray-900">{district.name}</div>
@@ -362,15 +377,18 @@ export function DistrictManagement() {
                           Edit
                         </button>
                         <button
-                          onClick={() => handleDelete(district.id)}
-                          className="text-red-600 hover:underline text-sm font-medium"
+                          disabled={!hasActionId}
+                          title={hasActionId ? '' : 'Missing district identifier'}
+                          onClick={() => handleDelete(actionId)}
+                          className="text-red-600 hover:underline text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Delete
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))
+                  )
+                })
               )}
             </tbody>
           </table>

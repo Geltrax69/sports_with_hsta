@@ -1,15 +1,74 @@
-import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { apiRequest } from '../../lib/api'
 
 export function PlayerLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [checkingStatus, setCheckingStatus] = useState(true)
+  const [profileStatus, setProfileStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const load = async () => {
+      try {
+        const res = await apiRequest<{ profile: { status: string; _id?: string; id?: string } }>(
+          '/players/me',
+          { auth: true },
+        )
+        if (cancelled) return
+        const status = (res.profile?.status || '').toLowerCase() as typeof profileStatus
+        setProfileStatus(status)
+
+        // Redirect pending/rejected users away from dashboards.
+        const isStatus = location.pathname.startsWith('/player/status')
+        const isResubmit = location.pathname.startsWith('/player/resubmit')
+
+        if ((status === 'pending' || status === 'rejected') && !isStatus && !isResubmit) {
+          navigate('/player/status', { replace: true })
+        }
+        if (status === 'approved' && (isStatus || isResubmit)) {
+          navigate('/player/dashboard', { replace: true })
+        }
+      } catch (err) {
+        // If we cannot load profile, force logout to avoid unauthorized access.
+        console.error('Failed to load player profile status', err)
+        logout()
+        navigate('/login', { replace: true })
+      } finally {
+        if (!cancelled) setCheckingStatus(false)
+      }
+    }
+
+    void load()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleLogout = () => {
     logout()
     navigate('/login')
+  }
+
+  const isStatusPage = location.pathname.startsWith('/player/status') || location.pathname.startsWith('/player/resubmit')
+
+  if (checkingStatus) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-700">
+        <div className="animate-pulse text-sm">Checking your application status...</div>
+      </div>
+    )
+  }
+
+  // For status page, render content without dashboard chrome.
+  if (isStatusPage) {
+    return <Outlet />
   }
 
   return (

@@ -46,6 +46,8 @@ import { PlayerDashboard } from './pages/player/PlayerDashboard'
 import { PlayerEvents } from './pages/player/PlayerEvents'
 import { PlayerResults } from './pages/player/PlayerResults'
 import { PlayerCertificates } from './pages/player/PlayerCertificates'
+import { PlayerStatusPage } from './pages/player/PlayerStatusPage'
+import { PlayerResubmitPage } from './pages/player/PlayerResubmitPage'
 import { CoachLayout } from './components/coach/CoachLayout'
 import { CoachDashboard } from './pages/coach/CoachDashboard'
 import { CoachTournaments } from './pages/coach/CoachTournaments'
@@ -127,6 +129,8 @@ export default function App() {
                   {/* Player Routes */}
                   <Route element={<ProtectedRoute requiredRole="player" />}>
                     <Route path="/player" element={<PlayerLayout />}>
+                      <Route path="status" element={<PlayerStatusPage />} />
+                      <Route path="resubmit" element={<PlayerResubmitPage />} />
                       <Route index element={<Navigate to="/player/dashboard" replace />} />
                       <Route path="dashboard" element={<PlayerDashboard />} />
                       <Route path="events" element={<PlayerEvents />} />

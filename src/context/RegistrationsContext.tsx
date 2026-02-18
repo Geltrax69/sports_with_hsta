@@ -25,6 +25,7 @@ export type PlayerRegistration = {
   submittedAt: string
   reviewedAt?: string
   reviewedBy?: string
+  reviewRemarks?: string
   category?: string
   gender?: string
   aadhaarDocument?: string
@@ -70,7 +71,7 @@ type RegistrationsContextType = {
   deleteRegistration: (id: string) => void
   getRegistrationById: (id: string) => PlayerRegistration | undefined
   approveRegistration: (id: string, reviewedBy: string) => void
-  rejectRegistration: (id: string, reviewedBy: string) => void
+  rejectRegistration: (id: string, reviewedBy: string, remarks?: string) => void
   // Tournament registration functions
   applyToTournament: (registrationId: string, tournamentId: string, category: string) => string
   getTournamentRegistrations: (tournamentId: string) => TournamentRegistration[]
@@ -161,6 +162,7 @@ export function RegistrationsProvider({ children }: { children: ReactNode }) {
         submittedAt: r.submittedAt ? new Date(r.submittedAt).toISOString() : new Date().toISOString(),
         reviewedAt: r.reviewedAt ? new Date(r.reviewedAt).toISOString() : undefined,
         reviewedBy: r.reviewedBy || undefined,
+        reviewRemarks: r.reviewRemarks || '',
         category: r.category || undefined,
         gender: r.gender || undefined,
         aadhaarDocument: r.aadhaarDocument || undefined,
@@ -246,16 +248,23 @@ export function RegistrationsProvider({ children }: { children: ReactNode }) {
 
   const approveRegistration = (id: string, reviewedBy: string) => {
     const reg = registrations.find((r) => r.id === id)
-    if (!reg || (reg.type !== 'player' && reg.type !== 'coach') || user?.role !== 'admin') {
+    if (!reg || (reg.type !== 'player' && reg.type !== 'coach' && reg.type !== 'referee') || user?.role !== 'admin') {
       updateRegistration(id, {
         status: 'approved',
         reviewedAt: new Date().toISOString(),
         reviewedBy,
+        reviewRemarks: '',
       })
       return
     }
 
-    const path = reg.type === 'player' ? `/players/${id}/status` : `/coaches/${id}/status`
+    const path =
+      reg.type === 'player'
+        ? `/players/${id}/status`
+        : reg.type === 'coach'
+          ? `/coaches/${id}/status`
+          : `/referees/${id}/status`
+
     void apiRequest(path, {
       method: 'PATCH',
       auth: true,
@@ -263,22 +272,29 @@ export function RegistrationsProvider({ children }: { children: ReactNode }) {
     }).then(refreshFromBackend)
   }
 
-  const rejectRegistration = (id: string, reviewedBy: string) => {
+  const rejectRegistration = (id: string, reviewedBy: string, remarks?: string) => {
     const reg = registrations.find((r) => r.id === id)
-    if (!reg || (reg.type !== 'player' && reg.type !== 'coach') || user?.role !== 'admin') {
+    if (!reg || (reg.type !== 'player' && reg.type !== 'coach' && reg.type !== 'referee') || user?.role !== 'admin') {
       updateRegistration(id, {
         status: 'rejected',
         reviewedAt: new Date().toISOString(),
         reviewedBy,
+        reviewRemarks: remarks || '',
       })
       return
     }
 
-    const path = reg.type === 'player' ? `/players/${id}/status` : `/coaches/${id}/status`
+    const path =
+      reg.type === 'player'
+        ? `/players/${id}/status`
+        : reg.type === 'coach'
+          ? `/coaches/${id}/status`
+          : `/referees/${id}/status`
+
     void apiRequest(path, {
       method: 'PATCH',
       auth: true,
-      body: JSON.stringify({ status: 'rejected', reviewedBy }),
+      body: JSON.stringify({ status: 'rejected', reviewedBy, remarks: remarks || '' }),
     }).then(refreshFromBackend)
   }
 
@@ -304,11 +320,11 @@ export function RegistrationsProvider({ children }: { children: ReactNode }) {
       tournamentRegistrations.map((tr) =>
         tr.id === id
           ? {
-            ...tr,
-            status: 'approved',
-            reviewedAt: new Date().toISOString(),
-            reviewedBy,
-          }
+              ...tr,
+              status: 'approved',
+              reviewedAt: new Date().toISOString(),
+              reviewedBy,
+            }
           : tr,
       ),
     )
@@ -319,12 +335,12 @@ export function RegistrationsProvider({ children }: { children: ReactNode }) {
       tournamentRegistrations.map((tr) =>
         tr.id === id
           ? {
-            ...tr,
-            status: 'rejected',
-            reviewedAt: new Date().toISOString(),
-            reviewedBy,
-            notes,
-          }
+              ...tr,
+              status: 'rejected',
+              reviewedAt: new Date().toISOString(),
+              reviewedBy,
+              notes,
+            }
           : tr,
       ),
     )

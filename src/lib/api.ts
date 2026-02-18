@@ -22,6 +22,7 @@ export const API_BASE_URL: string = normalizeApiBaseUrl(
       console.warn('Ignoring localhost API URL in production', envUrl)
       return DEFAULT_API_BASE
     }
+
     return envUrl || DEFAULT_API_BASE
   })(),
 )
