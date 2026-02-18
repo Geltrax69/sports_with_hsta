@@ -53,11 +53,15 @@ import { CoachDashboard } from './pages/coach/CoachDashboard'
 import { CoachTournaments } from './pages/coach/CoachTournaments'
 import { CoachCertificates } from './pages/coach/CoachCertificates'
 import { CoachMatches } from './pages/coach/CoachMatches'
+import { CoachStatusPage } from './pages/coach/CoachStatusPage'
+import { CoachResubmitPage } from './pages/coach/CoachResubmitPage'
 import { RefereeLayout } from './components/referee/RefereeLayout'
 import { RefereeDashboard } from './pages/referee/RefereeDashboard'
 import { RefereeTournaments } from './pages/referee/RefereeTournaments'
 import { RefereeMatches } from './pages/referee/RefereeMatches'
 import { RefereeCertificates } from './pages/referee/RefereeCertificates'
+import { RefereeStatusPage } from './pages/referee/RefereeStatusPage'
+import { RefereeResubmitPage } from './pages/referee/RefereeResubmitPage'
 
 export default function App() {
   useEffect(() => {
@@ -142,6 +146,8 @@ export default function App() {
                   {/* Coach Routes */}
                   <Route element={<ProtectedRoute requiredRole="coach" />}>
                     <Route path="/coach" element={<CoachLayout />}>
+                      <Route path="status" element={<CoachStatusPage />} />
+                      <Route path="resubmit" element={<CoachResubmitPage />} />
                       <Route index element={<Navigate to="/coach/dashboard" replace />} />
                       <Route path="dashboard" element={<CoachDashboard />} />
                       <Route path="tournaments" element={<CoachTournaments />} />
@@ -153,6 +159,8 @@ export default function App() {
                   {/* Referee Routes */}
                   <Route element={<ProtectedRoute requiredRole="referee" />}>
                     <Route path="/referee" element={<RefereeLayout />}>
+                      <Route path="status" element={<RefereeStatusPage />} />
+                      <Route path="resubmit" element={<RefereeResubmitPage />} />
                       <Route index element={<Navigate to="/referee/dashboard" replace />} />
                       <Route path="dashboard" element={<RefereeDashboard />} />
                       <Route path="tournaments" element={<RefereeTournaments />} />

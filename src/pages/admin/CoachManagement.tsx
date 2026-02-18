@@ -50,13 +50,24 @@ export function CoachManagement() {
     }
   }
 
+  const requestRemarks = (existing?: string) => {
+    const input = window.prompt('Add rejection remarks (shared with applicant)', existing || '')
+    if (input === null) return null
+    const trimmed = input.trim()
+    if (!trimmed) {
+      window.alert('Please add a short remark for the applicant.')
+      return null
+    }
+    return trimmed
+  }
+
   const handleReject = () => {
     if (selectedRegistration && user) {
-      if (window.confirm('Are you sure you want to reject this registration?')) {
-        rejectRegistration(selectedRegistration.id, user.name)
-        setShowDetailModal(false)
-        setSelectedRegistration(null)
-      }
+      const remarks = requestRemarks(selectedRegistration.reviewRemarks)
+      if (remarks === null) return
+      rejectRegistration(selectedRegistration.id, user.name, remarks)
+      setShowDetailModal(false)
+      setSelectedRegistration(null)
     }
   }
 
@@ -320,9 +331,9 @@ export function CoachManagement() {
                               </button>
                               <button
                                 onClick={() => {
-                                  if (window.confirm('Are you sure you want to reject this registration?')) {
-                                    rejectRegistration(registration.id, user?.name || 'Admin')
-                                  }
+                                  const remarks = requestRemarks(registration.reviewRemarks)
+                                  if (remarks === null) return
+                                  rejectRegistration(registration.id, user?.name || 'Admin', remarks)
                                 }}
                                 className="text-red-600 hover:text-red-700"
                                 title="Reject"

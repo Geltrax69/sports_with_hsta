@@ -1,15 +1,71 @@
-import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { apiRequest } from '../../lib/api'
 
 export function CoachLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [checkingStatus, setCheckingStatus] = useState(true)
+  const [profileStatus, setProfileStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const load = async () => {
+      try {
+        const res = await apiRequest<{ profile: { status: string; _id?: string; id?: string } }>(
+          '/coaches/me',
+          { auth: true },
+        )
+        if (cancelled) return
+        const status = (res.profile?.status || '').toLowerCase() as typeof profileStatus
+        setProfileStatus(status)
+
+        const isStatus = location.pathname.startsWith('/coach/status')
+        const isResubmit = location.pathname.startsWith('/coach/resubmit')
+
+        if ((status === 'pending' || status === 'rejected') && !isStatus && !isResubmit) {
+          navigate('/coach/status', { replace: true })
+        }
+        if (status === 'approved' && (isStatus || isResubmit)) {
+          navigate('/coach/dashboard', { replace: true })
+        }
+      } catch (err) {
+        console.error('Failed to load coach profile status', err)
+        logout()
+        navigate('/login', { replace: true })
+      } finally {
+        if (!cancelled) setCheckingStatus(false)
+      }
+    }
+
+    void load()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleLogout = () => {
     logout()
     navigate('/login')
+  }
+
+  const isStatusPage = location.pathname.startsWith('/coach/status') || location.pathname.startsWith('/coach/resubmit')
+
+  if (checkingStatus) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-700">
+        <div className="animate-pulse text-sm">Checking your application status...</div>
+      </div>
+    )
+  }
+
+  if (isStatusPage) {
+    return <Outlet />
   }
 
   return (
