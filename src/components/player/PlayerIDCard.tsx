@@ -1,4 +1,6 @@
 import { createPortal } from 'react-dom'
+import { useMemo } from 'react'
+import { useDistricts } from '../../context/DistrictsContext'
 
 interface PlayerIDCardProps {
     profile: any
@@ -8,6 +10,21 @@ interface PlayerIDCardProps {
 export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
     if (!profile) return null
 
+    const { districts } = useDistricts()
+
+    const districtName = useMemo(() => {
+        const match = districts.find((d: any) => d._id === profile.district || d.id === profile.district || d.code === profile.district || d.slug === profile.district)
+        return match?.name || profile.district || '—'
+    }, [districts, profile.district])
+
+    const roleLabel = (profile.role || 'Player').toString().toUpperCase()
+    const identityLabel = `${roleLabel} IDENTITY CARD`
+    const isReferee = roleLabel === 'REFEREE'
+
+    const brandTitle = isReferee ? 'STFI' : 'HSTA'
+    const brandSubtitle = isReferee ? 'SEPAKTAKRAW FEDERATION OF INDIA' : 'Haryana Sepak Takraw Association'
+    const brandCaption = isReferee ? 'OFFICIAL REFEREE' : 'Affiliated to Sepaktakraw Federation of India'
+
     return createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200">
             <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -16,9 +33,11 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
                     <div className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors cursor-pointer" onClick={onClose}>
                         <span className="material-symbols-outlined">close</span>
                     </div>
-                    <div className="text-xl font-black tracking-tighter mb-0.5">STFI</div>
-                    <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Sepaktakraw Federation of India</div>
-                    <div className="text-[8px] opacity-60 mt-1">HARYANA CHAPTER</div>
+                    <div className="text-xl font-black tracking-tighter mb-0.5">{brandTitle}</div>
+                    <div className="text-[10px] font-black uppercase tracking-[0.16em] opacity-80 text-center leading-tight">
+                        {brandSubtitle}
+                    </div>
+                    <div className="text-[8px] opacity-70 mt-1 text-center">{brandCaption}</div>
                 </div>
 
                 {/* Card Body */}
@@ -46,19 +65,32 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
 
                     <div className="mt-6 text-center">
                         <h2 className="text-xl font-black text-gray-900 tracking-tight">{profile.fullName?.toUpperCase()}</h2>
-                        <div className="inline-block mt-2 px-3 py-1 bg-purple-50 rounded-full">
-                            <span className="text-xs font-black text-[#5a0a8f] tracking-widest">{profile.playerId || 'PENDING'}</span>
+                        <div className="inline-block mt-2 px-3 py-1 bg-gray-100 rounded-full">
+                            <span className="text-[11px] font-semibold text-gray-700 tracking-widest">{profile.playerId || 'ID PENDING'}</span>
+                        </div>
+                        <div className="flex items-center gap-2 justify-center mt-2 flex-wrap">
+                            <div className="inline-block px-3 py-1 bg-purple-50 rounded-full">
+                                <span className="text-[11px] font-black text-[#5a0a8f] tracking-widest">{roleLabel}</span>
+                            </div>
                         </div>
                     </div>
 
                     <div className="w-full mt-8 grid grid-cols-2 gap-y-4 gap-x-8 px-4">
                         <div>
                             <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">District</div>
-                            <div className="text-xs font-bold text-gray-800 truncate">{profile.district || '—'}</div>
+                            <div className="text-xs font-bold text-gray-800 break-words leading-snug">{districtName}</div>
                         </div>
                         <div>
                             <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Date of Birth</div>
                             <div className="text-xs font-bold text-gray-800 truncate">{profile.dateOfBirth || '—'}</div>
+                        </div>
+                        <div>
+                            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Father Name</div>
+                            <div className="text-xs font-bold text-gray-800 truncate">{profile.fatherName || '—'}</div>
+                        </div>
+                        <div>
+                            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Phone</div>
+                            <div className="text-xs font-bold text-gray-800 truncate">{profile.phone || '—'}</div>
                         </div>
                         <div>
                             <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Category</div>
@@ -79,7 +111,7 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
                                 ))}
                             </div>
                             <div className="absolute inset-0 bg-white/80 opacity-0 group-hover/barcode:opacity-100 transition-opacity flex items-center justify-center">
-                                <span className="text-[10px] font-black tracking-widest text-[#5a0a8f]">PLAYER IDENTITY CARD</span>
+                                <span className="text-[10px] font-black tracking-widest text-[#5a0a8f]">{identityLabel}</span>
                             </div>
                         </div>
                         <p className="text-[8px] font-medium text-gray-400 mt-2 tracking-widest uppercase">Verified Sports Identity Card</p>

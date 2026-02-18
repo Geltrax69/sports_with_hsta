@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { apiRequest, API_BASE_URL } from '../../lib/api'
+import { PlayerIDCard } from '../../components/player/PlayerIDCard'
 
 type Tournament = {
   _id: string
@@ -36,6 +37,10 @@ type CoachProfile = {
   profilePhoto?: string
   profilePhotoKey?: string
   status?: string
+  fatherName?: string
+  dateOfBirth?: string
+  gender?: string
+  category?: string
 }
 
 export function CoachDashboard() {
@@ -50,6 +55,23 @@ export function CoachDashboard() {
   const [loadingCertificates, setLoadingCertificates] = useState(false)
   const [coachProfile, setCoachProfile] = useState<CoachProfile | null>(null)
   const [showIdCard, setShowIdCard] = useState(false)
+
+  const identityProfile = useMemo(() => {
+    const base = coachProfile || (user?.name ? { fullName: user.name, _id: user.id || 'pending' } : null)
+    if (!base) return null
+    return {
+      ...base,
+      role: 'Coach',
+      playerId: coachProfile?.coachId || coachProfile?._id || user?.id || 'PENDING',
+      fullName: base.fullName,
+      fatherName: coachProfile?.fatherName || base.fatherName,
+      phone: coachProfile?.phone || base.phone,
+      dateOfBirth: coachProfile?.dateOfBirth || (base as any).dateOfBirth,
+      gender: coachProfile?.gender || (base as any).gender,
+      category: coachProfile?.category || (base as any).category,
+      district: coachProfile?.district || (base as any).district,
+    }
+  }, [coachProfile, user])
 
   const refreshMyRegistrations = async () => {
     setLoadingRegs(true)
@@ -101,8 +123,8 @@ export function CoachDashboard() {
 
       if (!cancelled) {
         try {
-          const resp = await apiRequest<{ coach: CoachProfile }>('/coaches/me', { auth: true })
-          if (!cancelled) setCoachProfile(resp.coach || null)
+          const resp = await apiRequest<{ profile: CoachProfile }>('/coaches/me', { auth: true })
+          if (!cancelled) setCoachProfile(resp.profile || null)
         } catch (e) {
           if (!cancelled) setCoachProfile(null)
           if (!cancelled && !error) {
@@ -180,7 +202,6 @@ export function CoachDashboard() {
   const coachRegistrations = myRegistrations.filter((r) => r.registerAs === 'coach')
   const approvedCount = coachRegistrations.filter((r) => r.status === 'approved').length
   const pendingCount = coachRegistrations.filter((r) => r.status === 'pending').length
-  const displayPhoto = coachProfile?.profilePhoto || user?.avatar
 
   const handleDownload = (certId: string, fileName: string) => {
     const url = `${API_BASE_URL}/certificates/${certId}/download`
@@ -468,65 +489,8 @@ export function CoachDashboard() {
         )}
       </div>
 
-      {showIdCard && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="p-5 border-b border-gray-200 flex items-center justify-between">
-              <div>
-                <div className="text-xs uppercase tracking-[0.2em] text-gray-500">Coach Identity</div>
-                <div className="text-lg font-black text-gray-900">Haryana Sports</div>
-              </div>
-              <button
-                type="button"
-                className="text-gray-500 hover:text-gray-800"
-                onClick={() => setShowIdCard(false)}
-                aria-label="Close coach ID"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            <div className="p-5 flex gap-4">
-              <div className="w-16 h-16 rounded-full bg-gray-100 overflow-hidden flex-shrink-0">
-                {displayPhoto ? (
-                  <img src={displayPhoto} alt={coachProfile?.fullName || user?.name || 'Coach'} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-2xl font-bold">
-                    {(coachProfile?.fullName || user?.name || 'C').slice(0, 1).toUpperCase()}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex-1 space-y-1">
-                <div className="text-sm text-gray-600">Name</div>
-                <div className="text-lg font-bold text-gray-900">{coachProfile?.fullName || user?.name || 'Coach'}</div>
-
-                <div className="text-sm text-gray-600">Coach ID</div>
-                <div className="text-base font-mono tracking-wide text-gray-900 bg-gray-50 px-2 py-1 rounded">
-                  {coachProfile?.coachId || 'Not assigned yet'}
-                </div>
-
-                <div className="text-sm text-gray-600">District</div>
-                <div className="text-base text-gray-900">{coachProfile?.district || '—'}</div>
-              </div>
-            </div>
-
-            <div className="px-5 pb-5 flex items-center justify-between text-sm text-gray-600">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-gray-500">check_circle</span>
-                <span>{coachProfile?.status ? coachProfile.status.toUpperCase() : 'APPROVED'}</span>
-              </div>
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#5a0a8f] text-white font-semibold hover:bg-[#400466] transition-colors"
-                onClick={() => setShowIdCard(false)}
-              >
-                <span className="material-symbols-outlined text-base">check</span>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+      {showIdCard && identityProfile && (
+        <PlayerIDCard profile={identityProfile} onClose={() => setShowIdCard(false)} />
       )}
     </div>
   )

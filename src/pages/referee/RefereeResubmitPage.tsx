@@ -2,13 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { apiRequest } from '../../lib/api'
 import { useDistricts } from '../../context/DistrictsContext'
-import { useAuth } from '../../context/AuthContext'
 
 export function RefereeResubmitPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { districts } = useDistricts()
-  const { user } = useAuth()
 
   const inputClass =
     'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] text-gray-900 placeholder:text-gray-400'

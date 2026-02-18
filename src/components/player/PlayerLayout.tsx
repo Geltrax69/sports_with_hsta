@@ -91,8 +91,8 @@ export function PlayerLayout() {
 
             {sidebarOpen && (
               <div>
-                <div className="font-black text-sm text-gray-900">STFI</div>
-                <div className="text-xs text-gray-500">Player Portal</div>
+                <div className="font-black text-sm text-gray-900">HSTA</div>
+                <div className="text-xs text-gray-500">Haryana Sepak Takraw Association</div>
               </div>
             )}
           </div>

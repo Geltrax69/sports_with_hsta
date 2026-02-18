@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { apiRequest, API_BASE_URL } from '../../lib/api'
-import { RefereeIDCard } from '../../components/referee/RefereeIDCard'
+import { PlayerIDCard } from '../../components/player/PlayerIDCard'
 
 type Tournament = {
   _id: string
@@ -39,6 +39,22 @@ export function RefereeDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [certificates, setCertificates] = useState<any[]>([])
   const [loadingCertificates, setLoadingCertificates] = useState(false)
+  const identityProfile = useMemo(() => {
+    const base = profile || (user?.name ? { fullName: user.name, _id: user.id || 'pending' } : null)
+    if (!base) return null
+    return {
+      ...base,
+      role: 'Referee',
+      playerId: profile?.refereeId || profile?._id || user?.id || 'PENDING',
+      fullName: base.fullName,
+      fatherName: profile?.fatherName || base.fatherName,
+      phone: profile?.phone || base.phone,
+      dateOfBirth: profile?.dateOfBirth || (base as any).dateOfBirth,
+      gender: profile?.gender || (base as any).gender,
+      category: profile?.category || (base as any).category,
+      district: profile?.district || (base as any).district,
+    }
+  }, [profile, user])
 
   const refreshMyRegistrations = async () => {
     setLoadingRegs(true)
@@ -458,8 +474,8 @@ export function RefereeDashboard() {
         )}
       </div>
 
-      {showIdCard && (
-        <RefereeIDCard profile={profile} onClose={() => setShowIdCard(false)} />
+      {showIdCard && identityProfile && (
+        <PlayerIDCard profile={identityProfile} onClose={() => setShowIdCard(false)} />
       )}
     </div>
   )
