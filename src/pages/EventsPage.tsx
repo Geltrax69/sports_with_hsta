@@ -25,6 +25,7 @@ type Match = {
   time: string
   bracket?: 'winner' | 'loser'
   description?: string
+  winner?: 'team1' | 'team2' | 'tie' | null
 }
 
 function statusBadgeClasses(status?: TournamentStatus) {
@@ -460,12 +461,21 @@ export function EventsPage() {
                             {new Date(`2000-01-01T${match.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                           </td>
                           <td className="px-2 sm:px-4 py-2 sm:py-3">
-                            <span className={`inline-flex px-2 sm:px-3 py-1 rounded-full font-medium text-xs whitespace-nowrap ${match.bracket === 'winner'
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-orange-100 text-orange-700'
-                              }`}>
-                              {match.bracket === 'winner' ? '🏆 Win' : '🔻 Lose'}
-                            </span>
+                            {(() => {
+                              const winnerLabel = match.winner === 'team1' ? match.team1 : match.winner === 'team2' ? match.team2 : match.winner === 'tie' ? 'Tie' : null
+                              const badgeText = winnerLabel ? `🏆 ${winnerLabel}` : match.bracket === 'winner' ? '🏆 Win' : '🔻 Lose'
+                              const badgeClass = winnerLabel
+                                ? 'bg-green-100 text-green-700'
+                                : match.bracket === 'winner'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-orange-100 text-orange-700'
+
+                              return (
+                                <span className={`inline-flex px-2 sm:px-3 py-1 rounded-full font-medium text-xs whitespace-nowrap ${badgeClass}`}>
+                                  {badgeText}
+                                </span>
+                              )
+                            })()}
                           </td>
                         </tr>
                       ))}
