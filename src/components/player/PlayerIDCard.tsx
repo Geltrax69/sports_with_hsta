@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom'
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
+import domtoimage from 'dom-to-image-more'
 import { useDistricts } from '../../context/DistrictsContext'
 
 interface PlayerIDCardProps {
@@ -11,6 +12,9 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
     if (!profile) return null
 
     const { districts } = useDistricts()
+    const cardRef = useRef<HTMLDivElement>(null)
+    const logoUrl = `${import.meta.env.BASE_URL}assets/images/logo.png`
+    const signatureUrl = `${import.meta.env.BASE_URL}assets/images/signature.png`
 
     const districtName = useMemo(() => {
         const match = districts.find((d: any) => d._id === profile.district || d.id === profile.district || d.code === profile.district || d.slug === profile.district)
@@ -25,13 +29,80 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
     const brandSubtitle = isReferee ? 'SEPAKTAKRAW FEDERATION OF INDIA' : 'Haryana Sepak Takraw Association'
     const brandCaption = isReferee ? 'OFFICIAL REFEREE' : 'Affiliated to Sepaktakraw Federation of India'
 
+    const handleDownload = async () => {
+        if (!cardRef.current) return
+        try {
+            // Clone the card so we can safely swap out cross-origin assets without flicker
+            const cloned = cardRef.current.cloneNode(true) as HTMLElement | null
+            if (!cloned) return
+
+            // Preserve exact size to avoid zero-size snapshots
+            const rect = cardRef.current.getBoundingClientRect()
+            cloned.style.position = 'absolute'
+            cloned.style.top = '-10000px'
+            cloned.style.left = '-10000px'
+            cloned.style.opacity = '1'
+            cloned.style.pointerEvents = 'none'
+            cloned.style.width = `${rect.width}px`
+            cloned.style.height = `${rect.height}px`
+
+            // Replace cross-origin images with a local placeholder to avoid CORS errors during capture
+            cloned.querySelectorAll('img').forEach((img) => {
+                const src = img.getAttribute('src') || ''
+                const isSameOrigin = src.startsWith(window.location.origin) || src.startsWith('/') || src.startsWith(import.meta.env.BASE_URL || '')
+                if (!isSameOrigin) {
+                    img.removeAttribute('srcset')
+                    img.setAttribute('crossorigin', 'anonymous')
+                    img.setAttribute('referrerpolicy', 'no-referrer')
+                    img.setAttribute('src', logoUrl)
+                }
+            })
+
+            // Wait for any images in the clone to finish loading before capture
+            const waitForImages = Array.from(cloned.querySelectorAll('img')).map(
+                (img) =>
+                    new Promise<void>((resolve) => {
+                        if (img.complete) return resolve()
+                        img.onload = img.onerror = () => resolve()
+                    })
+            )
+
+            document.body.appendChild(cloned)
+            await Promise.all(waitForImages)
+
+            const dataUrl = await domtoimage.toPng(cloned, {
+                bgcolor: '#ffffff',
+                cacheBust: true,
+                imagePlaceholder: logoUrl,
+            })
+
+            document.body.removeChild(cloned)
+            const link = document.createElement('a')
+            link.download = `${profile.fullName || 'id-card'}.png`
+            link.href = dataUrl
+            link.click()
+        } catch (err) {
+            console.error('Failed to download ID card', err)
+        }
+    }
+
     return createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div ref={cardRef} className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                 {/* Card Header (Branding) */}
                 <div className="bg-[#5a0a8f] p-6 text-white relative h-32 flex flex-col items-center justify-center">
-                    <div className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors cursor-pointer" onClick={onClose}>
-                        <span className="material-symbols-outlined">close</span>
+                    <div className="absolute top-4 right-4 flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleDownload}
+                            className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold tracking-wide backdrop-blur hover:bg-white/25 transition-colors"
+                        >
+                            <span className="material-symbols-outlined text-sm">download</span>
+                            Download
+                        </button>
+                        <button className="text-white/50 hover:text-white transition-colors cursor-pointer" onClick={onClose}>
+                            <span className="material-symbols-outlined">close</span>
+                        </button>
                     </div>
                     <div className="text-xl font-black tracking-tighter mb-0.5">{brandTitle}</div>
                     <div className="text-[10px] font-black uppercase tracking-[0.16em] opacity-80 text-center leading-tight">
@@ -41,7 +112,11 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
                 </div>
 
                 {/* Card Body */}
-                <div className="p-8 pb-10 flex flex-col items-center -mt-12">
+                <div className="p-8 pb-10 flex flex-col items-center -mt-12 relative overflow-hidden">
+                    <div
+                        className="absolute inset-0 pointer-events-none opacity-5 bg-center bg-no-repeat"
+                        style={{ backgroundImage: `url(${logoUrl})`, backgroundSize: '260px' }}
+                    />
                     {/* Profile Image container */}
                     <div className="relative group">
                         <div className="w-32 h-32 rounded-2xl bg-white p-1.5 shadow-xl">
@@ -77,7 +152,7 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
 
                     <div className="w-full mt-8 grid grid-cols-2 gap-y-4 gap-x-8 px-4">
                         <div>
-                            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">District</div>
+                            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">District Association</div>
                             <div className="text-xs font-bold text-gray-800 break-words leading-snug">{districtName}</div>
                         </div>
                         <div>
@@ -92,17 +167,19 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
                             <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Phone</div>
                             <div className="text-xs font-bold text-gray-800 truncate">{profile.phone || '—'}</div>
                         </div>
-                        <div>
-                            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Category</div>
-                            <div className="text-xs font-bold text-gray-800 truncate text-purple-700">{profile.category || 'GENERAL'}</div>
+                    </div>
+                    <div className="w-full mt-6 px-4 flex items-end justify-between gap-6">
+                        <div className="flex flex-col items-start">
+                            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Sports</div>
+                            <div className="text-sm font-black text-gray-900">SEPAKTRAW</div>
                         </div>
-                        <div>
-                            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Gender</div>
-                            <div className="text-xs font-bold text-gray-800 truncate">{profile.gender || '—'}</div>
+                        <div className="flex flex-col items-start">
+                            <img src={signatureUrl} alt="General Secretary Signature" className="h-12 object-contain opacity-80" />
+                            <span className="text-[9px] font-black text-gray-700 uppercase tracking-widest mt-1">General Secretary</span>
                         </div>
                     </div>
 
-                    <div className="w-full mt-10 pt-6 border-t border-dashed border-gray-200 flex flex-col items-center">
+                    <div className="w-full mt-6 pt-6 border-t border-dashed border-gray-200 flex flex-col items-center">
                         <div className="w-full h-12 bg-gray-50 rounded-lg border border-gray-100 flex items-center justify-center relative overflow-hidden group/barcode cursor-pointer">
                             {/* Aesthetic Barcode placeholder */}
                             <div className="flex gap-[2px] items-center h-full opacity-60">
