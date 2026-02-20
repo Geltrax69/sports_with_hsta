@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom'
 import { useMemo, useRef } from 'react'
 import domtoimage from 'dom-to-image-more'
 import { useDistricts } from '../../context/DistrictsContext'
+import { API_BASE_URL } from '../../lib/api'
 
 interface PlayerIDCardProps {
     profile: any
@@ -15,6 +16,24 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
     const cardRef = useRef<HTMLDivElement>(null)
     const logoUrl = `${import.meta.env.BASE_URL}assets/images/logo.png`
     const signatureUrl = `${import.meta.env.BASE_URL}assets/images/signature.png`
+
+    const profilePhotoUrl = useMemo(() => {
+        const src = profile?.profilePhoto as string | undefined
+        if (!src) return ''
+
+        const isRelative = src.startsWith('/')
+        if (isRelative) return src
+
+        try {
+            const url = new URL(src)
+            const sameOrigin = url.origin === window.location.origin
+            if (sameOrigin) return src
+        } catch {
+            // If URL parsing fails, fall back to proxy so download still works
+        }
+
+        return `${API_BASE_URL}/proxy/image?url=${encodeURIComponent(src)}`
+    }, [profile?.profilePhoto])
 
     const districtName = useMemo(() => {
         const match = districts.find((d: any) => d._id === profile.district || d.id === profile.district || d.code === profile.district || d.slug === profile.district)
@@ -32,11 +51,10 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
     const handleDownload = async () => {
         if (!cardRef.current) return
         try {
-            // Clone the card so we can safely swap out cross-origin assets without flicker
+            // Clone the card so we can safely prep it for export without changing the visible UI
             const cloned = cardRef.current.cloneNode(true) as HTMLElement | null
             if (!cloned) return
 
-            // Preserve exact size to avoid zero-size snapshots
             const rect = cardRef.current.getBoundingClientRect()
             cloned.style.position = 'absolute'
             cloned.style.top = '-10000px'
@@ -46,19 +64,98 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
             cloned.style.width = `${rect.width}px`
             cloned.style.height = `${rect.height}px`
 
-            // Replace cross-origin images with a local placeholder to avoid CORS errors during capture
-            cloned.querySelectorAll('img').forEach((img) => {
-                const src = img.getAttribute('src') || ''
-                const isSameOrigin = src.startsWith(window.location.origin) || src.startsWith('/') || src.startsWith(import.meta.env.BASE_URL || '')
-                if (!isSameOrigin) {
-                    img.removeAttribute('srcset')
-                    img.setAttribute('crossorigin', 'anonymous')
-                    img.setAttribute('referrerpolicy', 'no-referrer')
-                    img.setAttribute('src', logoUrl)
+            // Hide action buttons from the exported image
+            cloned.querySelectorAll('button').forEach((btn) => {
+                btn.style.display = 'none'
+            })
+
+            // Remove all borders, backgrounds, and shadows that create boxes around text
+            cloned.style.setProperty('border', 'none', 'important')
+            cloned.style.setProperty('box-shadow', 'none', 'important')
+            
+            // Remove borders and backgrounds from all child elements except specific ones
+            cloned.querySelectorAll('*').forEach((el: any) => {
+                const classList = el.classList.toString()
+                const textContent = el.textContent?.trim()
+                
+                // Keep borders/styling for specific elements
+                const keepBorders = (
+                    // Profile photo container and inner container
+                    classList.includes('w-32') && classList.includes('h-32') && classList.includes('rounded-full') ||
+                    classList.includes('w-full') && classList.includes('h-full') && classList.includes('rounded-full') ||
+                    // Barcode/identity card section  
+                    classList.includes('bg-gray-50') && classList.includes('rounded-lg') ||
+                    // Player role text (if it has specific styling)
+                    textContent === 'PLAYER'
+                )
+                
+                if (!keepBorders) {
+                    el.style.setProperty('border', 'none', 'important')
+                    el.style.setProperty('box-shadow', 'none', 'important')
+                    el.style.setProperty('outline', 'none', 'important')
+                    
+                    // Keep only essential backgrounds (like the purple header)
+                    if (!classList.includes('bg-[#5a0a8f]') && !classList.includes('bg-green-500') && !classList.includes('bg-yellow-500')) {
+                        if (classList.includes('bg-gray') || classList.includes('bg-white') || classList.includes('bg-purple')) {
+                            el.style.setProperty('background', 'transparent', 'important')
+                        }
+                    }
+                    
+                    // Remove rounded borders that create visible boxes (except for profile photo)
+                    if ((classList.includes('rounded') || classList.includes('border')) && !classList.includes('rounded-full')) {
+                        el.style.setProperty('border-radius', '0', 'important')
+                    }
                 }
             })
 
-            // Wait for any images in the clone to finish loading before capture
+            // Convert ALL images to data URLs to ensure they capture correctly
+            const inlineImages = async () => {
+                const images = Array.from(cloned.querySelectorAll('img'))
+                return Promise.all(
+                    images.map(async (img) => {
+                        const src = img.getAttribute('src') || ''
+                        if (!src) return
+
+                        try {
+                            // Create a canvas to draw the image and convert to data URL
+                            const canvas = document.createElement('canvas')
+                            const ctx = canvas.getContext('2d')
+                            if (!ctx) return
+
+                            // Create a new image element to load the current image
+                            const sourceImg = new Image()
+                            sourceImg.crossOrigin = 'anonymous'
+                            
+                            await new Promise<void>((resolve, reject) => {
+                                sourceImg.onload = () => {
+                                    canvas.width = sourceImg.naturalWidth || sourceImg.width
+                                    canvas.height = sourceImg.naturalHeight || sourceImg.height
+                                    ctx.drawImage(sourceImg, 0, 0)
+                                    
+                                    try {
+                                        const dataURL = canvas.toDataURL('image/png', 1.0)
+                                        img.setAttribute('src', dataURL)
+                                    } catch (e) {
+                                        console.warn('Failed to convert image to data URL:', e)
+                                    }
+                                    resolve()
+                                }
+                                sourceImg.onerror = () => {
+                                    console.warn('Failed to load image for inlining:', src)
+                                    resolve() // Don't reject, just skip this image
+                                }
+                                sourceImg.src = src
+                            })
+                        } catch (e) {
+                            console.warn('Failed to inline image:', e)
+                        }
+                    })
+                )
+            }
+
+            await inlineImages()
+
+            // Wait for images in the clone to finish loading before capture
             const waitForImages = Array.from(cloned.querySelectorAll('img')).map(
                 (img) =>
                     new Promise<void>((resolve) => {
@@ -70,10 +167,20 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
             document.body.appendChild(cloned)
             await Promise.all(waitForImages)
 
+            // Render at 2x scale for a sharper PNG
             const dataUrl = await domtoimage.toPng(cloned, {
                 bgcolor: '#ffffff',
-                cacheBust: true,
-                imagePlaceholder: logoUrl,
+                cacheBust: false, // Avoid breaking signed URLs (e.g., S3 presigned images)
+                width: rect.width * 2,
+                height: rect.height * 2,
+                fetchRequestInit: {
+                    mode: 'cors',
+                    credentials: 'omit',
+                },
+                style: {
+                    transform: 'scale(2)',
+                    transformOrigin: 'top left',
+                },
             })
 
             document.body.removeChild(cloned)
@@ -119,32 +226,26 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
                     />
                     {/* Profile Image container */}
                     <div className="relative group">
-                        <div className="w-32 h-32 rounded-2xl bg-white p-1.5 shadow-xl">
-                            <div className="w-full h-full rounded-xl bg-gray-100 overflow-hidden border border-gray-100 flex items-center justify-center">
+                        <div className="w-32 h-32 rounded-full bg-white p-1.5 shadow-xl">
+                            <div className="w-full h-full rounded-full overflow-hidden">
                                 {profile.profilePhoto ? (
-                                    <img src={profile.profilePhoto} alt={profile.fullName} className="w-full h-full object-cover" />
+                                    <img src={profilePhotoUrl} alt={profile.fullName} className="w-full h-full object-cover" crossOrigin="anonymous" />
                                 ) : (
-                                    <span className="material-symbols-outlined text-gray-300 text-5xl">person</span>
+                                    <div className="w-full h-full bg-gray-100 rounded-full flex items-center justify-center">
+                                        <span className="material-symbols-outlined text-gray-300 text-5xl">person</span>
+                                    </div>
                                 )}
-                            </div>
-                        </div>
-                        {/* Status light */}
-                        <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-white p-1 shadow-lg">
-                            <div className={`w-full h-full rounded-full flex items-center justify-center ${profile.status === 'approved' ? 'bg-green-500' : 'bg-yellow-500'}`}>
-                                <span className="material-symbols-outlined text-white text-[16px] font-bold">
-                                    {profile.status === 'approved' ? 'check' : 'pending'}
-                                </span>
                             </div>
                         </div>
                     </div>
 
                     <div className="mt-6 text-center">
                         <h2 className="text-xl font-black text-gray-900 tracking-tight">{profile.fullName?.toUpperCase()}</h2>
-                        <div className="inline-block mt-2 px-3 py-1 bg-gray-100 rounded-full">
+                        <div className="mt-2">
                             <span className="text-[11px] font-semibold text-gray-700 tracking-widest">{profile.playerId || 'ID PENDING'}</span>
                         </div>
                         <div className="flex items-center gap-2 justify-center mt-2 flex-wrap">
-                            <div className="inline-block px-3 py-1 bg-purple-50 rounded-full">
+                            <div className="inline-block px-3 py-1 bg-purple-50 rounded-full border border-purple-200">
                                 <span className="text-[11px] font-black text-[#5a0a8f] tracking-widest">{roleLabel}</span>
                             </div>
                         </div>
