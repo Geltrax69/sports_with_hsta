@@ -85,8 +85,8 @@ export function RefereeIDCard({ profile, onClose }: RefereeIDCardProps) {
                             <span className="material-symbols-outlined">close</span>
                         </button>
                     </div>
-                    <div className="text-xl font-black tracking-tighter mb-0.5">STFI</div>
-                    <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Sepaktakraw Federation of India</div>
+                    <div className="text-xl font-black tracking-tighter mb-0.5">HSTA</div>
+                    <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Haryana Sepak Takraw Association</div>
                     <div className="text-[8px] opacity-60 mt-1">OFFICIAL REFEREE</div>
                 </div>
 

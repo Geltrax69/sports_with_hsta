@@ -44,8 +44,8 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
     const identityLabel = `${roleLabel} IDENTITY CARD`
     const isReferee = roleLabel === 'REFEREE'
 
-    const brandTitle = isReferee ? 'STFI' : 'HSTA'
-    const brandSubtitle = isReferee ? 'SEPAKTAKRAW FEDERATION OF INDIA' : 'Haryana Sepak Takraw Association'
+    const brandTitle = isReferee ? 'HSTA' : 'HSTA'
+    const brandSubtitle = isReferee ? 'Haryana Sepak Takraw Association' : 'Haryana Sepak Takraw Association'
     const brandCaption = isReferee ? 'OFFICIAL REFEREE' : 'Affiliated to Sepaktakraw Federation of India'
 
     const handleDownload = async () => {
