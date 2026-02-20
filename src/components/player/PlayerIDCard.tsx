@@ -126,7 +126,7 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
                             const sourceImg = new Image()
                             sourceImg.crossOrigin = 'anonymous'
                             
-                            await new Promise<void>((resolve, reject) => {
+                            await new Promise<void>((resolve) => {
                                 sourceImg.onload = () => {
                                     canvas.width = sourceImg.naturalWidth || sourceImg.width
                                     canvas.height = sourceImg.naturalHeight || sourceImg.height
