@@ -33,3 +33,25 @@ body {
 .material-symbols-outlined.filled {
   font-variation-settings: "FILL" 1;
 }
+
+.forgot-input,
+.forgot-select {
+  color: #111827;
+  background-color: #ffffff;
+  -webkit-text-fill-color: #111827;
+  color-scheme: light;
+}
+
+.forgot-input::placeholder {
+  color: #9ca3af;
+}
+
+.forgot-input:-webkit-autofill,
+.forgot-input:-webkit-autofill:hover,
+.forgot-input:-webkit-autofill:focus,
+.forgot-select:-webkit-autofill,
+.forgot-select:-webkit-autofill:hover,
+.forgot-select:-webkit-autofill:focus {
+  -webkit-text-fill-color: #111827;
+  box-shadow: 0 0 0 1000px #ffffff inset;
+}

@@ -21,6 +21,7 @@ import { PlayersPage } from './pages/PlayersPage'
 import { PlayerDetailPage } from './pages/PlayerDetailPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { LoginPage } from './pages/LoginPage'
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { TournamentApplication } from './pages/TournamentApplication'
 import { ContactPage } from './pages/ContactPage'
 import { CertificatesPage } from './pages/CertificatesPage'
@@ -89,6 +90,7 @@ export default function App() {
                     <Route path="/players/:playerId" element={<PlayerDetailPage />} />
                     <Route path="/register" element={<RegisterPage />} />
                     <Route path="/login" element={<LoginPage />} />
+                    <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                     <Route path="/tournaments/:tournamentId/apply" element={<TournamentApplication />} />
                     <Route path="/contact" element={<ContactPage />} />
                     <Route path="/certificates" element={<CertificatesPage />} />
