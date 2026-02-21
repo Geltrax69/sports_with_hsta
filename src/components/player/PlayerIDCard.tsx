@@ -269,14 +269,17 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
                             <div className="text-xs font-bold text-gray-800 truncate">{profile.phone || '—'}</div>
                         </div>
                     </div>
-                    <div className="w-full mt-6 px-4 flex items-end justify-between gap-6">
-                        <div className="flex flex-col items-start">
+                    <div className="w-full mt-2 px-4 grid grid-cols-2 gap-6 items-start">
+                        <div className="flex flex-col items-start pt-16">
                             <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Sports</div>
-                            <div className="text-sm font-black text-gray-900">SEPAKTRAW</div>
+                            <div className="text-sm font-black text-gray-900">Sepaktakraw</div>
                         </div>
-                        <div className="flex flex-col items-start">
+                        <div className="flex flex-col items-start justify-start">
+                            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Authorized By</div>
                             <img src={signatureUrl} alt="General Secretary Signature" className="h-12 object-contain opacity-80" />
-                            <span className="text-[9px] font-black text-gray-700 uppercase tracking-widest mt-1">General Secretary</span>
+                            <span className="text-[10px] font-semibold text-gray-700 mt-1">Samshee singh</span>
+                            <span className="text-[9px] font-black text-gray-700 uppercase tracking-widest mt-0.5">General Secretary</span>
+                            <span className="text-[9px] font-semibold text-gray-600 uppercase tracking-wide mt-0.5">Haryana Sepak Takraw Association</span>
                         </div>
                     </div>
 
