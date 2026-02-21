@@ -283,7 +283,7 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
                     <div className="w-full mt-2 px-4 grid grid-cols-2 gap-6 items-start">
                         <div className="flex flex-col items-start pt-16">
                             <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Sports</div>
-                            <div className="text-sm font-black text-gray-900">Sepaktakraw</div>
+                            <div className="text-sm font-black text-gray-900">SEPAKTAKRAW</div>
                         </div>
                         <div className="flex flex-col items-start justify-start">
                             <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Authorized By</div>
