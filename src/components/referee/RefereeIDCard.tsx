@@ -11,6 +11,7 @@ export function RefereeIDCard({ profile, onClose }: RefereeIDCardProps) {
     if (!profile) return null
 
     const logoUrl = `${import.meta.env.BASE_URL}assets/images/logo.png`
+    const footballBgUrl = `${import.meta.env.BASE_URL}assets/images/football.png`
     const signatureUrl = `${import.meta.env.BASE_URL}assets/images/signature.png`
     const cardRef = useRef<HTMLDivElement>(null)
 
@@ -69,7 +70,12 @@ export function RefereeIDCard({ profile, onClose }: RefereeIDCardProps) {
 
     return createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200">
-            <div ref={cardRef} className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div
+                ref={cardRef}
+                className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative"
+                style={{ backgroundImage: `url(${footballBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+            >
+                <div className="absolute inset-0 bg-white/90 pointer-events-none" />
                 {/* Card Header (Branding) */}
                 <div className="bg-[#5a0a8f] p-6 text-white relative h-32 flex flex-col items-center justify-center">
                     <div className="absolute top-4 right-4 flex items-center gap-2">
@@ -85,8 +91,13 @@ export function RefereeIDCard({ profile, onClose }: RefereeIDCardProps) {
                             <span className="material-symbols-outlined">close</span>
                         </button>
                     </div>
-                    <div className="text-xl font-black tracking-tighter mb-0.5">HSTA</div>
-                    <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Haryana Sepak Takraw Association</div>
+                    <div className="flex items-center gap-2">
+                        <img src={logoUrl} alt="HSTA Logo" className="h-9 w-9 object-contain rounded-full bg-white/90 p-0.5" />
+                        <div className="text-left leading-tight">
+                            <div className="text-xl font-black tracking-tighter">HSTA</div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.16em] opacity-80">Haryana Sepak Takraw Association</div>
+                        </div>
+                    </div>
                     <div className="text-[8px] opacity-60 mt-1">OFFICIAL REFEREE</div>
                 </div>
 
