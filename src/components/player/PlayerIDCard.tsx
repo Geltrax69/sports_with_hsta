@@ -217,13 +217,13 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
                             <span className="material-symbols-outlined">close</span>
                         </button>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <img src={logoUrl} alt="HSTA Logo" className="h-9 w-9 object-contain rounded-full bg-white/90 p-0.5" />
-                        <div className="text-left leading-tight">
+                    <div className="flex flex-col items-center text-center gap-1">
+                        <div className="flex items-center gap-2 leading-none">
+                            <img src={logoUrl} alt="HSTA Logo" className="h-9 w-9 object-contain rounded-full bg-white/90 p-0.5" />
                             <div className="text-xl font-black tracking-tighter">{brandTitle}</div>
-                            <div className="text-[10px] font-black uppercase tracking-[0.16em] opacity-80">
-                                {brandSubtitle}
-                            </div>
+                        </div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.16em] opacity-80">
+                            {brandSubtitle}
                         </div>
                     </div>
                     <div className="text-[8px] opacity-70 mt-1 text-center">{brandCaption}</div>
