@@ -262,30 +262,30 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
                         </div>
                     </div>
 
-                    <div className="w-full mt-8 grid grid-cols-2 gap-y-4 gap-x-8 px-4">
-                        <div>
+                    <div className="w-full mt-8 grid grid-cols-2 gap-y-4 gap-x-8 px-4 text-center">
+                        <div className="flex flex-col items-center">
                             <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">District Association</div>
                             <div className="text-xs font-bold text-gray-800 break-words leading-snug">{districtName}</div>
                         </div>
-                        <div>
+                        <div className="flex flex-col items-center">
                             <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Date of Birth</div>
                             <div className="text-xs font-bold text-gray-800 truncate">{profile.dateOfBirth || '—'}</div>
                         </div>
-                        <div>
+                        <div className="flex flex-col items-center">
                             <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Father Name</div>
                             <div className="text-xs font-bold text-gray-800 truncate">{profile.fatherName || '—'}</div>
                         </div>
-                        <div>
+                        <div className="flex flex-col items-center">
                             <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Phone</div>
                             <div className="text-xs font-bold text-gray-800 truncate">{profile.phone || '—'}</div>
                         </div>
                     </div>
                     <div className="w-full mt-2 px-4 grid grid-cols-2 gap-6 items-start">
-                        <div className="flex flex-col items-start pt-16">
+                        <div className="flex flex-col items-center pt-16 text-center">
                             <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Sports</div>
                             <div className="text-sm font-black text-gray-900">SEPAKTAKRAW</div>
                         </div>
-                        <div className="flex flex-col items-start justify-start">
+                        <div className="flex flex-col items-center justify-start text-center">
                             <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Authorized By</div>
                             <img src={signatureUrl} alt="General Secretary Signature" className="h-12 object-contain opacity-80" />
                             <span className="text-[10px] font-semibold text-gray-700 mt-1">Samshee singh</span>
