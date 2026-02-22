@@ -154,7 +154,7 @@ export function RefereeIDCard({ profile, onClose }: RefereeIDCardProps) {
                         <div className="flex flex-col items-center justify-start text-center">
                             <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Authorized By</div>
                             <img src={signatureUrl} alt="General Secretary Signature" className="h-12 object-contain opacity-80" />
-                            <span className="text-[10px] font-semibold text-gray-700 mt-1">Samshee singh</span>
+                            <span className="text-[10px] font-semibold text-gray-700 mt-1">Shamsher Singh</span>
                             <span className="text-[9px] font-black text-gray-700 uppercase tracking-widest mt-0.5">General Secretary</span>
                             <span className="text-[9px] font-semibold text-gray-600 uppercase tracking-wide mt-0.5">Haryana Sepak Takraw Association</span>
                         </div>
