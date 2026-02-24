@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom'
 import { useMemo, useRef } from 'react'
-import domtoimage from 'dom-to-image-more'
+import { toPng } from 'html-to-image'
 import { useDistricts } from '../../context/DistrictsContext'
 import { API_BASE_URL } from '../../lib/api'
 
@@ -51,146 +51,28 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
 
     const handleDownload = async () => {
         if (!cardRef.current) return
+        const hiddenEls: HTMLElement[] = []
         try {
-            // Clone the card so we can safely prep it for export without changing the visible UI
-            const cloned = cardRef.current.cloneNode(true) as HTMLElement | null
-            if (!cloned) return
-
-            const rect = cardRef.current.getBoundingClientRect()
-            cloned.style.position = 'absolute'
-            cloned.style.top = '-10000px'
-            cloned.style.left = '-10000px'
-            cloned.style.opacity = '1'
-            cloned.style.pointerEvents = 'none'
-            cloned.style.width = `${rect.width}px`
-            cloned.style.height = `${rect.height}px`
-
-            // Hide action buttons from the exported image
-            cloned.querySelectorAll('button').forEach((btn) => {
-                btn.style.display = 'none'
+            cardRef.current.querySelectorAll<HTMLElement>('[data-export-hide="true"]').forEach((el) => {
+                hiddenEls.push(el)
+                el.style.visibility = 'hidden'
             })
 
-            // Remove all borders, backgrounds, and shadows that create boxes around text
-            cloned.style.setProperty('border', 'none', 'important')
-            cloned.style.setProperty('box-shadow', 'none', 'important')
-            
-            // Remove borders and backgrounds from all child elements except specific ones
-            cloned.querySelectorAll('*').forEach((el: any) => {
-                const classList = el.classList.toString()
-                const textContent = el.textContent?.trim()
-                
-                // Keep borders/styling for specific elements
-                const keepBorders = (
-                    // Profile photo container and inner container
-                    classList.includes('w-32') && classList.includes('h-32') && classList.includes('rounded-full') ||
-                    classList.includes('w-full') && classList.includes('h-full') && classList.includes('rounded-full') ||
-                    // Barcode/identity card section  
-                    classList.includes('bg-gray-50') && classList.includes('rounded-lg') ||
-                    // Player role text (if it has specific styling)
-                    textContent === 'PLAYER'
-                )
-                
-                if (!keepBorders) {
-                    el.style.setProperty('border', 'none', 'important')
-                    el.style.setProperty('box-shadow', 'none', 'important')
-                    el.style.setProperty('outline', 'none', 'important')
-                    
-                    // Keep only essential backgrounds (like the purple header)
-                    if (!classList.includes('bg-[#5a0a8f]') && !classList.includes('bg-green-500') && !classList.includes('bg-yellow-500')) {
-                        if (classList.includes('bg-gray') || classList.includes('bg-white') || classList.includes('bg-purple')) {
-                            el.style.setProperty('background', 'transparent', 'important')
-                        }
-                    }
-                    
-                    // Remove rounded borders that create visible boxes (except for profile photo)
-                    if ((classList.includes('rounded') || classList.includes('border')) && !classList.includes('rounded-full')) {
-                        el.style.setProperty('border-radius', '0', 'important')
-                    }
-                }
+            const dataUrl = await toPng(cardRef.current, {
+                cacheBust: false,
+                pixelRatio: 2,
+                backgroundColor: '#ffffff',
             })
-
-            // Convert ALL images to data URLs to ensure they capture correctly
-            const inlineImages = async () => {
-                const images = Array.from(cloned.querySelectorAll('img'))
-                return Promise.all(
-                    images.map(async (img) => {
-                        const src = img.getAttribute('src') || ''
-                        if (!src) return
-
-                        try {
-                            // Create a canvas to draw the image and convert to data URL
-                            const canvas = document.createElement('canvas')
-                            const ctx = canvas.getContext('2d')
-                            if (!ctx) return
-
-                            // Create a new image element to load the current image
-                            const sourceImg = new Image()
-                            sourceImg.crossOrigin = 'anonymous'
-                            
-                            await new Promise<void>((resolve) => {
-                                sourceImg.onload = () => {
-                                    canvas.width = sourceImg.naturalWidth || sourceImg.width
-                                    canvas.height = sourceImg.naturalHeight || sourceImg.height
-                                    ctx.drawImage(sourceImg, 0, 0)
-                                    
-                                    try {
-                                        const dataURL = canvas.toDataURL('image/png', 1.0)
-                                        img.setAttribute('src', dataURL)
-                                    } catch (e) {
-                                        console.warn('Failed to convert image to data URL:', e)
-                                    }
-                                    resolve()
-                                }
-                                sourceImg.onerror = () => {
-                                    console.warn('Failed to load image for inlining:', src)
-                                    resolve() // Don't reject, just skip this image
-                                }
-                                sourceImg.src = src
-                            })
-                        } catch (e) {
-                            console.warn('Failed to inline image:', e)
-                        }
-                    })
-                )
-            }
-
-            await inlineImages()
-
-            // Wait for images in the clone to finish loading before capture
-            const waitForImages = Array.from(cloned.querySelectorAll('img')).map(
-                (img) =>
-                    new Promise<void>((resolve) => {
-                        if (img.complete) return resolve()
-                        img.onload = img.onerror = () => resolve()
-                    })
-            )
-
-            document.body.appendChild(cloned)
-            await Promise.all(waitForImages)
-
-            // Render at 2x scale for a sharper PNG
-            const dataUrl = await domtoimage.toPng(cloned, {
-                bgcolor: '#ffffff',
-                cacheBust: false, // Avoid breaking signed URLs (e.g., S3 presigned images)
-                width: rect.width * 2,
-                height: rect.height * 2,
-                fetchRequestInit: {
-                    mode: 'cors',
-                    credentials: 'omit',
-                },
-                style: {
-                    transform: 'scale(2)',
-                    transformOrigin: 'top left',
-                },
-            })
-
-            document.body.removeChild(cloned)
             const link = document.createElement('a')
             link.download = `${profile.fullName || 'id-card'}.png`
             link.href = dataUrl
             link.click()
         } catch (err) {
             console.error('Failed to download ID card', err)
+        } finally {
+            hiddenEls.forEach((el) => {
+                el.style.visibility = ''
+            })
         }
     }
 
@@ -204,7 +86,7 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
                 <div className="absolute inset-0 bg-white/90 pointer-events-none" />
                 {/* Card Header (Branding) */}
                 <div className="bg-[#5a0a8f] p-6 text-white relative h-32 flex flex-col items-center justify-center">
-                    <div className="absolute top-4 right-4 flex items-center gap-2">
+                    <div data-export-hide="true" className="absolute top-4 right-4 flex items-center gap-2">
                         <button
                             type="button"
                             onClick={handleDownload}

@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom'
 import { useRef } from 'react'
-import domtoimage from 'dom-to-image-more'
+import { toPng } from 'html-to-image'
 
 interface RefereeIDCardProps {
     profile: any
@@ -17,54 +17,29 @@ export function RefereeIDCard({ profile, onClose }: RefereeIDCardProps) {
 
     const handleDownload = async () => {
         if (!cardRef.current) return
+        const hiddenEls: HTMLElement[] = []
         try {
-            const cloned = cardRef.current.cloneNode(true) as HTMLElement | null
-            if (!cloned) return
-
-            const rect = cardRef.current.getBoundingClientRect()
-            cloned.style.position = 'absolute'
-            cloned.style.top = '-10000px'
-            cloned.style.left = '-10000px'
-            cloned.style.opacity = '1'
-            cloned.style.pointerEvents = 'none'
-            cloned.style.width = `${rect.width}px`
-            cloned.style.height = `${rect.height}px`
-
-            cloned.querySelectorAll('img').forEach((img) => {
-                const src = img.getAttribute('src') || ''
-                const isSameOrigin = src.startsWith(window.location.origin) || src.startsWith('/') || src.startsWith(import.meta.env.BASE_URL || '')
-                if (!isSameOrigin) {
-                    img.removeAttribute('srcset')
-                    img.setAttribute('crossorigin', 'anonymous')
-                    img.setAttribute('referrerpolicy', 'no-referrer')
-                    img.setAttribute('src', logoUrl)
-                }
+            cardRef.current.querySelectorAll<HTMLElement>('[data-export-hide="true"]').forEach((el) => {
+                hiddenEls.push(el)
+                el.style.visibility = 'hidden'
             })
 
-            const waitForImages = Array.from(cloned.querySelectorAll('img')).map(
-                (img) =>
-                    new Promise<void>((resolve) => {
-                        if (img.complete) return resolve()
-                        img.onload = img.onerror = () => resolve()
-                    })
-            )
-
-            document.body.appendChild(cloned)
-            await Promise.all(waitForImages)
-
-            const dataUrl = await domtoimage.toPng(cloned, {
-                bgcolor: '#ffffff',
-                cacheBust: true,
-                imagePlaceholder: logoUrl,
+            const dataUrl = await toPng(cardRef.current, {
+                cacheBust: false,
+                pixelRatio: 2,
+                backgroundColor: '#ffffff',
             })
 
-            document.body.removeChild(cloned)
             const link = document.createElement('a')
             link.download = `${profile.fullName || 'id-card'}.png`
             link.href = dataUrl
             link.click()
         } catch (err) {
             console.error('Failed to download ID card', err)
+        } finally {
+            hiddenEls.forEach((el) => {
+                el.style.visibility = ''
+            })
         }
     }
 
@@ -78,7 +53,7 @@ export function RefereeIDCard({ profile, onClose }: RefereeIDCardProps) {
                 <div className="absolute inset-0 bg-white/90 pointer-events-none" />
                 {/* Card Header (Branding) */}
                 <div className="bg-[#5a0a8f] p-6 text-white relative h-32 flex flex-col items-center justify-center">
-                    <div className="absolute top-4 right-4 flex items-center gap-2">
+                    <div data-export-hide="true" className="absolute top-4 right-4 flex items-center gap-2">
                         <button
                             type="button"
                             onClick={handleDownload}
