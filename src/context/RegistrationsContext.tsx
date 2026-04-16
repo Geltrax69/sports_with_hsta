@@ -69,7 +69,7 @@ type RegistrationsContextType = {
   addRegistration: (registration: Omit<PlayerRegistration, 'id' | 'submittedAt' | 'status'>) => string
   createAdminRegistration: (
     type: 'player' | 'coach' | 'referee',
-    registration: Partial<PlayerRegistration>,
+    registration: FormData,
   ) => Promise<void>
   updateRegistration: (id: string, updates: Partial<PlayerRegistration>) => void
   deleteRegistration: (id: string) => void
@@ -214,7 +214,7 @@ export function RegistrationsProvider({ children }: { children: ReactNode }) {
 
   const createAdminRegistration = async (
     type: 'player' | 'coach' | 'referee',
-    registrationData: Partial<PlayerRegistration>,
+    registrationData: FormData,
   ) => {
     if (user?.role !== 'admin') {
       throw new Error('Not authorized')
@@ -224,7 +224,7 @@ export function RegistrationsProvider({ children }: { children: ReactNode }) {
     await apiRequest(path, {
       method: 'POST',
       auth: true,
-      body: JSON.stringify(registrationData),
+      body: registrationData,
     })
 
     await refreshFromBackend()
