@@ -79,6 +79,32 @@ type Match = {
     winner?: 'team1' | 'team2' | null
   }[]
   winner?: 'team1' | 'team2' | 'tie'
+  team1Players?: {
+    player?: {
+      _id?: string
+      fullName?: string
+      name?: string
+    } | string
+    jerseyNumber?: number
+    position?: string
+    isCaptain?: boolean
+    isSubstitute?: boolean
+    entryTime?: string
+    exitTime?: string
+  }[]
+  team2Players?: {
+    player?: {
+      _id?: string
+      fullName?: string
+      name?: string
+    } | string
+    jerseyNumber?: number
+    position?: string
+    isCaptain?: boolean
+    isSubstitute?: boolean
+    entryTime?: string
+    exitTime?: string
+  }[]
 }
 
 type Stats = {
@@ -97,6 +123,8 @@ type SimpleMatchPlayer = {
   position?: string
   isCaptain?: boolean
   isSubstitute?: boolean
+  entryTime?: string
+  exitTime?: string
 }
 
 type Coach = {
@@ -260,6 +288,18 @@ export function TournamentRegistrations() {
   const [quickRegType, setQuickRegType] = useState<'player' | 'coach' | 'referee'>('player')
   const [quickRegResults, setQuickRegResults] = useState<any[]>([])
   const [quickRegLoading, setQuickRegLoading] = useState(false)
+
+  const calculateTimePlayed = (entryTime?: string, exitTime?: string) => {
+    if (!entryTime || !exitTime) return '—'
+    const start = new Date(`1970-01-01T${entryTime}`)
+    const end = new Date(`1970-01-01T${exitTime}`)
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return '—'
+
+    const minutes = Math.floor((end.getTime() - start.getTime()) / 60000)
+    const hours = Math.floor(minutes / 60)
+    const remainingMinutes = minutes % 60
+    return hours > 0 ? `${hours}h ${remainingMinutes}m` : `${remainingMinutes} min`
+  }
 
   // Fetch tournament details
   useEffect(() => {
@@ -459,14 +499,34 @@ export function TournamentRegistrations() {
         if (!newState.simpleMatch.team1Players.some(p => p._id === player._id)) {
           newState.simpleMatch.team1Players = [
             ...newState.simpleMatch.team1Players,
-            { _id: player._id, fullName: player.fullName, playerId: player.playerId, jerseyNumber: undefined, position: '', isCaptain: false, isSubstitute: false }
+            {
+              _id: player._id,
+              fullName: player.fullName,
+              playerId: player.playerId,
+              jerseyNumber: undefined,
+              position: '',
+              isCaptain: false,
+              isSubstitute: false,
+              entryTime: '',
+              exitTime: '',
+            }
           ]
         }
       } else {
         if (!newState.simpleMatch.team2Players.some(p => p._id === player._id)) {
           newState.simpleMatch.team2Players = [
             ...newState.simpleMatch.team2Players,
-            { _id: player._id, fullName: player.fullName, playerId: player.playerId, jerseyNumber: undefined, position: '', isCaptain: false, isSubstitute: false }
+            {
+              _id: player._id,
+              fullName: player.fullName,
+              playerId: player.playerId,
+              jerseyNumber: undefined,
+              position: '',
+              isCaptain: false,
+              isSubstitute: false,
+              entryTime: '',
+              exitTime: '',
+            }
           ]
         }
       }
@@ -555,7 +615,14 @@ export function TournamentRegistrations() {
           simpleMatch: {
             ...prev.simpleMatch,
             team1Players: prev.simpleMatch.team1Players.map(p =>
-              p._id === playerId ? { ...p, isSubstitute: !p.isSubstitute } : p
+              p._id === playerId
+                ? {
+                    ...p,
+                    isSubstitute: !p.isSubstitute,
+                    entryTime: !p.isSubstitute ? p.entryTime || '' : '',
+                    exitTime: !p.isSubstitute ? p.exitTime || '' : '',
+                  }
+                : p
             )
           }
         }
@@ -565,10 +632,30 @@ export function TournamentRegistrations() {
           simpleMatch: {
             ...prev.simpleMatch,
             team2Players: prev.simpleMatch.team2Players.map(p =>
-              p._id === playerId ? { ...p, isSubstitute: !p.isSubstitute } : p
+              p._id === playerId
+                ? {
+                    ...p,
+                    isSubstitute: !p.isSubstitute,
+                    entryTime: !p.isSubstitute ? p.entryTime || '' : '',
+                    exitTime: !p.isSubstitute ? p.exitTime || '' : '',
+                  }
+                : p
             )
           }
         }
+      }
+    })
+  }
+
+  const updatePlayerSubstitutionTime = (side: 1 | 2, playerId: string, field: 'entryTime' | 'exitTime', value: string) => {
+    setWizard(prev => {
+      const key = side === 1 ? 'team1Players' : 'team2Players'
+      return {
+        ...prev,
+        simpleMatch: {
+          ...prev.simpleMatch,
+          [key]: prev.simpleMatch[key].map((player) => (player._id === playerId ? { ...player, [field]: value } : player)),
+        },
       }
     })
   }
@@ -715,14 +802,18 @@ export function TournamentRegistrations() {
             jerseyNumber: p.jerseyNumber || null,
             position: p.position || null,
             isCaptain: p.isCaptain || false,
-            isSubstitute: p.isSubstitute || false
+            isSubstitute: p.isSubstitute || false,
+            entryTime: p.isSubstitute ? p.entryTime || null : null,
+            exitTime: p.isSubstitute ? p.exitTime || null : null
           })),
           team2Players: wizard.simpleMatch.team2Players.map(p => ({
             player: p._id,
             jerseyNumber: p.jerseyNumber || null,
             position: p.position || null,
             isCaptain: p.isCaptain || false,
-            isSubstitute: p.isSubstitute || false
+            isSubstitute: p.isSubstitute || false,
+            entryTime: p.isSubstitute ? p.entryTime || null : null,
+            exitTime: p.isSubstitute ? p.exitTime || null : null
           })),
           referee: wizard.simpleMatch.referee?._id || null,
           assistantReferee: wizard.simpleMatch.assistantReferee?._id || null,
@@ -1076,6 +1167,34 @@ export function TournamentRegistrations() {
                             <span className="text-blue-700">Sub</span>
                           </label>
                         </div>
+                        {p.isSubstitute && (
+                          <div className="grid grid-cols-1 gap-2 rounded-lg border border-dashed border-blue-200 bg-blue-50/60 p-3 md:grid-cols-3">
+                            <div>
+                              <label className="mb-1 block text-xs font-semibold text-blue-700">Entry Time</label>
+                              <input
+                                type="time"
+                                value={p.entryTime || ''}
+                                onChange={(e) => updatePlayerSubstitutionTime(1, p._id, 'entryTime', e.target.value)}
+                                className="w-full rounded-lg border-2 border-blue-200 px-3 py-2 text-sm font-medium text-blue-900 focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-semibold text-blue-700">Exit Time</label>
+                              <input
+                                type="time"
+                                value={p.exitTime || ''}
+                                onChange={(e) => updatePlayerSubstitutionTime(1, p._id, 'exitTime', e.target.value)}
+                                className="w-full rounded-lg border-2 border-blue-200 px-3 py-2 text-sm font-medium text-blue-900 focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-semibold text-blue-700">Time Played</label>
+                              <div className="rounded-lg border-2 border-blue-100 bg-white px-3 py-2 text-sm font-bold text-blue-900">
+                                {calculateTimePlayed(p.entryTime, p.exitTime)}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1254,6 +1373,34 @@ export function TournamentRegistrations() {
                             <span className="text-orange-700">Sub</span>
                           </label>
                         </div>
+                        {p.isSubstitute && (
+                          <div className="grid grid-cols-1 gap-2 rounded-lg border border-dashed border-orange-200 bg-orange-50/60 p-3 md:grid-cols-3">
+                            <div>
+                              <label className="mb-1 block text-xs font-semibold text-orange-700">Entry Time</label>
+                              <input
+                                type="time"
+                                value={p.entryTime || ''}
+                                onChange={(e) => updatePlayerSubstitutionTime(2, p._id, 'entryTime', e.target.value)}
+                                className="w-full rounded-lg border-2 border-orange-200 px-3 py-2 text-sm font-medium text-orange-900 focus:outline-none focus:border-orange-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-semibold text-orange-700">Exit Time</label>
+                              <input
+                                type="time"
+                                value={p.exitTime || ''}
+                                onChange={(e) => updatePlayerSubstitutionTime(2, p._id, 'exitTime', e.target.value)}
+                                className="w-full rounded-lg border-2 border-orange-200 px-3 py-2 text-sm font-medium text-orange-900 focus:outline-none focus:border-orange-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-semibold text-orange-700">Time Played</label>
+                              <div className="rounded-lg border-2 border-orange-100 bg-white px-3 py-2 text-sm font-bold text-orange-900">
+                                {calculateTimePlayed(p.entryTime, p.exitTime)}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -2371,6 +2518,7 @@ export function TournamentRegistrations() {
             setSelectedMatchForScoreCard(null)
           }}
           onGenerate={handleGenerateScoreCard}
+          match={selectedMatchForScoreCard}
           matchTitle={`${typeof selectedMatchForScoreCard.team1 === 'string' ? selectedMatchForScoreCard.team1 : selectedMatchForScoreCard.team1} vs ${typeof selectedMatchForScoreCard.team2 === 'string' ? selectedMatchForScoreCard.team2 : selectedMatchForScoreCard.team2}`}
         />
       )}

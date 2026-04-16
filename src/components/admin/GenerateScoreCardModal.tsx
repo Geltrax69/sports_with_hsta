@@ -1,11 +1,40 @@
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 type GenerateScoreCardModalProps = {
     isOpen: boolean
     onClose: () => void
     onGenerate: (data: ScoreCardData) => void
     matchTitle: string
+    match?: MatchForScoreCard | null
+}
+
+type MatchForScoreCard = {
+    team1?: string
+    team2?: string
+    team1Players?: MatchPlayer[]
+    team2Players?: MatchPlayer[]
+}
+
+type MatchPlayer = {
+    player?: {
+        fullName?: string
+        name?: string
+    } | string
+    jerseyNumber?: number
+    isSubstitute?: boolean
+    entryTime?: string
+    exitTime?: string
+}
+
+export type ScoreCardSubstitution = {
+    team: 'team1' | 'team2'
+    teamLabel: string
+    playerName: string
+    jerseyNumber?: number
+    entryTime: string
+    exitTime: string
+    timePlayed: string
 }
 
 export type ScoreCardData = {
@@ -20,9 +49,47 @@ export type ScoreCardData = {
     remarks: string
     category: 'men' | 'women'
     chiefReferee: string
+    substitutions: ScoreCardSubstitution[]
 }
 
-export function GenerateScoreCardModal({ isOpen, onClose, onGenerate, matchTitle }: GenerateScoreCardModalProps) {
+const calculateTimePlayed = (entryTime?: string, exitTime?: string) => {
+    if (!entryTime || !exitTime) return '—'
+    const start = new Date(`1970-01-01T${entryTime}`)
+    const end = new Date(`1970-01-01T${exitTime}`)
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return '—'
+
+    const minutes = Math.floor((end.getTime() - start.getTime()) / 60000)
+    const hours = Math.floor(minutes / 60)
+    const remainingMinutes = minutes % 60
+    return hours > 0 ? `${hours}h ${remainingMinutes}m` : `${remainingMinutes} min`
+}
+
+const buildSubstitutionsFromMatch = (match?: MatchForScoreCard | null): ScoreCardSubstitution[] => {
+    if (!match) return []
+
+    const mapPlayer = (team: 'team1' | 'team2', teamLabel: string, players?: MatchPlayer[]) =>
+        (players || [])
+            .filter((player) => player.isSubstitute)
+            .map((player) => ({
+                team,
+                teamLabel,
+                playerName:
+                    typeof player.player === 'string'
+                        ? player.player
+                        : player.player?.fullName || player.player?.name || 'Substitute',
+                jerseyNumber: player.jerseyNumber,
+                entryTime: player.entryTime || '',
+                exitTime: player.exitTime || '',
+                timePlayed: calculateTimePlayed(player.entryTime, player.exitTime),
+            }))
+
+    return [
+        ...mapPlayer('team1', match.team1 || 'Team A', match.team1Players),
+        ...mapPlayer('team2', match.team2 || 'Team B', match.team2Players),
+    ]
+}
+
+export function GenerateScoreCardModal({ isOpen, onClose, onGenerate, matchTitle, match }: GenerateScoreCardModalProps) {
     const [data, setData] = useState<ScoreCardData>({
         matchNo: '',
         court: '',
@@ -34,14 +101,29 @@ export function GenerateScoreCardModal({ isOpen, onClose, onGenerate, matchTitle
         endTime: '',
         remarks: '',
         category: 'men',
-        chiefReferee: ''
+        chiefReferee: '',
+        substitutions: []
     })
+
+    useEffect(() => {
+        if (!isOpen) return
+        setData((prev) => ({
+            ...prev,
+            substitutions: buildSubstitutionsFromMatch(match),
+        }))
+    }, [isOpen, match])
 
     if (!isOpen) return null
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
-        onGenerate(data)
+        onGenerate({
+            ...data,
+            substitutions: data.substitutions.map((substitution) => ({
+                ...substitution,
+                timePlayed: calculateTimePlayed(substitution.entryTime, substitution.exitTime),
+            })),
+        })
         onClose()
     }
 
@@ -192,6 +274,81 @@ export function GenerateScoreCardModal({ isOpen, onClose, onGenerate, matchTitle
                             onChange={(e) => setData({ ...data, remarks: e.target.value })}
                             placeholder="Any warnings, cards issued, or special observations..."
                         />
+                    </div>
+
+                    <div className="space-y-4 border-t pt-4">
+                        <div>
+                            <h3 className="font-semibold text-gray-900">Substitution Timings</h3>
+                            <p className="text-sm text-gray-500">
+                                Record when each substitute entered and exited the match. Time played is calculated automatically.
+                            </p>
+                        </div>
+
+                        {data.substitutions.length === 0 ? (
+                            <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-500">
+                                No substitute players are marked for this match yet.
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {data.substitutions.map((substitution, index) => (
+                                    <div key={`${substitution.team}-${substitution.playerName}-${index}`} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                        <div className="mb-3 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                                            <div>
+                                                <div className="font-semibold text-gray-900">{substitution.playerName}</div>
+                                                <div className="text-xs text-gray-500">
+                                                    {substitution.teamLabel}
+                                                    {substitution.jerseyNumber ? ` • Jersey #${substitution.jerseyNumber}` : ''}
+                                                </div>
+                                            </div>
+                                            <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#5a0a8f] border border-[#e7d8f4]">
+                                                Played: {calculateTimePlayed(substitution.entryTime, substitution.exitTime)}
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Entry Time</label>
+                                                <input
+                                                    type="time"
+                                                    className="w-full px-3 py-2 border rounded-md focus:ring-[#5a0a8f] focus:border-[#5a0a8f] text-gray-900 bg-white"
+                                                    value={substitution.entryTime}
+                                                    onChange={(e) =>
+                                                        setData((prev) => ({
+                                                            ...prev,
+                                                            substitutions: prev.substitutions.map((item, itemIndex) =>
+                                                                itemIndex === index ? { ...item, entryTime: e.target.value } : item,
+                                                            ),
+                                                        }))
+                                                    }
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Exit Time</label>
+                                                <input
+                                                    type="time"
+                                                    className="w-full px-3 py-2 border rounded-md focus:ring-[#5a0a8f] focus:border-[#5a0a8f] text-gray-900 bg-white"
+                                                    value={substitution.exitTime}
+                                                    onChange={(e) =>
+                                                        setData((prev) => ({
+                                                            ...prev,
+                                                            substitutions: prev.substitutions.map((item, itemIndex) =>
+                                                                itemIndex === index ? { ...item, exitTime: e.target.value } : item,
+                                                            ),
+                                                        }))
+                                                    }
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Time Played</label>
+                                                <div className="w-full rounded-md border bg-white px-3 py-2 text-sm font-semibold text-gray-900">
+                                                    {calculateTimePlayed(substitution.entryTime, substitution.exitTime)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex justify-end gap-3 pt-4 border-t mt-4">
