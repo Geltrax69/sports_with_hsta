@@ -83,7 +83,7 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
                 className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative"
                 style={{ backgroundImage: `url(${footballBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
             >
-                <div className="absolute inset-0 bg-white/90 pointer-events-none" />
+                <div className="absolute inset-0 bg-white/94 pointer-events-none" />
                 {/* Card Header (Branding) */}
                 <div className="bg-[#5a0a8f] p-6 text-white relative h-32 flex flex-col items-center justify-center">
                     <div data-export-hide="true" className="absolute top-4 right-4 flex items-center gap-2">
@@ -114,7 +114,7 @@ export function PlayerIDCard({ profile, onClose }: PlayerIDCardProps) {
                 {/* Card Body */}
                 <div className="p-8 pb-10 flex flex-col items-center -mt-12 relative overflow-hidden">
                     <div
-                        className="absolute inset-0 pointer-events-none opacity-5 bg-center bg-no-repeat"
+                        className="absolute inset-0 pointer-events-none opacity-[0.035] bg-center bg-no-repeat"
                         style={{ backgroundImage: `url(${logoUrl})`, backgroundSize: '260px' }}
                     />
                     {/* Profile Image container */}

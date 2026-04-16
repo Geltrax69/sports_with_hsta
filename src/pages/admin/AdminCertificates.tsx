@@ -17,6 +17,7 @@ export function AdminCertificates() {
     const [winners, setTournamentWinners] = useState<{ first: string[], second: string[], third: string[] }>({ first: [], second: [], third: [] })
     const [position, setPosition] = useState<string>('1st Place')
     const [eventType, setEventType] = useState<string>('Regu')
+    const [certificateIds, setCertificateIds] = useState<Record<string, string>>({})
 
     // Signature State
     const [presidentName, setPresidentName] = useState('Jitender Singh')
@@ -55,7 +56,7 @@ export function AdminCertificates() {
 
     // Mock data as per user request
     const mockCertificateData = {
-        serialNumber: selectedParticipant?.playerId || '57',
+        serialNumber: (selectedParticipant?._id && certificateIds[selectedParticipant._id]) || 'ENTER CERTIFICATE ID',
         name: selectedParticipant?.fullName || 'SUDHIR',
         fatherName: selectedParticipant?.fatherName || 'SOMBIR',
         motherName: selectedParticipant?.motherName || 'SUNITA',
@@ -123,6 +124,15 @@ export function AdminCertificates() {
             return
         }
 
+        const missingCertificateIds = participants
+            .filter((participant) => !(certificateIds[participant._id] || '').trim())
+            .map((participant) => participant.fullName)
+
+        if (missingCertificateIds.length > 0) {
+            alert(`Please enter a certificate ID for all participants before generating. Missing: ${missingCertificateIds.slice(0, 5).join(', ')}${missingCertificateIds.length > 5 ? '...' : ''}`)
+            return
+        }
+
         if (!window.confirm(`Generate certificates for all ${participants.length} participants?`)) return
 
         setGenerating(true)
@@ -162,8 +172,7 @@ export function AdminCertificates() {
                 else if (p.role === 'coach') pPosition = 'Coach'
                 else if (p.role === 'referee') pPosition = 'Referee'
 
-                // Assign unique serial number if missing
-                const sNo = p.playerId && p.playerId !== 'N/A' ? p.playerId : `CERT-${p._id.slice(-6).toUpperCase()}-${Date.now().toString().slice(-4)}`
+                const sNo = (certificateIds[p._id] || '').trim()
 
                 const participantData = {
                     id: p._id,
@@ -237,6 +246,7 @@ export function AdminCertificates() {
         setSelectedTournamentId(tournamentId)
         setParticipants([])
         setSelectedParticipant(null)
+        setCertificateIds({})
 
         if (tournamentId) {
             const tournament = tournaments.find(t => t._id === tournamentId)
@@ -331,12 +341,26 @@ export function AdminCertificates() {
                 }))
 
             setParticipants(participantsList)
+            setCertificateIds(
+                participantsList.reduce((acc, participant) => {
+                    acc[participant._id] = ''
+                    return acc
+                }, {} as Record<string, string>)
+            )
         } catch (error) {
             console.error('Error fetching participants:', error)
             setParticipants([])
+            setCertificateIds({})
         } finally {
             setLoadingParticipants(false)
         }
+    }
+
+    const handleCertificateIdChange = (participantId: string, value: string) => {
+        setCertificateIds(prev => ({
+            ...prev,
+            [participantId]: value.toUpperCase()
+        }))
     }
 
     // Handle participant selection
@@ -551,21 +575,36 @@ export function AdminCertificates() {
                                                         : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
                                                         }`}
                                                 >
-                                                    {participant.profilePhoto ? (
-                                                        <img
-                                                            src={participant.profilePhoto}
-                                                            alt={participant.fullName}
-                                                            className="w-10 h-10 rounded-full object-cover border-2 border-gray-300"
-                                                        />
-                                                    ) : (
-                                                        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold">
-                                                            {participant.fullName?.charAt(0) || '?'}
+                                                    <div className="flex items-start gap-3 w-full">
+                                                        {participant.profilePhoto ? (
+                                                            <img
+                                                                src={participant.profilePhoto}
+                                                                alt={participant.fullName}
+                                                                className="w-10 h-10 rounded-full object-cover border-2 border-gray-300"
+                                                            />
+                                                        ) : (
+                                                            <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold">
+                                                                {participant.fullName?.charAt(0) || '?'}
+                                                            </div>
+                                                        )}
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="font-medium text-gray-900 truncate">{participant.fullName}</div>
+                                                            <div className="text-xs text-gray-500 capitalize">{participant.role}</div>
+                                                            {participant.district && <div className="text-xs text-gray-400 truncate">{participant.district}</div>}
+                                                            <div className="mt-2">
+                                                                <label className="block text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-1">
+                                                                    Certificate ID
+                                                                </label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={certificateIds[participant._id] || ''}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    onChange={(e) => handleCertificateIdChange(participant._id, e.target.value)}
+                                                                    placeholder="Enter certificate ID"
+                                                                    className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 focus:ring-2 focus:ring-purple-500"
+                                                                />
+                                                            </div>
                                                         </div>
-                                                    )}
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="font-medium text-gray-900 truncate">{participant.fullName}</div>
-                                                        <div className="text-xs text-gray-500 capitalize">{participant.role}</div>
-                                                        {participant.district && <div className="text-xs text-gray-400 truncate">{participant.district}</div>}
                                                     </div>
                                                 </button>
                                             ))}
@@ -577,6 +616,18 @@ export function AdminCertificates() {
 
                     {/* Event Details */}
                     <div className="md:col-span-2 space-y-4">
+                        {selectedParticipant && (
+                            <div>
+                                <label className="block text-xs text-gray-500 mb-1">Certificate ID for Selected Participant</label>
+                                <input
+                                    type="text"
+                                    value={certificateIds[selectedParticipant._id] || ''}
+                                    onChange={(e) => handleCertificateIdChange(selectedParticipant._id, e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 text-gray-900"
+                                    placeholder="Enter certificate ID manually"
+                                />
+                            </div>
+                        )}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <h3 className="text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Championship Title</h3>
