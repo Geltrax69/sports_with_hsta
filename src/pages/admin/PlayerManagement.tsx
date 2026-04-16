@@ -4,16 +4,18 @@ import { useRegistrations, type PlayerRegistration } from '../../context/Registr
 import { useDistricts } from '../../context/DistrictsContext'
 import { useAuth } from '../../context/AuthContext'
 import { EditPlayerModal } from '../../components/admin/EditPlayerModal.tsx'
+import { AdminCreateRegistrationModal } from '../../components/admin/AdminCreateRegistrationModal'
 import { downloadPlayersCsv } from '../../lib/adminPlayerExport'
 
 export function PlayerManagement() {
-  const { registrations, approveRegistration, rejectRegistration, deleteRegistration, updateRegistration } = useRegistrations()
+  const { registrations, approveRegistration, rejectRegistration, deleteRegistration, updateRegistration, createAdminRegistration } = useRegistrations()
   const { districts } = useDistricts()
   const { user } = useAuth()
 
   const [selectedRegistration, setSelectedRegistration] = useState<PlayerRegistration | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [registrationToEdit, setRegistrationToEdit] = useState<PlayerRegistration | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -197,7 +199,11 @@ export function PlayerManagement() {
             Export CSV
           </button>
           <Link
-            to="/register"
+            to="#"
+            onClick={(e) => {
+              e.preventDefault()
+              setShowCreateModal(true)
+            }}
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#5a0a8f] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#400466]"
           >
             <span className="material-symbols-outlined text-[18px]">person_add</span>
@@ -764,6 +770,13 @@ export function PlayerManagement() {
             setShowEditModal(false)
             setRegistrationToEdit(null)
           }}
+        />
+      )}
+      {showCreateModal && (
+        <AdminCreateRegistrationModal
+          role="player"
+          onClose={() => setShowCreateModal(false)}
+          onSubmit={(data) => createAdminRegistration('player', data)}
         />
       )}
     </div>

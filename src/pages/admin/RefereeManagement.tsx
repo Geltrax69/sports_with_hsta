@@ -4,14 +4,16 @@ import { useRegistrations, type PlayerRegistration } from '../../context/Registr
 import { useDistricts } from '../../context/DistrictsContext'
 import { useAuth } from '../../context/AuthContext'
 import { EditRefereeModal } from '../../components/admin/EditRefereeModal'
+import { AdminCreateRegistrationModal } from '../../components/admin/AdminCreateRegistrationModal'
 
 export function RefereeManagement() {
-  const { registrations, approveRegistration, rejectRegistration, deleteRegistration, updateRegistration } = useRegistrations()
+  const { registrations, approveRegistration, rejectRegistration, deleteRegistration, updateRegistration, createAdminRegistration } = useRegistrations()
   const { districts } = useDistricts()
   const { user } = useAuth()
   const [selectedRegistration, setSelectedRegistration] = useState<PlayerRegistration | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [registrationToEdit, setRegistrationToEdit] = useState<PlayerRegistration | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -129,7 +131,11 @@ export function RefereeManagement() {
             Bulk Upload
           </button>
           <Link
-            to="/register-referee"
+            to="#"
+            onClick={(e) => {
+              e.preventDefault()
+              setShowCreateModal(true)
+            }}
             className="flex items-center gap-2 bg-[#5a0a8f] hover:bg-[#400466] text-white px-5 py-2.5 rounded-lg font-bold transition-colors"
           >
             <span className="material-symbols-outlined">add</span>
@@ -671,6 +677,13 @@ export function RefereeManagement() {
             setShowEditModal(false)
             setRegistrationToEdit(null)
           }}
+        />
+      )}
+      {showCreateModal && (
+        <AdminCreateRegistrationModal
+          role="referee"
+          onClose={() => setShowCreateModal(false)}
+          onSubmit={(data) => createAdminRegistration('referee', data)}
         />
       )}
     </div>

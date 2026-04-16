@@ -67,6 +67,10 @@ type RegistrationsContextType = {
   registrations: PlayerRegistration[]
   tournamentRegistrations: TournamentRegistration[]
   addRegistration: (registration: Omit<PlayerRegistration, 'id' | 'submittedAt' | 'status'>) => string
+  createAdminRegistration: (
+    type: 'player' | 'coach' | 'referee',
+    registration: Partial<PlayerRegistration>,
+  ) => Promise<void>
   updateRegistration: (id: string, updates: Partial<PlayerRegistration>) => void
   deleteRegistration: (id: string) => void
   getRegistrationById: (id: string) => PlayerRegistration | undefined
@@ -206,6 +210,24 @@ export function RegistrationsProvider({ children }: { children: ReactNode }) {
     }
     setRegistrations([...registrations, newRegistration])
     return newRegistration.id
+  }
+
+  const createAdminRegistration = async (
+    type: 'player' | 'coach' | 'referee',
+    registrationData: Partial<PlayerRegistration>,
+  ) => {
+    if (user?.role !== 'admin') {
+      throw new Error('Not authorized')
+    }
+
+    const path = type === 'player' ? '/players/admin-create' : type === 'coach' ? '/coaches/admin-create' : '/referees/admin-create'
+    await apiRequest(path, {
+      method: 'POST',
+      auth: true,
+      body: JSON.stringify(registrationData),
+    })
+
+    await refreshFromBackend()
   }
 
   const deleteRegistration = (id: string) => {
@@ -352,6 +374,7 @@ export function RegistrationsProvider({ children }: { children: ReactNode }) {
         registrations,
         tournamentRegistrations,
         addRegistration,
+        createAdminRegistration,
         updateRegistration,
         deleteRegistration,
         getRegistrationById,
