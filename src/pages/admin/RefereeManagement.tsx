@@ -18,6 +18,7 @@ export function RefereeManagement() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [genderFilter, setGenderFilter] = useState<string>('all')
+  const [dobFilter, setDobFilter] = useState('')
 
   // Filter only referees
   const referees = registrations.filter((r) => r.type === 'referee')
@@ -35,9 +36,10 @@ export function RefereeManagement() {
         (reg.phone && reg.phone.includes(searchQuery))
       const matchesStatus = statusFilter === 'all' || reg.status === statusFilter
       const matchesGender = genderFilter === 'all' || reg.gender === genderFilter
-      return matchesSearch && matchesStatus && matchesGender
+      const matchesDob = !dobFilter || (reg.dateOfBirth || '').slice(0, 10) === dobFilter
+      return matchesSearch && matchesStatus && matchesGender && matchesDob
     })
-  }, [referees, searchQuery, statusFilter, genderFilter])
+  }, [referees, searchQuery, statusFilter, genderFilter, dobFilter])
 
   const handleViewDetails = (registration: PlayerRegistration) => {
     setSelectedRegistration(registration)
@@ -220,6 +222,13 @@ export function RefereeManagement() {
             <option value="male">Male</option>
             <option value="female">Female</option>
           </select>
+          <input
+            type="date"
+            value={dobFilter}
+            onChange={(e) => setDobFilter(e.target.value)}
+            className="w-full md:w-auto px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white"
+            aria-label="Filter referees by date of birth"
+          />
           <button className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium">
             <span className="material-symbols-outlined">download</span>
             Export

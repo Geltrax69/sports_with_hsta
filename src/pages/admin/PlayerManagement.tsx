@@ -22,8 +22,10 @@ export function PlayerManagement() {
   const [genderFilter, setGenderFilter] = useState<string>('all')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [districtFilter, setDistrictFilter] = useState<string>('all')
+  const [dobFilter, setDobFilter] = useState('')
 
   const normalizeValue = (value?: string) => (value || '').trim().toLowerCase()
+  const normalizeDateValue = (value?: string) => (value || '').trim().slice(0, 10)
 
   const resolveDistrictName = (districtValue?: string) => {
     const normalizedDistrictValue = normalizeValue(districtValue)
@@ -80,10 +82,11 @@ export function PlayerManagement() {
       const matchesDistrict =
         districtFilter === 'all' ||
         [registration.district, districtName].some((districtValue) => normalizeValue(districtValue) === districtFilter)
+      const matchesDob = !dobFilter || normalizeDateValue(registration.dateOfBirth) === dobFilter
 
-      return matchesSearch && matchesStatus && matchesGender && matchesCategory && matchesDistrict
+      return matchesSearch && matchesStatus && matchesGender && matchesCategory && matchesDistrict && matchesDob
     })
-  }, [players, searchQuery, statusFilter, genderFilter, categoryFilter, districtFilter, districts])
+  }, [players, searchQuery, statusFilter, genderFilter, categoryFilter, districtFilter, dobFilter, districts])
 
   const handleViewDetails = (registration: PlayerRegistration) => {
     setSelectedRegistration(registration)
@@ -170,6 +173,7 @@ export function PlayerManagement() {
     setGenderFilter('all')
     setCategoryFilter('all')
     setDistrictFilter('all')
+    setDobFilter('')
   }
 
   return (
@@ -272,7 +276,7 @@ export function PlayerManagement() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
           <label className="block xl:col-span-2">
             <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-500">Search</span>
             <div className="relative">
@@ -332,6 +336,16 @@ export function PlayerManagement() {
             </select>
           </label>
 
+          <label className="block">
+            <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-500">Date of Birth</span>
+            <input
+              type="date"
+              value={dobFilter}
+              onChange={(e) => setDobFilter(e.target.value)}
+              className="h-12 w-full rounded-xl border border-gray-300 bg-white px-4 text-sm text-gray-900 outline-none transition focus:border-[#5a0a8f] focus:ring-2 focus:ring-[#5a0a8f]/15"
+            />
+          </label>
+
           <label className="block md:col-span-2 xl:col-span-2">
             <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-500">Category</span>
             <select
@@ -348,7 +362,7 @@ export function PlayerManagement() {
             </select>
           </label>
 
-          <div className="flex items-end md:col-span-2 xl:col-span-3">
+          <div className="flex items-end md:col-span-2 xl:col-span-2">
             <button
               onClick={resetFilters}
               className="inline-flex h-12 items-center justify-center rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
