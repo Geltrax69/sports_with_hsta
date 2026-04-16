@@ -19,6 +19,26 @@ export function RefereeManagement() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [genderFilter, setGenderFilter] = useState<string>('all')
   const [dobFilter, setDobFilter] = useState('')
+  const matchesDateFilter = (dateValue: string, query: string) => {
+    const normalizedQuery = query.trim().toLowerCase()
+    if (!normalizedQuery) return true
+
+    const normalizedDate = (dateValue || '').trim().slice(0, 10)
+    if (!normalizedDate) return false
+
+    const parsedDate = new Date(normalizedDate)
+    const searchParts = [
+      normalizedDate,
+      normalizedDate.replaceAll('-', ''),
+      normalizedDate.split('-').reverse().join('/'),
+      Number.isNaN(parsedDate.getTime())
+        ? ''
+        : parsedDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toLowerCase(),
+      Number.isNaN(parsedDate.getTime()) ? '' : String(parsedDate.getFullYear()),
+    ].filter(Boolean)
+
+    return searchParts.some((part) => part.includes(normalizedQuery))
+  }
 
   // Filter only referees
   const referees = registrations.filter((r) => r.type === 'referee')
@@ -36,7 +56,7 @@ export function RefereeManagement() {
         (reg.phone && reg.phone.includes(searchQuery))
       const matchesStatus = statusFilter === 'all' || reg.status === statusFilter
       const matchesGender = genderFilter === 'all' || reg.gender === genderFilter
-      const matchesDob = !dobFilter || (reg.dateOfBirth || '').slice(0, 10) === dobFilter
+      const matchesDob = matchesDateFilter(reg.dateOfBirth, dobFilter)
       return matchesSearch && matchesStatus && matchesGender && matchesDob
     })
   }, [referees, searchQuery, statusFilter, genderFilter, dobFilter])
@@ -223,9 +243,10 @@ export function RefereeManagement() {
             <option value="female">Female</option>
           </select>
           <input
-            type="date"
+            type="text"
             value={dobFilter}
             onChange={(e) => setDobFilter(e.target.value)}
+            placeholder="DOB or year"
             className="w-full md:w-auto px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white"
             aria-label="Filter referees by date of birth"
           />

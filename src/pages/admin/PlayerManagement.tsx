@@ -26,6 +26,26 @@ export function PlayerManagement() {
 
   const normalizeValue = (value?: string) => (value || '').trim().toLowerCase()
   const normalizeDateValue = (value?: string) => (value || '').trim().slice(0, 10)
+  const matchesDateFilter = (dateValue: string, query: string) => {
+    const normalizedQuery = query.trim().toLowerCase()
+    if (!normalizedQuery) return true
+
+    const normalizedDate = normalizeDateValue(dateValue)
+    if (!normalizedDate) return false
+
+    const parsedDate = new Date(normalizedDate)
+    const searchParts = [
+      normalizedDate,
+      normalizedDate.replaceAll('-', ''),
+      normalizedDate.split('-').reverse().join('/'),
+      Number.isNaN(parsedDate.getTime())
+        ? ''
+        : parsedDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toLowerCase(),
+      Number.isNaN(parsedDate.getTime()) ? '' : String(parsedDate.getFullYear()),
+    ].filter(Boolean)
+
+    return searchParts.some((part) => part.includes(normalizedQuery))
+  }
 
   const resolveDistrictName = (districtValue?: string) => {
     const normalizedDistrictValue = normalizeValue(districtValue)
@@ -82,7 +102,7 @@ export function PlayerManagement() {
       const matchesDistrict =
         districtFilter === 'all' ||
         [registration.district, districtName].some((districtValue) => normalizeValue(districtValue) === districtFilter)
-      const matchesDob = !dobFilter || normalizeDateValue(registration.dateOfBirth) === dobFilter
+      const matchesDob = matchesDateFilter(registration.dateOfBirth, dobFilter)
 
       return matchesSearch && matchesStatus && matchesGender && matchesCategory && matchesDistrict && matchesDob
     })
@@ -339,9 +359,10 @@ export function PlayerManagement() {
           <label className="block">
             <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-500">Date of Birth</span>
             <input
-              type="date"
+              type="text"
               value={dobFilter}
               onChange={(e) => setDobFilter(e.target.value)}
+              placeholder="Search DOB or year, e.g. 2010"
               className="h-12 w-full rounded-xl border border-gray-300 bg-white px-4 text-sm text-gray-900 outline-none transition focus:border-[#5a0a8f] focus:ring-2 focus:ring-[#5a0a8f]/15"
             />
           </label>
