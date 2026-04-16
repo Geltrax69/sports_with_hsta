@@ -89,6 +89,16 @@ const buildSubstitutionsFromMatch = (match?: MatchForScoreCard | null): ScoreCar
     ]
 }
 
+const createEmptySubstitution = (match?: MatchForScoreCard | null): ScoreCardSubstitution => ({
+    team: 'team1',
+    teamLabel: match?.team1 || 'Team A',
+    playerName: '',
+    jerseyNumber: undefined,
+    entryTime: '',
+    exitTime: '',
+    timePlayed: '—',
+})
+
 export function GenerateScoreCardModal({ isOpen, onClose, onGenerate, matchTitle, match }: GenerateScoreCardModalProps) {
     const [data, setData] = useState<ScoreCardData>({
         matchNo: '',
@@ -107,9 +117,10 @@ export function GenerateScoreCardModal({ isOpen, onClose, onGenerate, matchTitle
 
     useEffect(() => {
         if (!isOpen) return
+        const substitutionsFromMatch = buildSubstitutionsFromMatch(match)
         setData((prev) => ({
             ...prev,
-            substitutions: buildSubstitutionsFromMatch(match),
+            substitutions: substitutionsFromMatch.length > 0 ? substitutionsFromMatch : [createEmptySubstitution(match)],
         }))
     }, [isOpen, match])
 
@@ -125,6 +136,35 @@ export function GenerateScoreCardModal({ isOpen, onClose, onGenerate, matchTitle
             })),
         })
         onClose()
+    }
+
+    const updateSubstitution = (index: number, patch: Partial<ScoreCardSubstitution>) => {
+        setData((prev) => ({
+            ...prev,
+            substitutions: prev.substitutions.map((item, itemIndex) => {
+                if (itemIndex !== index) return item
+
+                const nextItem = { ...item, ...patch }
+                if (patch.team) {
+                    nextItem.teamLabel = patch.team === 'team1' ? match?.team1 || 'Team A' : match?.team2 || 'Team B'
+                }
+                return nextItem
+            }),
+        }))
+    }
+
+    const addManualSubstitution = () => {
+        setData((prev) => ({
+            ...prev,
+            substitutions: [...prev.substitutions, createEmptySubstitution(match)],
+        }))
+    }
+
+    const removeSubstitution = (index: number) => {
+        setData((prev) => ({
+            ...prev,
+            substitutions: prev.substitutions.filter((_, itemIndex) => itemIndex !== index),
+        }))
     }
 
     return (
@@ -280,24 +320,64 @@ export function GenerateScoreCardModal({ isOpen, onClose, onGenerate, matchTitle
                         <div>
                             <h3 className="font-semibold text-gray-900">Substitution Timings</h3>
                             <p className="text-sm text-gray-500">
-                                Record when each substitute entered and exited the match. Time played is calculated automatically.
+                                Add substitute players manually here, then enter when they came in and went out. Time played is calculated automatically.
                             </p>
+                        </div>
+                        <div className="flex justify-end">
+                            <button
+                                type="button"
+                                onClick={addManualSubstitution}
+                                className="inline-flex items-center gap-2 rounded-md border border-[#d8c1eb] bg-[#faf5ff] px-3 py-2 text-sm font-semibold text-[#5a0a8f] hover:bg-[#f4ebff]"
+                            >
+                                <span className="material-symbols-outlined text-sm">add</span>
+                                Add Substitute
+                            </button>
                         </div>
 
                         {data.substitutions.length === 0 ? (
                             <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-500">
-                                No substitute players are marked for this match yet.
+                                No substitutions added yet.
                             </div>
                         ) : (
                             <div className="space-y-3">
                                 {data.substitutions.map((substitution, index) => (
                                     <div key={`${substitution.team}-${substitution.playerName}-${index}`} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                                        <div className="mb-3 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                                            <div>
-                                                <div className="font-semibold text-gray-900">{substitution.playerName}</div>
-                                                <div className="text-xs text-gray-500">
-                                                    {substitution.teamLabel}
-                                                    {substitution.jerseyNumber ? ` • Jersey #${substitution.jerseyNumber}` : ''}
+                                        <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                            <div className="grid flex-1 grid-cols-1 gap-3 md:grid-cols-3">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Team</label>
+                                                    <select
+                                                        className="w-full px-3 py-2 border rounded-md focus:ring-[#5a0a8f] focus:border-[#5a0a8f] text-gray-900 bg-white"
+                                                        value={substitution.team}
+                                                        onChange={(e) => updateSubstitution(index, { team: e.target.value as 'team1' | 'team2' })}
+                                                    >
+                                                        <option value="team1">{match?.team1 || 'Team A'}</option>
+                                                        <option value="team2">{match?.team2 || 'Team B'}</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Player Name</label>
+                                                    <input
+                                                        type="text"
+                                                        className="w-full px-3 py-2 border rounded-md focus:ring-[#5a0a8f] focus:border-[#5a0a8f] text-gray-900 bg-white"
+                                                        value={substitution.playerName}
+                                                        onChange={(e) => updateSubstitution(index, { playerName: e.target.value })}
+                                                        placeholder="Enter substitute name"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Jersey Number</label>
+                                                    <input
+                                                        type="number"
+                                                        className="w-full px-3 py-2 border rounded-md focus:ring-[#5a0a8f] focus:border-[#5a0a8f] text-gray-900 bg-white"
+                                                        value={substitution.jerseyNumber ?? ''}
+                                                        onChange={(e) =>
+                                                            updateSubstitution(index, {
+                                                                jerseyNumber: e.target.value ? Number(e.target.value) : undefined,
+                                                            })
+                                                        }
+                                                        placeholder="Optional"
+                                                    />
                                                 </div>
                                             </div>
                                             <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#5a0a8f] border border-[#e7d8f4]">
@@ -305,21 +385,14 @@ export function GenerateScoreCardModal({ isOpen, onClose, onGenerate, matchTitle
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-1">Entry Time</label>
                                                 <input
                                                     type="time"
                                                     className="w-full px-3 py-2 border rounded-md focus:ring-[#5a0a8f] focus:border-[#5a0a8f] text-gray-900 bg-white"
                                                     value={substitution.entryTime}
-                                                    onChange={(e) =>
-                                                        setData((prev) => ({
-                                                            ...prev,
-                                                            substitutions: prev.substitutions.map((item, itemIndex) =>
-                                                                itemIndex === index ? { ...item, entryTime: e.target.value } : item,
-                                                            ),
-                                                        }))
-                                                    }
+                                                    onChange={(e) => updateSubstitution(index, { entryTime: e.target.value })}
                                                 />
                                             </div>
                                             <div>
@@ -328,14 +401,7 @@ export function GenerateScoreCardModal({ isOpen, onClose, onGenerate, matchTitle
                                                     type="time"
                                                     className="w-full px-3 py-2 border rounded-md focus:ring-[#5a0a8f] focus:border-[#5a0a8f] text-gray-900 bg-white"
                                                     value={substitution.exitTime}
-                                                    onChange={(e) =>
-                                                        setData((prev) => ({
-                                                            ...prev,
-                                                            substitutions: prev.substitutions.map((item, itemIndex) =>
-                                                                itemIndex === index ? { ...item, exitTime: e.target.value } : item,
-                                                            ),
-                                                        }))
-                                                    }
+                                                    onChange={(e) => updateSubstitution(index, { exitTime: e.target.value })}
                                                 />
                                             </div>
                                             <div>
@@ -343,6 +409,16 @@ export function GenerateScoreCardModal({ isOpen, onClose, onGenerate, matchTitle
                                                 <div className="w-full rounded-md border bg-white px-3 py-2 text-sm font-semibold text-gray-900">
                                                     {calculateTimePlayed(substitution.entryTime, substitution.exitTime)}
                                                 </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-transparent mb-1">Remove</label>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeSubstitution(index)}
+                                                    className="w-full px-3 py-2 rounded-md border border-red-200 bg-red-50 text-sm font-semibold text-red-600 hover:bg-red-100"
+                                                >
+                                                    Remove
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
