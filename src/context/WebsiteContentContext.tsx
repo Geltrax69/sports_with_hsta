@@ -52,6 +52,14 @@ export type PastOfficeBearer = {
   treasurer: string
 }
 
+export type MemberUnit = {
+  id?: string
+  slNo: string
+  unit: string
+  president: string
+  secretary: string
+}
+
 export type Official = {
   id: string
   name: string
@@ -90,6 +98,10 @@ export type AboutPageSettings = {
   executiveBoardMembers?: ExecutiveBoardMember[]
   otherBoardMemberPositions?: OtherBoardMemberPosition[]
   pastOfficeBearers?: PastOfficeBearer[]
+  permanentMembers?: MemberUnit[]
+  associateMembers?: MemberUnit[]
+  academyMembers?: MemberUnit[]
+  hockeyMembers?: MemberUnit[]
 }
 
 export type EventsPageSettings = {

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useWebsiteContent, type AboutPageSettings } from '../../context/WebsiteContentContext'
 import { ExecutiveBoardForm } from './ExecutiveBoardForm'
+import { MemberUnitForm } from './MemberUnitForm'
 
 const PAGE_MAPPING: Record<string, { title: string, field: keyof AboutPageSettings }> = {
   'executive-board': { title: 'Executive Board', field: 'executiveBoardText' },
@@ -88,6 +89,10 @@ export function AdminAboutPage() {
 
       {pageId === 'executive-board' && (
         <ExecutiveBoardForm />
+      )}
+
+      {pageId === 'member-unit' && (
+        <MemberUnitForm />
       )}
     </div>
   )

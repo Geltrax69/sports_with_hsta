@@ -185,6 +185,46 @@ export function SubAboutPage({ title }: { title: string }) {
               )}
             </div>
           )}
+
+          {title === 'Member Unit' && (
+            <div className="space-y-16">
+              {[
+                { title: 'Permanent Members', data: content.aboutPage?.permanentMembers, secTitle: 'General Secretary / Treasurer' },
+                { title: 'Associate Members', data: content.aboutPage?.associateMembers, secTitle: 'General Secretary / Treasurer' },
+                { title: 'Academy Members', data: content.aboutPage?.academyMembers, secTitle: 'General Secretary' },
+                { title: 'Hoc-Key Member', data: content.aboutPage?.hockeyMembers, secTitle: 'Secretary' }
+              ].map((section, idx) => {
+                if (!section.data || section.data.length === 0) return null
+                return (
+                  <div key={idx}>
+                    <h2 className="text-3xl font-bold text-[#5a0a8f] mb-8 text-center border-b-2 border-gray-100 pb-4">{section.title}</h2>
+                    <div className="overflow-x-auto shadow-lg rounded-xl border border-gray-200">
+                      <table className="w-full text-left border-collapse bg-white">
+                        <thead>
+                          <tr className="bg-[#5a0a8f] text-white">
+                            <th className="p-4 border-b border-white/20 font-semibold w-16 text-center">SN</th>
+                            <th className="p-4 border-b border-white/20 font-semibold w-1/3">Unit</th>
+                            <th className="p-4 border-b border-white/20 font-semibold w-1/4">President</th>
+                            <th className="p-4 border-b border-white/20 font-semibold w-1/3">{section.secTitle}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-sm text-gray-700">
+                          {section.data.map((member, i) => (
+                            <tr key={i} className="border-b border-gray-200 hover:bg-gray-50">
+                              <td className="p-4 text-center font-bold text-gray-900 border-r border-gray-200 align-top">{member.slNo}</td>
+                              <td className="p-4 font-bold text-[#5a0a8f] border-r border-gray-200 align-top whitespace-pre-line">{member.unit}</td>
+                              <td className="p-4 whitespace-pre-line border-r border-gray-200 align-top leading-relaxed">{member.president}</td>
+                              <td className="p-4 whitespace-pre-line align-top leading-relaxed">{member.secretary}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       </section>
     </main>
