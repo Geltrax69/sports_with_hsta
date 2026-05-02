@@ -60,6 +60,18 @@ export type MemberUnit = {
   secretary: string
 }
 
+export type RtiExecutiveBoard = {
+  id?: string
+  role: string
+  number: string
+}
+
+export type RtiOfficer = {
+  id?: string
+  name: string
+  designation: string
+}
+
 export type Official = {
   id: string
   name: string
@@ -102,6 +114,8 @@ export type AboutPageSettings = {
   associateMembers?: MemberUnit[]
   academyMembers?: MemberUnit[]
   hockeyMembers?: MemberUnit[]
+  rtiExecutiveBoard?: RtiExecutiveBoard[]
+  rtiOfficers?: RtiOfficer[]
 }
 
 export type EventsPageSettings = {

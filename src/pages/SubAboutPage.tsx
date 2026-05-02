@@ -225,6 +225,52 @@ export function SubAboutPage({ title }: { title: string }) {
               })}
             </div>
           )}
+
+          {title === 'RTI' && (
+            <div className="space-y-16">
+              {content.aboutPage?.rtiExecutiveBoard && content.aboutPage.rtiExecutiveBoard.length > 0 && (
+                <div>
+                  <h2 className="text-3xl font-bold text-[#5a0a8f] mb-8 text-center border-b-2 border-gray-100 pb-4">Executive Board</h2>
+                  <div className="overflow-x-auto shadow-lg rounded-xl border border-gray-200 mx-auto max-w-3xl">
+                    <table className="w-full text-left border-collapse bg-white">
+                      <tbody className="text-sm text-gray-700">
+                        {content.aboutPage.rtiExecutiveBoard.map((item, i) => (
+                          <tr key={i} className="border-b border-gray-200 hover:bg-gray-50">
+                            <td className="p-4 font-bold text-gray-900 border-r border-gray-200 w-2/3">{item.role}</td>
+                            <td className="p-4 text-[#5a0a8f] font-semibold text-center">{item.number}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {content.aboutPage?.rtiOfficers && content.aboutPage.rtiOfficers.length > 0 && (
+                <div>
+                  <h2 className="text-3xl font-bold text-[#5a0a8f] mb-8 text-center border-b-2 border-gray-100 pb-4">Officers and Employees</h2>
+                  <div className="overflow-x-auto shadow-lg rounded-xl border border-gray-200 mx-auto max-w-4xl">
+                    <table className="w-full text-left border-collapse bg-white">
+                      <thead>
+                        <tr className="bg-[#5a0a8f] text-white">
+                          <th className="p-4 border-b border-white/20 font-semibold w-1/3">Name</th>
+                          <th className="p-4 border-b border-white/20 font-semibold w-2/3">Designation</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-sm text-gray-700">
+                        {content.aboutPage.rtiOfficers.map((officer, i) => (
+                          <tr key={i} className="border-b border-gray-200 hover:bg-gray-50">
+                            <td className="p-4 font-bold text-gray-900 border-r border-gray-200">{officer.name}</td>
+                            <td className="p-4 text-[#5a0a8f]">{officer.designation}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </section>
     </main>
