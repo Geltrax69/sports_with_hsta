@@ -19,6 +19,39 @@ export type JourneyItem = {
   order: number
 }
 
+export type OfficeBearer = {
+  role: string
+  name: string
+  email: string
+  mobile: string
+  tenure: string
+  address: string
+}
+
+export type ExecutiveBoardMember = {
+  id?: string
+  name: string
+  post: string
+  imageUrl: string
+  order?: number
+}
+
+export type OtherBoardMemberPosition = {
+  id?: string
+  position: string
+  number: string
+  details?: string
+}
+
+export type PastOfficeBearer = {
+  id?: string
+  slNo: string
+  tenure: string
+  president: string
+  secretaryGeneral: string
+  treasurer: string
+}
+
 export type Official = {
   id: string
   name: string
@@ -47,7 +80,16 @@ export type AboutPageSettings = {
   mission?: string
   vision?: string
   aboutText?: string
+  executiveBoardText?: string
+  memberUnitText?: string
+  rtiText?: string
+  annualReportText?: string
+  electionReportText?: string
   officials?: Official[]
+  officeBearers?: OfficeBearer[]
+  executiveBoardMembers?: ExecutiveBoardMember[]
+  otherBoardMemberPositions?: OtherBoardMemberPosition[]
+  pastOfficeBearers?: PastOfficeBearer[]
 }
 
 export type EventsPageSettings = {

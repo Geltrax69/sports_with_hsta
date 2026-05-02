@@ -4,6 +4,7 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 type RouteItem = {
   name: string
   to: string
+  dropdown?: { name: string; to: string }[]
 }
 
 export function Header() {
@@ -14,7 +15,18 @@ export function Header() {
   const routes = useMemo<RouteItem[]>(
     () => [
       { name: 'Home', to: '/' },
-      { name: 'About', to: '/about' },
+      { 
+        name: 'About', 
+        to: '/about',
+        dropdown: [
+          { name: 'About The Federation', to: '/about' },
+          { name: 'Executive Board', to: '/about/executive-board' },
+          { name: 'Member Unit', to: '/about/member-unit' },
+          { name: 'RTI', to: '/about/rti' },
+          { name: 'Annual Report', to: '/about/annual-report' },
+          { name: 'Election Report', to: '/about/election-report' },
+        ]
+      },
       { name: 'Events', to: '/events' },
       { name: 'Documents', to: '/documents' },
       { name: 'News', to: '/news' },
@@ -109,16 +121,47 @@ export function Header() {
               className="hidden lg:flex items-center gap-1 p-1 bg-gray-50 rounded-full border border-gray-100"
             >
               {routes.map((r) => (
-                <NavLink
-                  key={r.to}
-                  to={r.to}
-                  end={r.to === '/'}
-                  className={({ isActive }) =>
-                    `${desktopBase} ${isActive ? desktopActive : desktopInactive}`
-                  }
-                >
-                  {r.name}
-                </NavLink>
+                r.dropdown ? (
+                  <div key={r.name} className="relative group">
+                    <NavLink
+                      to={r.to}
+                      end={r.to === '/'}
+                      className={({ isActive }) =>
+                        `${desktopBase} flex items-center gap-1 ${isActive ? desktopActive : desktopInactive}`
+                      }
+                    >
+                      {r.name}
+                      <span className="material-symbols-outlined text-[16px] transition-transform group-hover:rotate-180">expand_more</span>
+                    </NavLink>
+                    <div className="absolute left-0 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                      <div className="bg-white rounded-xl shadow-xl border border-gray-100 py-2 w-48 flex flex-col">
+                        {r.dropdown.map((drop) => (
+                          <NavLink
+                            key={drop.to}
+                            to={drop.to}
+                            end={drop.to === '/about'}
+                            className={({ isActive }) =>
+                              `px-4 py-2 text-sm font-semibold transition-colors ${isActive ? 'text-[#5a0a8f] bg-purple-50' : 'text-gray-700 hover:text-[#5a0a8f] hover:bg-gray-50'}`
+                            }
+                          >
+                            {drop.name}
+                          </NavLink>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <NavLink
+                    key={r.to}
+                    to={r.to}
+                    end={r.to === '/'}
+                    className={({ isActive }) =>
+                      `${desktopBase} ${isActive ? desktopActive : desktopInactive}`
+                    }
+                  >
+                    {r.name}
+                  </NavLink>
+                )
               ))}
             </nav>
 
@@ -165,16 +208,33 @@ export function Header() {
           <div className="px-4 py-6 space-y-4">
             <div className="space-y-1">
               {routes.map((r) => (
-                <NavLink
-                  key={r.to}
-                  to={r.to}
-                  end={r.to === '/'}
-                  className={({ isActive }) =>
-                    `${mobileBase} ${isActive ? mobileActive : mobileInactive}`
-                  }
-                >
-                  {r.name}
-                </NavLink>
+                <div key={r.name}>
+                  <NavLink
+                    to={r.to}
+                    end={r.to === '/'}
+                    className={({ isActive }) =>
+                      `${mobileBase} ${isActive ? mobileActive : mobileInactive}`
+                    }
+                  >
+                    {r.name}
+                  </NavLink>
+                  {r.dropdown && (
+                    <div className="pl-4 mt-1 space-y-1 border-l-2 border-gray-100 ml-4 mb-2">
+                      {r.dropdown.map(drop => (
+                        <NavLink
+                          key={drop.to}
+                          to={drop.to}
+                          end={drop.to === '/about'}
+                          className={({ isActive }) =>
+                            `block px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${isActive ? 'text-[#5a0a8f] bg-primary/5' : 'text-gray-600 hover:bg-primary/5 hover:text-primary'}`
+                          }
+                        >
+                          {drop.name}
+                        </NavLink>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
 

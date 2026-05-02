@@ -155,6 +155,77 @@ export function AdminLayout() {
 
           {sidebarOpen && (
             <div className="px-4 pt-4 pb-2">
+              <div className="text-xs font-bold text-white/50 uppercase tracking-wider">ABOUT US</div>
+            </div>
+          )}
+
+          <NavLink
+            to="/admin/about/executive-board"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <span className="material-symbols-outlined text-xl">groups</span>
+            {sidebarOpen && <span>Executive Board</span>}
+          </NavLink>
+
+          <NavLink
+            to="/admin/about/member-unit"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <span className="material-symbols-outlined text-xl">business</span>
+            {sidebarOpen && <span>Member Unit</span>}
+          </NavLink>
+
+          <NavLink
+            to="/admin/about/rti"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <span className="material-symbols-outlined text-xl">policy</span>
+            {sidebarOpen && <span>RTI</span>}
+          </NavLink>
+
+          <NavLink
+            to="/admin/about/annual-report"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <span className="material-symbols-outlined text-xl">summarize</span>
+            {sidebarOpen && <span>Annual Report</span>}
+          </NavLink>
+
+          <NavLink
+            to="/admin/about/election-report"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <span className="material-symbols-outlined text-xl">how_to_vote</span>
+            {sidebarOpen && <span>Election Report</span>}
+          </NavLink>
+
+          {sidebarOpen && (
+            <div className="px-4 pt-4 pb-2">
               <div className="text-xs font-bold text-white/50 uppercase tracking-wider">WEBSITE</div>
             </div>
           )}

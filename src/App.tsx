@@ -12,6 +12,7 @@ import { Layout } from './components/Layout'
 import { AdminLayout } from './components/admin/AdminLayout'
 import { HomePage } from './pages/HomePage'
 import { AboutPage } from './pages/AboutPage'
+import { SubAboutPage } from './pages/SubAboutPage'
 import { EventsPage } from './pages/EventsPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { NewsPage } from './pages/NewsPage'
@@ -39,6 +40,7 @@ import { EditTournament } from './pages/admin/EditTournament'
 import { NewsManagement } from './pages/admin/NewsManagement'
 import { DocumentsManagement } from './pages/admin/DocumentsManagement'
 import { WebsiteContentManagement } from './pages/admin/WebsiteContentManagement'
+import { AdminAboutPage } from './pages/admin/AdminAboutPage'
 import { TournamentRegistrations } from './pages/admin/TournamentRegistrations'
 import { AdminCertificates } from './pages/admin/AdminCertificates'
 import { CertificateList } from './pages/admin/CertificateList'
@@ -81,6 +83,11 @@ export default function App() {
                   <Route element={<Layout />}>
                     <Route path="/" element={<HomePage />} />
                     <Route path="/about" element={<AboutPage />} />
+                    <Route path="/about/executive-board" element={<SubAboutPage title="Executive Board" />} />
+                    <Route path="/about/member-unit" element={<SubAboutPage title="Member Unit" />} />
+                    <Route path="/about/rti" element={<SubAboutPage title="RTI" />} />
+                    <Route path="/about/annual-report" element={<SubAboutPage title="Annual Report" />} />
+                    <Route path="/about/election-report" element={<SubAboutPage title="Election Report" />} />
                     <Route path="/events" element={<EventsPage />} />
                     <Route path="/documents" element={<DocumentsPage />} />
                     <Route path="/news" element={<NewsPage />} />
@@ -122,6 +129,7 @@ export default function App() {
                       <Route path="tournaments/:tournamentId/registrations" element={<TournamentRegistrations />} />
                       <Route path="coaches" element={<CoachManagement />} />
                       <Route path="website" element={<WebsiteContentManagement />} />
+                      <Route path="about/:pageId" element={<AdminAboutPage />} />
                       <Route path="news" element={<NewsManagement />} />
                       <Route path="documents" element={<DocumentsManagement />} />
                       <Route path="certificates" element={<AdminCertificates />} />
