@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { useWebsiteContent } from '../../context/WebsiteContentContext'
 
 export function AdminLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const { content } = useWebsiteContent()
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   useEffect(() => {
@@ -54,7 +56,7 @@ export function AdminLayout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-4 space-y-2">
+        <nav className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
           <NavLink
             to="/admin/dashboard"
             end
@@ -186,6 +188,32 @@ export function AdminLayout() {
           </NavLink>
 
           <NavLink
+            to="/admin/about/accounts"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <span className="material-symbols-outlined text-xl">account_balance</span>
+            {sidebarOpen && <span>Accounts</span>}
+          </NavLink>
+
+          <NavLink
+            to="/admin/about/agm-meetings"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <span className="material-symbols-outlined text-xl">groups_3</span>
+            {sidebarOpen && <span>AGM Meetings</span>}
+          </NavLink>
+
+          <NavLink
             to="/admin/about/rti"
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
@@ -222,6 +250,35 @@ export function AdminLayout() {
           >
             <span className="material-symbols-outlined text-xl">how_to_vote</span>
             {sidebarOpen && <span>Election Report</span>}
+          </NavLink>
+
+          {content.aboutPage?.customPages?.map((page) => (
+            <NavLink
+              key={page.id}
+              to={`/admin/about/${page.slug}`}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                  ? 'bg-white/20 text-white font-semibold'
+                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <span className="material-symbols-outlined text-xl">folder_open</span>
+              {sidebarOpen && <span>{page.title}</span>}
+            </NavLink>
+          ))}
+
+          <NavLink
+            to="/admin/about/manage-directories"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors mt-2 border border-white/20 ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <span className="material-symbols-outlined text-xl">create_new_folder</span>
+            {sidebarOpen && <span>Manage Directories</span>}
           </NavLink>
 
           {sidebarOpen && (

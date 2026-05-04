@@ -1,6 +1,8 @@
+import { useParams } from 'react-router-dom'
 import { useWebsiteContent, type AboutPageSettings } from '../context/WebsiteContentContext'
 
-export function SubAboutPage({ title }: { title: string }) {
+export function SubAboutPage({ title: propTitle }: { title?: string }) {
+  const { slug } = useParams<{ slug: string }>()
   const { content } = useWebsiteContent()
 
   const fieldMapping: Record<string, keyof AboutPageSettings> = {
@@ -11,8 +13,25 @@ export function SubAboutPage({ title }: { title: string }) {
     'Election Report': 'electionReportText',
   }
 
+  // Determine if it's a dynamic page or document list
+  const isAccounts = slug === 'accounts' || propTitle === 'Accounts'
+  const isAgm = slug === 'agm-meetings' || propTitle === 'AGM Meetings'
+  
+  const customPage = (!isAccounts && !isAgm && slug) ? content.aboutPage?.customPages?.find(p => p.slug === slug) : null;
+  
+  let title = propTitle || customPage?.title || 'Unknown Page'
+  if (isAccounts) title = 'Accounts and Expenditures'
+  if (isAgm) title = 'AGM Meetings'
+
+  const documentItems = isAccounts 
+    ? (content.aboutPage?.accounts || []) 
+    : (isAgm ? (content.aboutPage?.agmMeetings || []) : [])
+  
   const field = fieldMapping[title]
-  const pageContent = (field && content.aboutPage?.[field]) as string | undefined
+  const pageContent = customPage 
+    ? customPage.content 
+    : (field && content.aboutPage?.[field]) as string | undefined
+
 
   return (
     <main id="page-content" className="w-full overflow-x-hidden relative">
@@ -29,17 +48,114 @@ export function SubAboutPage({ title }: { title: string }) {
 
       <section className="py-16 md:py-24 bg-white min-h-[40vh]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          {pageContent ? (
+          {(isAccounts || isAgm) ? (
+            <div className="overflow-x-auto border border-gray-200 rounded-xl shadow-sm">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-[#241b71] text-white">
+                    <th className="py-4 px-6 text-center w-24 font-bold border-r border-[#3a2e8c]">Sr. No</th>
+                    <th className="py-4 px-6 font-bold border-r border-[#3a2e8c]">{title}</th>
+                    <th className="py-4 px-6 font-bold w-48 text-center">Download Links</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {documentItems.length > 0 ? (
+                    documentItems.map((item, index) => (
+                      <tr key={item.id || index} className="hover:bg-gray-50 transition-colors">
+                        <td className="py-4 px-6 text-center text-gray-600 font-medium">{index + 1}</td>
+                        <td className="py-4 px-6 text-gray-900">{item.title}</td>
+                        <td className="py-4 px-6 text-center">
+                          <a
+                            href={item.fileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-2 text-[#5a0a8f] font-semibold hover:text-purple-700 transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-[20px]">description</span>
+                            View
+                          </a>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={3} className="py-8 text-center text-gray-500">
+                        No documents available.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : customPage && customPage.pageType === 'table' && customPage.tableData ? (
+            <div className="overflow-x-auto border border-gray-200 rounded-xl shadow-sm">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-[#241b71] text-white">
+                    <th className="py-4 px-6 text-center w-24 font-bold border-r border-[#3a2e8c]">Sr. No</th>
+                    {customPage.tableData.headers.map((h, i) => (
+                      <th key={i} className="py-4 px-6 font-bold border-r border-[#3a2e8c]">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {customPage.tableData.rows.length > 0 ? (
+                    customPage.tableData.rows.map((row, index) => (
+                      <tr key={index} className="hover:bg-gray-50 transition-colors">
+                        <td className="py-4 px-6 text-center text-gray-600 font-medium">{index + 1}</td>
+                        {row.map((cell, ci) => (
+                          <td key={ci} className="py-4 px-6 text-gray-900">{cell}</td>
+                        ))}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={customPage.tableData.headers.length + 1} className="py-8 text-center text-gray-500">
+                        No data available.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : customPage && customPage.pageType === 'people' && customPage.peopleSections ? (
+            <div className="space-y-16">
+              {customPage.peopleSections.map((section, si) => (
+                <div key={si}>
+                  {section.heading && (
+                    <h2 className="text-3xl font-bold text-gray-900 text-center mb-10">{section.heading}</h2>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                    {section.people.map((person, pi) => (
+                      <div key={pi} className="flex flex-col items-center bg-gray-50 rounded-2xl p-6 border border-gray-200 hover:shadow-lg transition-shadow">
+                        <div className="w-32 h-32 rounded-full overflow-hidden mb-4 border-4 border-white shadow-md">
+                          {person.imageUrl ? (
+                            <img src={person.imageUrl} alt={person.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                              <span className="material-symbols-outlined text-4xl text-gray-400">person</span>
+                            </div>
+                          )}
+                        </div>
+                        <h3 className="text-xl font-bold text-[#241b71] text-center">{person.name}</h3>
+                        <p className="text-gray-600 font-medium text-center mt-1">{person.post}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : pageContent && title !== 'RTI' ? (
             <div className="prose prose-lg max-w-none text-gray-700 whitespace-pre-wrap mb-16">
               {pageContent}
             </div>
-          ) : (
+          ) : title !== 'RTI' ? (
             <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-12 text-center text-gray-600 mb-16">
               <span className="material-symbols-outlined text-4xl mb-4 text-gray-400">pending</span>
               <h2 className="text-2xl font-bold text-gray-800 mb-2">{title}</h2>
               <p>The content for {title} is currently being updated. Please check back later.</p>
             </div>
-          )}
+          ) : null}
 
           {title === 'Executive Board' && (
             <div className="space-y-16">

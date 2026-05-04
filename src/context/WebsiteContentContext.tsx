@@ -60,10 +60,43 @@ export type MemberUnit = {
   secretary: string
 }
 
+export type CustomPagePerson = {
+  name: string
+  post: string
+  imageUrl: string
+}
+
+export type CustomPageSection = {
+  heading: string
+  people: CustomPagePerson[]
+}
+
+export type CustomPageTable = {
+  headers: string[]
+  rows: string[][]
+}
+
+export type CustomPage = {
+  id: string
+  title: string
+  slug: string
+  pageType?: 'content' | 'table' | 'people'
+  content: string
+  tableData?: CustomPageTable
+  peopleSections?: CustomPageSection[]
+  createdAt?: string
+}
+
 export type RtiExecutiveBoard = {
   id?: string
   role: string
   number: string
+}
+
+export type DocumentLink = {
+  id?: string
+  title: string
+  fileUrl: string
 }
 
 export type RtiOfficer = {
@@ -116,6 +149,9 @@ export type AboutPageSettings = {
   hockeyMembers?: MemberUnit[]
   rtiExecutiveBoard?: RtiExecutiveBoard[]
   rtiOfficers?: RtiOfficer[]
+  customPages?: CustomPage[]
+  accounts?: DocumentLink[]
+  agmMeetings?: DocumentLink[]
 }
 
 export type EventsPageSettings = {
@@ -137,6 +173,9 @@ type WebsiteContentContextType = {
   updateHomepage: (updates: Partial<HomepageSettings>) => void
   updateAboutPage: (updates: Partial<AboutPageSettings>) => void
   updateEventsPage: (updates: Partial<EventsPageSettings>) => void
+  addCustomPage: (page: Omit<CustomPage, 'id' | 'createdAt'>) => void
+  updateCustomPage: (id: string, updates: Partial<CustomPage>) => void
+  removeCustomPage: (id: string) => void
   addGalleryImage: (image: Omit<GalleryImage, 'id' | 'createdAt' | 'order'>) => void
   removeGalleryImage: (id: string) => void
   updateGalleryImageOrder: (id: string, newOrder: number) => void
@@ -161,6 +200,7 @@ const DEFAULT_WEBSITE_CONTENT: WebsiteContent = {
   aboutPage: {
     journeyItems: [],
     officials: [],
+    customPages: [],
   },
   eventsPage: {
     featuredEventIds: [],
@@ -253,6 +293,74 @@ export function WebsiteContentProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       // Revert on error
       setContent(content)
+    }
+  }
+
+  const addCustomPage = async (page: Omit<CustomPage, 'id' | 'createdAt'>) => {
+    try {
+      await updateContentOnServer('/custom-pages', page, 'POST')
+      const updatedContent = await fetchWebsiteContent()
+      setContent(updatedContent)
+    } catch (error) {
+      console.error('Failed to add custom page:', error)
+      // fallback for local testing
+      const newPage = { ...page, id: Date.now().toString(), createdAt: new Date().toISOString() }
+      setContent({
+        ...content,
+        aboutPage: {
+          ...content.aboutPage,
+          customPages: [...(content.aboutPage.customPages || []), newPage]
+        }
+      })
+    }
+  }
+
+  const updateCustomPage = async (id: string, updates: Partial<CustomPage>) => {
+    setContent({
+      ...content,
+      aboutPage: {
+        ...content.aboutPage,
+        customPages: content.aboutPage.customPages?.map(p => p.id === id ? { ...p, ...updates } : p) || []
+      }
+    })
+    try {
+      const token = getAuthToken()
+      await fetch(`${API_BASE_URL}/website-content/custom-pages/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(updates),
+      })
+    } catch (error) {
+      console.error('Failed to update custom page:', error)
+      // Since it's a mock API sometimes, we just keep the optimistic update
+    }
+  }
+
+  const removeCustomPage = async (id: string) => {
+    setContent({
+      ...content,
+      aboutPage: {
+        ...content.aboutPage,
+        customPages: content.aboutPage.customPages?.filter(p => p.id !== id) || []
+      }
+    })
+    try {
+      const token = getAuthToken()
+      const response = await fetch(`${API_BASE_URL}/website-content/custom-pages/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      })
+      if (!response.ok) {
+        throw new Error('Failed to delete custom page')
+      }
+    } catch (error) {
+      console.error('Failed to delete custom page:', error)
     }
   }
 
@@ -457,6 +565,9 @@ export function WebsiteContentProvider({ children }: { children: ReactNode }) {
         updateHomepage,
         updateAboutPage,
         updateEventsPage,
+        addCustomPage,
+        updateCustomPage,
+        removeCustomPage,
         addGalleryImage,
         removeGalleryImage,
         updateGalleryImageOrder,

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { useWebsiteContent } from '../context/WebsiteContentContext'
 
 type RouteItem = {
   name: string
@@ -12,28 +13,42 @@ export function Header() {
   const { pathname } = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
 
+  const { content } = useWebsiteContent()
+
   const routes = useMemo<RouteItem[]>(
-    () => [
-      { name: 'Home', to: '/' },
-      { 
-        name: 'About', 
-        to: '/about',
-        dropdown: [
-          { name: 'About The Federation', to: '/about' },
-          { name: 'Executive Board', to: '/about/executive-board' },
-          { name: 'Member Unit', to: '/about/member-unit' },
-          { name: 'RTI', to: '/about/rti' },
-          { name: 'Annual Report', to: '/about/annual-report' },
-          { name: 'Election Report', to: '/about/election-report' },
-        ]
-      },
-      { name: 'Events', to: '/events' },
-      { name: 'Documents', to: '/documents' },
-      { name: 'News', to: '/news' },
-      { name: 'Certificates', to: '/certificates' },
-      { name: 'Contact Us', to: '/contact' },
-    ],
-    [],
+    () => {
+      const aboutDropdown = [
+        { name: 'About The Federation', to: '/about' },
+        { name: 'Executive Board', to: '/about/executive-board' },
+        { name: 'Member Unit', to: '/about/member-unit' },
+        { name: 'Accounts', to: '/about/accounts' },
+        { name: 'AGM Meetings', to: '/about/agm-meetings' },
+        { name: 'RTI', to: '/about/rti' },
+        { name: 'Annual Report', to: '/about/annual-report' },
+        { name: 'Election Report', to: '/about/election-report' },
+        { name: 'Documents', to: '/documents' },
+      ]
+
+      if (content.aboutPage?.customPages) {
+        content.aboutPage.customPages.forEach((p) => {
+          aboutDropdown.push({ name: p.title, to: `/about/${p.slug}` })
+        })
+      }
+
+      return [
+        { name: 'Home', to: '/' },
+        { 
+          name: 'About', 
+          to: '/about',
+          dropdown: aboutDropdown
+        },
+        { name: 'Events', to: '/events' },
+        { name: 'News', to: '/news' },
+        { name: 'Certificates', to: '/certificates' },
+        { name: 'Contact Us', to: '/contact' },
+      ]
+    },
+    [content.aboutPage?.customPages],
   )
 
   useEffect(() => {

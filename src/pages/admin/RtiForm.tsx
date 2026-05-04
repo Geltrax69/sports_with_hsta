@@ -99,15 +99,17 @@ export function RtiForm() {
           </div>
         </div>
         <div className="space-y-4">
-          {rtiExecutiveBoard.map((item, idx) => (
+          {(rtiExecutiveBoard || []).map((item, idx) => (
             <div key={idx} className="flex gap-4 items-center group relative border border-gray-200 p-3 rounded-lg bg-gray-50">
               <div className="flex-1">
                 <input 
                   type="text" 
-                  value={item.role} 
+                  value={item?.role || ''} 
                   placeholder="Role"
                   onChange={e => {
-                    const newData = [...rtiExecutiveBoard]; newData[idx].role = e.target.value; setRtiExecutiveBoard(newData);
+                    const newData = [...rtiExecutiveBoard]; 
+                    newData[idx] = { ...newData[idx], role: e.target.value }; 
+                    setRtiExecutiveBoard(newData);
                   }} 
                   className="w-full border p-2 rounded text-sm text-gray-900 bg-white" 
                 />
@@ -115,10 +117,12 @@ export function RtiForm() {
               <div className="flex-1">
                 <input 
                   type="text" 
-                  value={item.number} 
+                  value={item?.number || ''} 
                   placeholder="Number"
                   onChange={e => {
-                    const newData = [...rtiExecutiveBoard]; newData[idx].number = e.target.value; setRtiExecutiveBoard(newData);
+                    const newData = [...rtiExecutiveBoard]; 
+                    newData[idx] = { ...newData[idx], number: e.target.value }; 
+                    setRtiExecutiveBoard(newData);
                   }} 
                   className="w-full border p-2 rounded text-sm text-gray-900 bg-white" 
                 />
@@ -154,15 +158,17 @@ export function RtiForm() {
           </div>
         </div>
         <div className="space-y-4">
-          {rtiOfficers.map((item, idx) => (
+          {(rtiOfficers || []).map((item, idx) => (
             <div key={idx} className="flex gap-4 items-center group relative border border-gray-200 p-3 rounded-lg bg-gray-50">
               <div className="flex-1">
                 <input 
                   type="text" 
-                  value={item.name} 
+                  value={item?.name || ''} 
                   placeholder="Name"
                   onChange={e => {
-                    const newData = [...rtiOfficers]; newData[idx].name = e.target.value; setRtiOfficers(newData);
+                    const newData = [...rtiOfficers]; 
+                    newData[idx] = { ...newData[idx], name: e.target.value }; 
+                    setRtiOfficers(newData);
                   }} 
                   className="w-full border p-2 rounded text-sm text-gray-900 bg-white" 
                 />
@@ -170,10 +176,12 @@ export function RtiForm() {
               <div className="flex-1">
                 <input 
                   type="text" 
-                  value={item.designation} 
+                  value={item?.designation || ''} 
                   placeholder="Designation"
                   onChange={e => {
-                    const newData = [...rtiOfficers]; newData[idx].designation = e.target.value; setRtiOfficers(newData);
+                    const newData = [...rtiOfficers]; 
+                    newData[idx] = { ...newData[idx], designation: e.target.value }; 
+                    setRtiOfficers(newData);
                   }} 
                   className="w-full border p-2 rounded text-sm text-gray-900 bg-white" 
                 />

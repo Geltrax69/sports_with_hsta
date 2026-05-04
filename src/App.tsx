@@ -41,6 +41,7 @@ import { NewsManagement } from './pages/admin/NewsManagement'
 import { DocumentsManagement } from './pages/admin/DocumentsManagement'
 import { WebsiteContentManagement } from './pages/admin/WebsiteContentManagement'
 import { AdminAboutPage } from './pages/admin/AdminAboutPage'
+import { AdminManageDirectories } from './pages/admin/AdminManageDirectories'
 import { TournamentRegistrations } from './pages/admin/TournamentRegistrations'
 import { AdminCertificates } from './pages/admin/AdminCertificates'
 import { CertificateList } from './pages/admin/CertificateList'
@@ -88,6 +89,7 @@ export default function App() {
                     <Route path="/about/rti" element={<SubAboutPage title="RTI" />} />
                     <Route path="/about/annual-report" element={<SubAboutPage title="Annual Report" />} />
                     <Route path="/about/election-report" element={<SubAboutPage title="Election Report" />} />
+                    <Route path="/about/:slug" element={<SubAboutPage />} />
                     <Route path="/events" element={<EventsPage />} />
                     <Route path="/documents" element={<DocumentsPage />} />
                     <Route path="/news" element={<NewsPage />} />
@@ -129,6 +131,7 @@ export default function App() {
                       <Route path="tournaments/:tournamentId/registrations" element={<TournamentRegistrations />} />
                       <Route path="coaches" element={<CoachManagement />} />
                       <Route path="website" element={<WebsiteContentManagement />} />
+                      <Route path="about/manage-directories" element={<AdminManageDirectories />} />
                       <Route path="about/:pageId" element={<AdminAboutPage />} />
                       <Route path="news" element={<NewsManagement />} />
                       <Route path="documents" element={<DocumentsManagement />} />

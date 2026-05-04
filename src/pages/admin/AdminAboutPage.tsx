@@ -4,6 +4,8 @@ import { useWebsiteContent, type AboutPageSettings } from '../../context/Website
 import { ExecutiveBoardForm } from './ExecutiveBoardForm'
 import { MemberUnitForm } from './MemberUnitForm'
 import { RtiForm } from './RtiForm'
+import { DocumentListForm } from './DocumentListForm'
+import { CustomPageForm } from './CustomPageForm'
 
 const PAGE_MAPPING: Record<string, { title: string, field: keyof AboutPageSettings }> = {
   'executive-board': { title: 'Executive Board', field: 'executiveBoardText' },
@@ -20,20 +22,36 @@ export function AdminAboutPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState('')
 
-  const config = pageId ? PAGE_MAPPING[pageId] : null
+  if (pageId === 'accounts') {
+    return <DocumentListForm title="Accounts and Expenditures" field="accounts" />
+  }
+  if (pageId === 'agm-meetings') {
+    return <DocumentListForm title="AGM Meetings" field="agmMeetings" />
+  }
+
+  const staticConfig = pageId ? PAGE_MAPPING[pageId] : null
+  const customPage = content.aboutPage?.customPages?.find(p => p.slug === pageId)
+
+  if (customPage) {
+    return <CustomPageForm customPage={customPage} />
+  }
+  
+  const config = staticConfig
 
   useEffect(() => {
-    if (config && content.aboutPage) {
-      setText((content.aboutPage[config.field] as string) || '')
+    if (staticConfig && content.aboutPage) {
+      setText((content.aboutPage[staticConfig.field] as string) || '')
     }
-  }, [config, content.aboutPage])
+  }, [staticConfig, content.aboutPage])
 
   const handleSave = async () => {
     if (!config) return
     setIsSaving(true)
     setSaveMessage('')
     try {
-      await updateAboutPage({ [config.field]: text })
+      if (staticConfig) {
+        await updateAboutPage({ [staticConfig.field]: text })
+      }
       setSaveMessage('Content updated successfully!')
       setTimeout(() => setSaveMessage(''), 3000)
     } catch (error) {
@@ -72,21 +90,23 @@ export function AdminAboutPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-6">
-          <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-2">
-            Page Content (Markdown/Text)
-          </label>
-          <textarea
-            id="content"
-            rows={15}
-            className="w-full rounded-lg border-gray-300 shadow-sm focus:border-[#5a0a8f] focus:ring-[#5a0a8f] border p-4 text-gray-800"
-            placeholder={`Enter the content for ${config.title}...`}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
+      {pageId !== 'rti' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="p-6">
+            <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-2">
+              Page Content (Markdown/Text)
+            </label>
+            <textarea
+              id="content"
+              rows={15}
+              className="w-full rounded-lg border-gray-300 shadow-sm focus:border-[#5a0a8f] focus:ring-[#5a0a8f] border p-4 text-gray-800"
+              placeholder={`Enter the content for ${config.title}...`}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {pageId === 'executive-board' && (
         <ExecutiveBoardForm />
