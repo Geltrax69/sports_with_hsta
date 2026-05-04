@@ -12,6 +12,16 @@ const BODY_CLASSES: Record<string, string> = {
     'bg-background-light dark:bg-background-dark text-[#160d1c] dark:text-white transition-colors duration-200 flex flex-col min-h-screen',
   '/documents':
     'font-display bg-background-light dark:bg-background-dark text-[#160d1c] dark:text-white transition-colors duration-200',
+  '/national-team':
+    'bg-background-light dark:bg-background-dark text-[#160d1c] dark:text-white transition-colors duration-200',
+  '/national-team/mens-team':
+    'bg-background-light dark:bg-background-dark text-[#160d1c] dark:text-white transition-colors duration-200',
+  '/national-team/junior-mens-team':
+    'bg-background-light dark:bg-background-dark text-[#160d1c] dark:text-white transition-colors duration-200',
+  '/national-team/womens-team':
+    'bg-background-light dark:bg-background-dark text-[#160d1c] dark:text-white transition-colors duration-200',
+  '/national-team/junior-womens-team':
+    'bg-background-light dark:bg-background-dark text-[#160d1c] dark:text-white transition-colors duration-200',
   '/news':
     'relative flex min-h-screen w-full flex-col bg-background-light dark:bg-background-dark font-display text-[#160d1c] dark:text-white overflow-x-hidden',
   '/news/feature-story':
@@ -33,6 +43,9 @@ export function Layout() {
 
     // Match news detail routes with pattern /news/:id
     let cls = BODY_CLASSES[pathname]
+    if (!cls && pathname.startsWith('/national-team')) {
+      cls = BODY_CLASSES['/national-team']
+    }
     if (!cls && pathname.startsWith('/news/') && pathname !== '/news/feature-story') {
       cls = BODY_CLASSES['/news']
     }

@@ -71,6 +71,53 @@ export type CustomPageSection = {
   people: CustomPagePerson[]
 }
 
+export type NationalTeamPlayer = {
+  id?: string
+  name: string
+  imageUrl: string
+}
+
+export type NationalTeamBlock = {
+  id?: string
+  title: string
+  players: NationalTeamPlayer[]
+}
+
+export type NationalTeamCategory = {
+  title: string
+  blocks: NationalTeamBlock[]
+}
+
+const normalizeNationalTeamBlock = (block: Partial<NationalTeamBlock>): NationalTeamBlock => ({
+  id: block.id,
+  title: block.title || '',
+  players: Array.isArray(block.players)
+    ? block.players.map((player) => ({
+        id: player.id,
+        name: player.name || '',
+        imageUrl: player.imageUrl || '',
+      }))
+    : [],
+})
+
+const normalizeNationalTeamCategory = (category?: Partial<NationalTeamCategory> & { players?: NationalTeamPlayer[] }): NationalTeamCategory => {
+  const blocks = Array.isArray(category?.blocks) && category.blocks.length > 0
+    ? category.blocks
+    : (Array.isArray(category?.players) ? [{ title: '', players: category.players }] : [])
+
+  return {
+    title: category?.title || '',
+    blocks: blocks.map((block) => normalizeNationalTeamBlock(block)),
+  }
+}
+
+export type NationalTeamPageSettings = {
+  mensTeam: NationalTeamCategory
+  juniorMensTeam: NationalTeamCategory
+  womensTeam: NationalTeamCategory
+  juniorWomensTeam: NationalTeamCategory
+}
+
 export type CustomPageTable = {
   headers: string[]
   rows: string[][]
@@ -166,6 +213,7 @@ export type WebsiteContent = {
   homepage: HomepageSettings
   aboutPage: AboutPageSettings
   eventsPage: EventsPageSettings
+  nationalTeamPage: NationalTeamPageSettings
 }
 
 type WebsiteContentContextType = {
@@ -173,6 +221,7 @@ type WebsiteContentContextType = {
   updateHomepage: (updates: Partial<HomepageSettings>) => void
   updateAboutPage: (updates: Partial<AboutPageSettings>) => void
   updateEventsPage: (updates: Partial<EventsPageSettings>) => void
+  updateNationalTeamPage: (updates: Partial<NationalTeamPageSettings>) => void
   addCustomPage: (page: Omit<CustomPage, 'id' | 'createdAt'>) => void
   updateCustomPage: (id: string, updates: Partial<CustomPage>) => void
   removeCustomPage: (id: string) => void
@@ -205,6 +254,12 @@ const DEFAULT_WEBSITE_CONTENT: WebsiteContent = {
   eventsPage: {
     featuredEventIds: [],
   },
+  nationalTeamPage: {
+    mensTeam: { title: "Men's Team", blocks: [] },
+    juniorMensTeam: { title: "Junior Men's Team", blocks: [] },
+    womensTeam: { title: "Women's Team", blocks: [] },
+    juniorWomensTeam: { title: "Junior Women's Team", blocks: [] },
+  },
 }
 
 async function fetchWebsiteContent(): Promise<WebsiteContent> {
@@ -218,6 +273,24 @@ async function fetchWebsiteContent(): Promise<WebsiteContent> {
       homepage: { ...DEFAULT_WEBSITE_CONTENT.homepage, ...data.homepage },
       aboutPage: { ...DEFAULT_WEBSITE_CONTENT.aboutPage, ...data.aboutPage },
       eventsPage: { ...DEFAULT_WEBSITE_CONTENT.eventsPage, ...data.eventsPage },
+      nationalTeamPage: {
+        mensTeam: normalizeNationalTeamCategory({
+          ...DEFAULT_WEBSITE_CONTENT.nationalTeamPage.mensTeam,
+          ...(data.nationalTeamPage?.mensTeam || {}),
+        }),
+        juniorMensTeam: normalizeNationalTeamCategory({
+          ...DEFAULT_WEBSITE_CONTENT.nationalTeamPage.juniorMensTeam,
+          ...(data.nationalTeamPage?.juniorMensTeam || {}),
+        }),
+        womensTeam: normalizeNationalTeamCategory({
+          ...DEFAULT_WEBSITE_CONTENT.nationalTeamPage.womensTeam,
+          ...(data.nationalTeamPage?.womensTeam || {}),
+        }),
+        juniorWomensTeam: normalizeNationalTeamCategory({
+          ...DEFAULT_WEBSITE_CONTENT.nationalTeamPage.juniorWomensTeam,
+          ...(data.nationalTeamPage?.juniorWomensTeam || {}),
+        }),
+      },
     }
   } catch (error) {
     console.error('Error fetching website content:', error)
@@ -292,6 +365,19 @@ export function WebsiteContentProvider({ children }: { children: ReactNode }) {
       await updateContentOnServer('/events', updates)
     } catch (error) {
       // Revert on error
+      setContent(content)
+    }
+  }
+
+  const updateNationalTeamPage = async (updates: Partial<NationalTeamPageSettings>) => {
+    const newContent = {
+      ...content,
+      nationalTeamPage: { ...content.nationalTeamPage, ...updates },
+    }
+    setContent(newContent)
+    try {
+      await updateContentOnServer('/national-team', updates)
+    } catch (error) {
       setContent(content)
     }
   }
@@ -565,6 +651,7 @@ export function WebsiteContentProvider({ children }: { children: ReactNode }) {
         updateHomepage,
         updateAboutPage,
         updateEventsPage,
+        updateNationalTeamPage,
         addCustomPage,
         updateCustomPage,
         removeCustomPage,

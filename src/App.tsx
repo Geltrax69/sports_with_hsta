@@ -26,6 +26,7 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { TournamentApplication } from './pages/TournamentApplication'
 import { ContactPage } from './pages/ContactPage'
 import { CertificatesPage } from './pages/CertificatesPage'
+import { NationalTeamPage } from './pages/NationalTeamPage'
 import { ProtectedRoute } from './components/admin/ProtectedRoute'
 import { AdminPage } from './pages/admin/AdminPage'
 import { AdminDashboard } from './pages/admin/AdminDashboard'
@@ -41,6 +42,7 @@ import { NewsManagement } from './pages/admin/NewsManagement'
 import { DocumentsManagement } from './pages/admin/DocumentsManagement'
 import { WebsiteContentManagement } from './pages/admin/WebsiteContentManagement'
 import { AdminAboutPage } from './pages/admin/AdminAboutPage'
+import { NationalTeamManagement } from './pages/admin/NationalTeamManagement'
 import { AdminManageDirectories } from './pages/admin/AdminManageDirectories'
 import { TournamentRegistrations } from './pages/admin/TournamentRegistrations'
 import { AdminCertificates } from './pages/admin/AdminCertificates'
@@ -97,6 +99,8 @@ export default function App() {
                     <Route path="/news/feature-story" element={<FeatureStoryPage />} />
                     <Route path="/players" element={<PlayersPage />} />
                     <Route path="/players/:playerId" element={<PlayerDetailPage />} />
+                    <Route path="/national-team" element={<Navigate to="/national-team/mens-team" replace />} />
+                    <Route path="/national-team/:teamSlug" element={<NationalTeamPage />} />
                     <Route path="/register" element={<RegisterPage />} />
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -130,6 +134,7 @@ export default function App() {
                       <Route path="tournaments/:tournamentId/edit" element={<EditTournament />} />
                       <Route path="tournaments/:tournamentId/registrations" element={<TournamentRegistrations />} />
                       <Route path="coaches" element={<CoachManagement />} />
+                      <Route path="national-team" element={<NationalTeamManagement />} />
                       <Route path="website" element={<WebsiteContentManagement />} />
                       <Route path="about/manage-directories" element={<AdminManageDirectories />} />
                       <Route path="about/:pageId" element={<AdminAboutPage />} />
