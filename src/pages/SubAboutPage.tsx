@@ -214,25 +214,56 @@ export function SubAboutPage({ title: propTitle }: { title?: string }) {
 
               {/* Executive Board Members Grid */}
               {content.aboutPage?.executiveBoardMembers && content.aboutPage.executiveBoardMembers.length > 0 && (
-                <div>
-                  <h2 className="text-3xl font-bold text-[#5a0a8f] mb-8 text-center border-b-2 border-gray-100 pb-4">Executive Board Members</h2>
-                  <div className="grid justify-center grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {content.aboutPage.executiveBoardMembers.map((member, i) => (
-                      <div key={i} className="group relative flex w-full max-w-xs flex-col overflow-hidden rounded-xl shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl bg-white border border-gray-100">
-                        <div className="aspect-[4/5] w-full overflow-hidden bg-gray-100 flex items-center justify-center relative">
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent z-10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                          {member.imageUrl ? (
-                            <img src={member.imageUrl} alt={member.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                          ) : (
-                            <span className="material-symbols-outlined text-6xl text-gray-300">person</span>
-                          )}
-                        </div>
-                        <div className="flex flex-1 flex-col p-5 bg-[#5a0a8f] text-center border-t-[6px] border-orange-500 z-20">
-                          <h4 className="text-lg font-bold text-white mb-1">{member.name}</h4>
-                          <p className="text-xs font-semibold text-orange-300 uppercase tracking-wider">{member.post}</p>
-                        </div>
+                <div className="py-8">
+                  <h2 className="text-4xl font-bold text-[#241b71] mb-16 text-center">Executive Board Members</h2>
+                  
+                  <div className="flex flex-col items-center gap-12">
+                    {/* First Row (Top person) */}
+                    <div className="flex justify-center w-full">
+                      {(() => {
+                        const member = content.aboutPage.executiveBoardMembers[0];
+                        return (
+                          <div className="flex flex-col items-center text-center max-w-sm">
+                            <div className="w-56 h-56 rounded-full overflow-hidden mb-6 border-[6px] border-[#e2dcf8] shadow-sm relative group">
+                              <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity z-10"></div>
+                              {member.imageUrl ? (
+                                <img src={member.imageUrl} alt={member.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                              ) : (
+                                <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                                  <span className="material-symbols-outlined text-6xl text-gray-300">person</span>
+                                </div>
+                              )}
+                            </div>
+                            <h4 className="text-xl font-bold text-[#241b71] mb-2">{member.name}</h4>
+                            <div className="w-8 h-0.5 bg-[#f50057] mx-auto mb-3"></div>
+                            <p className="text-[15px] text-gray-600 font-medium">{member.post}</p>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    
+                    {/* Subsequent Rows */}
+                    {content.aboutPage.executiveBoardMembers.length > 1 && (
+                      <div className="flex flex-wrap justify-center gap-16 sm:gap-32 w-full max-w-4xl mx-auto">
+                        {content.aboutPage.executiveBoardMembers.slice(1).map((member, i) => (
+                          <div key={i + 1} className="flex flex-col items-center text-center max-w-sm">
+                            <div className="w-56 h-56 rounded-full overflow-hidden mb-6 border-[6px] border-[#e2dcf8] shadow-sm relative group">
+                              <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity z-10"></div>
+                              {member.imageUrl ? (
+                                <img src={member.imageUrl} alt={member.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                              ) : (
+                                <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                                  <span className="material-symbols-outlined text-6xl text-gray-300">person</span>
+                                </div>
+                              )}
+                            </div>
+                            <h4 className="text-xl font-bold text-[#241b71] mb-2">{member.name}</h4>
+                            <div className="w-8 h-0.5 bg-[#f50057] mx-auto mb-3"></div>
+                            <p className="text-[15px] text-gray-600 font-medium">{member.post}</p>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               )}
