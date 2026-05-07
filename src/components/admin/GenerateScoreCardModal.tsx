@@ -14,6 +14,12 @@ type MatchForScoreCard = {
     team2?: string
     team1Players?: MatchPlayer[]
     team2Players?: MatchPlayer[]
+    regus?: {
+        reguName: string
+    }[]
+    scorecard?: {
+        substitutions?: ScoreCardSubstitution[]
+    }
 }
 
 type MatchPlayer = {
@@ -30,11 +36,23 @@ type MatchPlayer = {
 export type ScoreCardSubstitution = {
     team: 'team1' | 'team2'
     teamLabel: string
+    reguName: string
     playerName: string
     jerseyNumber?: number
+    playerInName?: string
+    playerInJerseyNumber?: number
+    playerOutName?: string
+    playerOutJerseyNumber?: number
     entryTime: string
     exitTime: string
     timePlayed: string
+}
+
+type PlayerOption = {
+    label: string
+    value: string
+    jerseyNumber?: number
+    isSubstitute: boolean
 }
 
 export type ScoreCardData = {
@@ -64,42 +82,74 @@ const calculateTimePlayed = (entryTime?: string, exitTime?: string) => {
     return hours > 0 ? `${hours}h ${remainingMinutes}m` : `${remainingMinutes} min`
 }
 
+const buildPlayerOptions = (players?: MatchPlayer[]): PlayerOption[] =>
+    (players || []).map((player, index) => {
+        const playerLabel =
+            typeof player.player === 'string'
+                ? player.player
+                : player.player?.fullName || player.player?.name || `Player ${index + 1}`
+
+        return {
+            label: `${playerLabel}${player.jerseyNumber ? ` #${player.jerseyNumber}` : ''}`,
+            value: playerLabel,
+            jerseyNumber: player.jerseyNumber,
+            isSubstitute: !!player.isSubstitute,
+        }
+    })
+
 const buildSubstitutionsFromMatch = (match?: MatchForScoreCard | null): ScoreCardSubstitution[] => {
     if (!match) return []
 
-    const mapPlayer = (team: 'team1' | 'team2', teamLabel: string, players?: MatchPlayer[]) =>
-        (players || [])
-            .filter((player) => player.isSubstitute)
-            .map((player) => ({
-                team,
-                teamLabel,
-                playerName:
-                    typeof player.player === 'string'
-                        ? player.player
-                        : player.player?.fullName || player.player?.name || 'Substitute',
-                jerseyNumber: player.jerseyNumber,
-                entryTime: player.entryTime || '',
-                exitTime: player.exitTime || '',
-                timePlayed: calculateTimePlayed(player.entryTime, player.exitTime),
-            }))
+    const savedSubstitutions = match.scorecard?.substitutions || []
+    if (savedSubstitutions.length > 0) {
+        return savedSubstitutions.map((substitution) => ({
+            ...substitution,
+            playerName: substitution.playerInName || substitution.playerName || '',
+            teamLabel: substitution.teamLabel || (substitution.team === 'team1' ? match.team1 || 'Team A' : match.team2 || 'Team B'),
+            reguName: substitution.reguName || match.regus?.[0]?.reguName || 'Regu 1',
+            playerInName: substitution.playerInName || substitution.playerName || '',
+            playerInJerseyNumber: substitution.playerInJerseyNumber,
+            playerOutName: substitution.playerOutName || '',
+            playerOutJerseyNumber: substitution.playerOutJerseyNumber,
+            timePlayed: calculateTimePlayed(substitution.entryTime, substitution.exitTime),
+        }))
+    }
 
     return [
-        ...mapPlayer('team1', match.team1 || 'Team A', match.team1Players),
-        ...mapPlayer('team2', match.team2 || 'Team B', match.team2Players),
+        {
+            team: 'team1',
+            teamLabel: match.team1 || 'Team A',
+            reguName: match.regus?.[0]?.reguName || 'Regu 1',
+            playerName: '',
+            jerseyNumber: undefined,
+            playerInName: '',
+            playerInJerseyNumber: undefined,
+            playerOutName: '',
+            playerOutJerseyNumber: undefined,
+            entryTime: '',
+            exitTime: '',
+            timePlayed: '—',
+        },
     ]
 }
 
 const createEmptySubstitution = (match?: MatchForScoreCard | null): ScoreCardSubstitution => ({
     team: 'team1',
     teamLabel: match?.team1 || 'Team A',
+    reguName: match?.regus?.[0]?.reguName || 'Regu 1',
     playerName: '',
     jerseyNumber: undefined,
+    playerInName: '',
+    playerInJerseyNumber: undefined,
+    playerOutName: '',
+    playerOutJerseyNumber: undefined,
     entryTime: '',
     exitTime: '',
     timePlayed: '—',
 })
 
 export function GenerateScoreCardModal({ isOpen, onClose, onGenerate, matchTitle, match }: GenerateScoreCardModalProps) {
+    const [activePicker, setActivePicker] = useState<{ index: number; field: 'playerIn' | 'playerOut' } | null>(null)
     const [data, setData] = useState<ScoreCardData>({
         matchNo: '',
         court: '',
@@ -132,6 +182,7 @@ export function GenerateScoreCardModal({ isOpen, onClose, onGenerate, matchTitle
             ...data,
             substitutions: data.substitutions.map((substitution) => ({
                 ...substitution,
+                playerName: substitution.playerInName || substitution.playerName,
                 timePlayed: calculateTimePlayed(substitution.entryTime, substitution.exitTime),
             })),
         })
@@ -147,10 +198,28 @@ export function GenerateScoreCardModal({ isOpen, onClose, onGenerate, matchTitle
                 const nextItem = { ...item, ...patch }
                 if (patch.team) {
                     nextItem.teamLabel = patch.team === 'team1' ? match?.team1 || 'Team A' : match?.team2 || 'Team B'
+                    nextItem.playerInName = ''
+                    nextItem.playerInJerseyNumber = undefined
+                    nextItem.playerOutName = ''
+                    nextItem.playerOutJerseyNumber = undefined
                 }
                 return nextItem
             }),
         }))
+    }
+
+    const getPlayerOptions = (team: 'team1' | 'team2', field: 'playerIn' | 'playerOut') => {
+        const teamPlayers = team === 'team1' ? buildPlayerOptions(match?.team1Players) : buildPlayerOptions(match?.team2Players)
+        return field === 'playerIn'
+            ? teamPlayers.filter((player) => player.isSubstitute)
+            : teamPlayers.filter((player) => !player.isSubstitute)
+    }
+
+    const selectPlayer = (index: number, field: 'playerIn' | 'playerOut', option: PlayerOption) => {
+        updateSubstitution(index, field === 'playerIn'
+            ? { playerInName: option.value, playerInJerseyNumber: option.jerseyNumber }
+            : { playerOutName: option.value, playerOutJerseyNumber: option.jerseyNumber })
+        setActivePicker(null)
     }
 
     const addManualSubstitution = () => {
@@ -180,7 +249,7 @@ export function GenerateScoreCardModal({ isOpen, onClose, onGenerate, matchTitle
                 <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
                     <div className="bg-blue-50 p-4 rounded-md border border-blue-100 mb-4">
                         <p className="text-sm text-blue-800">
-                            Please fill in the official match details to generate the final Regu Score Sheet.
+                            Please fill in the official match details to generate the final Regu score sheet.
                         </p>
                     </div>
 
@@ -320,7 +389,7 @@ export function GenerateScoreCardModal({ isOpen, onClose, onGenerate, matchTitle
                         <div>
                             <h3 className="font-semibold text-gray-900">Substitution Timings</h3>
                             <p className="text-sm text-gray-500">
-                                Add substitute players manually here, then enter when they came in and went out. Time played is calculated automatically.
+                                Pick a regu, choose who came in and who went out, then capture the entry and exit time.
                             </p>
                         </div>
                         <div className="flex justify-end">
@@ -341,7 +410,7 @@ export function GenerateScoreCardModal({ isOpen, onClose, onGenerate, matchTitle
                         ) : (
                             <div className="space-y-3">
                                 {data.substitutions.map((substitution, index) => (
-                                    <div key={`${substitution.team}-${substitution.playerName}-${index}`} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                    <div key={`${substitution.team}-${substitution.reguName}-${substitution.playerName}-${index}`} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                                         <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                                             <div className="grid flex-1 grid-cols-1 gap-3 md:grid-cols-3">
                                                 <div>
@@ -356,34 +425,86 @@ export function GenerateScoreCardModal({ isOpen, onClose, onGenerate, matchTitle
                                                     </select>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Player Name</label>
-                                                    <input
-                                                        type="text"
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Regu</label>
+                                                    <select
                                                         className="w-full px-3 py-2 border rounded-md focus:ring-[#5a0a8f] focus:border-[#5a0a8f] text-gray-900 bg-white"
-                                                        value={substitution.playerName}
-                                                        onChange={(e) => updateSubstitution(index, { playerName: e.target.value })}
-                                                        placeholder="Enter substitute name"
-                                                    />
+                                                        value={substitution.reguName}
+                                                        onChange={(e) => updateSubstitution(index, { reguName: e.target.value })}
+                                                    >
+                                                        {(match?.regus?.length ? match.regus : [{ reguName: 'Regu 1' }, { reguName: 'Regu 2' }, { reguName: 'Regu 3' }]).map((regu) => (
+                                                            <option key={regu.reguName} value={regu.reguName}>{regu.reguName}</option>
+                                                        ))}
+                                                    </select>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Jersey Number</label>
-                                                    <input
-                                                        type="number"
-                                                        className="w-full px-3 py-2 border rounded-md focus:ring-[#5a0a8f] focus:border-[#5a0a8f] text-gray-900 bg-white"
-                                                        value={substitution.jerseyNumber ?? ''}
-                                                        onChange={(e) =>
-                                                            updateSubstitution(index, {
-                                                                jerseyNumber: e.target.value ? Number(e.target.value) : undefined,
-                                                            })
-                                                        }
-                                                        placeholder="Optional"
-                                                    />
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Time Played</label>
+                                                    <div className="w-full rounded-md border bg-white px-3 py-2 text-sm font-semibold text-gray-900">
+                                                        {calculateTimePlayed(substitution.entryTime, substitution.exitTime)}
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#5a0a8f] border border-[#e7d8f4]">
                                                 Played: {calculateTimePlayed(substitution.entryTime, substitution.exitTime)}
                                             </div>
                                         </div>
+
+                                        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <label className="block text-sm font-medium text-gray-700">Sub In</label>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setActivePicker(activePicker?.index === index && activePicker.field === 'playerIn' ? null : { index, field: 'playerIn' })}
+                                                        className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-700 hover:bg-green-100"
+                                                    >
+                                                        {activePicker?.index === index && activePicker.field === 'playerIn' ? 'Hide' : 'Choose Sub In'}
+                                                    </button>
+                                                </div>
+                                                <div className="rounded-md border border-dashed border-green-200 bg-green-50/60 p-3 text-sm text-gray-700">
+                                                    {substitution.playerInName || 'No sub-in player selected'}
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <label className="block text-sm font-medium text-gray-700">Sub Out</label>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setActivePicker(activePicker?.index === index && activePicker.field === 'playerOut' ? null : { index, field: 'playerOut' })}
+                                                        className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
+                                                    >
+                                                        {activePicker?.index === index && activePicker.field === 'playerOut' ? 'Hide' : 'Choose Sub Out'}
+                                                    </button>
+                                                </div>
+                                                <div className="rounded-md border border-dashed border-red-200 bg-red-50/60 p-3 text-sm text-gray-700">
+                                                    {substitution.playerOutName || 'No sub-out player selected'}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {activePicker?.index === index && (
+                                            <div className="mb-4 rounded-lg border border-gray-200 bg-white p-4">
+                                                <div className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+                                                    Select {activePicker.field === 'playerIn' ? 'Sub In' : 'Sub Out'} Player
+                                                </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {getPlayerOptions(substitution.team, activePicker.field).length > 0 ? (
+                                                        getPlayerOptions(substitution.team, activePicker.field).map((option) => (
+                                                            <button
+                                                                key={option.value}
+                                                                type="button"
+                                                                onClick={() => selectPlayer(index, activePicker.field, option)}
+                                                                className="rounded-full border border-[#d8c1eb] bg-[#faf5ff] px-3 py-1.5 text-xs font-semibold text-[#5a0a8f] hover:bg-[#f4ebff]"
+                                                            >
+                                                                {option.label}
+                                                            </button>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-sm text-gray-500">No players available for this side.</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
 
                                         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                                             <div>

@@ -72,11 +72,17 @@ type Match = {
     team1: number
     team2: number
   }
-  sets?: {
-    setNumber: number
+  regus?: {
+    reguName: string
     team1Score: number
     team2Score: number
     winner?: 'team1' | 'team2' | null
+    sets: {
+      setNumber: number
+      team1Score: number
+      team2Score: number
+      winner?: 'team1' | 'team2' | null
+    }[]
   }[]
   winner?: 'team1' | 'team2' | 'tie'
   team1Players?: {
@@ -143,7 +149,6 @@ type Referee = {
 
 type SimpleMatchState = {
   title: string
-  round: number
   team1Name: string
   team2Name: string
   team1Players: SimpleMatchPlayer[]
@@ -246,7 +251,6 @@ export function TournamentRegistrations() {
     phase: 'idle',
     simpleMatch: {
       title: '',
-      round: 1,
       team1Name: 'Team A',
       team2Name: 'Team B',
       team1Players: [],
@@ -466,7 +470,6 @@ export function TournamentRegistrations() {
       phase: 'create-match',
       simpleMatch: {
         title: '',
-        round: 1,
         team1Name: 'Team A',
         team2Name: 'Team B',
         team1Players: [],
@@ -792,7 +795,6 @@ export function TournamentRegistrations() {
           tournamentId,
           team1: team1Res.team._id,
           team2: team2Res.team._id,
-          round: wizard.simpleMatch.round,
           team1Coach: wizard.simpleMatch.team1Coach?._id || null,
           team2Coach: wizard.simpleMatch.team2Coach?._id || null,
           team1Manager: wizard.simpleMatch.team1Manager || null,
@@ -943,6 +945,29 @@ export function TournamentRegistrations() {
     }
   }
 
+  // Handle registration deletion
+  const handleDeleteRegistration = async (registrationId: string) => {
+    if (!window.confirm('Are you sure you want to remove this participant from the tournament?')) {
+      return
+    }
+
+    try {
+      await apiRequest(`/admin/tournament-registrations/${registrationId}`, {
+        method: 'DELETE',
+        auth: true,
+      })
+      if (tournamentId) {
+        const res = await apiRequest<{ registrations: TournamentRegistration[] }>(
+          `/admin/tournaments/${tournamentId}/registrations`,
+          { auth: true }
+        )
+        setRegistrations(Array.isArray(res.registrations) ? res.registrations : [])
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to delete registration')
+    }
+  }
+
   // Calculate stats
   const stats: Stats = useMemo(() => {
     return {
@@ -995,8 +1020,8 @@ export function TournamentRegistrations() {
 
           <div className="p-6 flex-1 overflow-y-auto space-y-6">
             {/* Title and Round Input */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="md:col-span-3">
+            <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+              <div>
                 <label className="block text-sm font-bold uppercase tracking-wide text-gray-700 mb-2">
                   Match Title / Description
                 </label>
@@ -1009,22 +1034,6 @@ export function TournamentRegistrations() {
                     simpleMatch: { ...prev.simpleMatch, title: e.target.value }
                   }))}
                   placeholder="e.g. Quarter Final 1, League Match A vs B"
-                  className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5a0a8f] font-semibold text-gray-900"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold uppercase tracking-wide text-gray-700 mb-2">
-                  Round
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={wizard.simpleMatch.round}
-                  onChange={(e) => setWizard(prev => ({
-                    ...prev,
-                    simpleMatch: { ...prev.simpleMatch, round: parseInt(e.target.value) || 1 }
-                  }))}
-                  placeholder="1"
                   className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5a0a8f] font-semibold text-gray-900"
                 />
               </div>
@@ -1910,13 +1919,20 @@ export function TournamentRegistrations() {
                                 </button>
                                 <button
                                   onClick={() => handleReject(tr._id)}
-                                  className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                                  className="p-2 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors"
                                   title="Reject"
                                 >
                                   <span className="material-symbols-outlined text-lg">close</span>
                                 </button>
                               </>
                             )}
+                            <button
+                              onClick={() => handleDeleteRegistration(tr._id)}
+                              className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors ml-1"
+                              title="Remove Participant"
+                            >
+                              <span className="material-symbols-outlined text-lg">delete</span>
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1937,13 +1953,25 @@ export function TournamentRegistrations() {
                 <h2 className="text-2xl font-bold text-gray-900">Matches & Teams</h2>
                 <p className="text-gray-500 mt-1">Create teams and schedule matches for this tournament</p>
               </div>
-              <button
-                onClick={startCreateMatch}
-                className="px-6 py-3 bg-[#5a0a8f] hover:bg-[#400466] text-white rounded-xl font-bold transition-all shadow-md flex items-center gap-2 transform hover:scale-105 active:scale-95"
-              >
-                <span className="material-symbols-outlined">add_circle</span>
-                Create Match
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    if (!tournamentId) return;
+                    window.open(`http://localhost:5001/api/admin/tournaments/${tournamentId}/match-schedule-pdf`, '_blank');
+                  }}
+                  className="px-6 py-3 bg-white text-[#5a0a8f] border-2 border-[#5a0a8f] rounded-xl font-bold transition-all shadow-md flex items-center gap-2 transform hover:scale-105 active:scale-95"
+                >
+                  <span className="material-symbols-outlined">download</span>
+                  Download Schedule & Scorecards
+                </button>
+                <button
+                  onClick={startCreateMatch}
+                  className="px-6 py-3 bg-[#5a0a8f] hover:bg-[#400466] text-white rounded-xl font-bold transition-all shadow-md flex items-center gap-2 transform hover:scale-105 active:scale-95"
+                >
+                  <span className="material-symbols-outlined">add_circle</span>
+                  Create Match
+                </button>
+              </div>
             </div>
 
             {/* Teams List */}
@@ -2054,19 +2082,40 @@ export function TournamentRegistrations() {
                             </div>
                           </div>
 
-                          {/* Set Scores */}
-                          {match.status === 'completed' && match.sets && match.sets.length > 0 && (
+                          {/* Regu Scores */}
+                          {match.status === 'completed' && match.regus && match.regus.length > 0 && (
                             <div className="mt-6 pt-4 border-t border-gray-100 flex flex-col items-center">
-                              <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Set Scores</div>
-                              <div className="flex flex-wrap justify-center gap-3">
-                                {match.sets.map((set, idx) => (
-                                  <div key={idx} className="flex flex-col items-center px-4 py-2 bg-gray-50 rounded-lg border border-gray-200">
-                                    <div className="text-xs font-bold text-gray-400 mb-1">SET {set.setNumber}</div>
-                                    <div className="font-mono font-bold text-gray-900 text-lg">
-                                      <span className={set.team1Score > set.team2Score ? 'text-green-600' : ''}>{set.team1Score}</span>
-                                      <span className="mx-1 text-gray-300">-</span>
-                                      <span className={set.team2Score > set.team1Score ? 'text-green-600' : ''}>{set.team2Score}</span>
+                              <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Regu Results</div>
+                              <div className="flex flex-col gap-4 w-full px-4">
+                                {match.regus.map((regu, idx) => (
+                                  <div key={idx} className="bg-gray-50 rounded-xl border border-gray-200 p-4 w-full">
+                                    <div className="flex justify-between items-center mb-3">
+                                      <div className="font-black text-gray-900 uppercase tracking-wide">{regu.reguName}</div>
+                                      <div className="flex items-center gap-4">
+                                        <div className="text-sm font-bold bg-white px-3 py-1 rounded-full shadow-sm border border-gray-100">
+                                          <span className={regu.winner === 'team1' ? 'text-green-600' : 'text-gray-500'}>{regu.team1Score}</span>
+                                          <span className="mx-2 text-gray-300">-</span>
+                                          <span className={regu.winner === 'team2' ? 'text-green-600' : 'text-gray-500'}>{regu.team2Score}</span>
+                                        </div>
+                                        <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${regu.winner === 'team1' ? 'bg-purple-100 text-[#5a0a8f]' : regu.winner === 'team2' ? 'bg-purple-100 text-[#5a0a8f]' : 'bg-gray-200 text-gray-600'}`}>
+                                          {regu.winner === 'team1' ? `${match.team1} Won` : regu.winner === 'team2' ? `${match.team2} Won` : 'Ongoing'}
+                                        </span>
+                                      </div>
                                     </div>
+                                    {regu.sets && regu.sets.length > 0 && (
+                                      <div className="flex flex-wrap gap-2">
+                                        {regu.sets.map((set, sIdx) => (
+                                          <div key={sIdx} className="flex items-center px-3 py-1.5 bg-white rounded-md border border-gray-100 shadow-sm">
+                                            <span className="text-xs font-bold text-gray-400 mr-2">S{set.setNumber}</span>
+                                            <div className="font-mono font-bold text-sm">
+                                              <span className={set.team1Score > set.team2Score ? 'text-green-600' : ''}>{set.team1Score}</span>
+                                              <span className="mx-1 text-gray-300">-</span>
+                                              <span className={set.team2Score > set.team1Score ? 'text-green-600' : ''}>{set.team2Score}</span>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
                                 ))}
                               </div>
