@@ -432,9 +432,48 @@ export function TournamentRegistrations() {
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to download PDF')
+      alert(e instanceof Error ? e.message : 'Failed to download match PDF')
     }
   }
+
+  // Download schedule PDF
+  const handleDownloadSchedulePdf = async () => {
+    if (!tournamentId) return;
+    try {
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://sports-backend-fgsp.onrender.com'
+      const baseUrl = API_BASE.replace(/\/api$/, '')
+      const token = window.localStorage.getItem('stfi.token')
+
+      const response = await fetch(`${baseUrl}/api/admin/tournaments/${tournamentId}/match-schedule-pdf`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate Schedule PDF')
+      }
+
+      const contentDisposition = response.headers.get('Content-Disposition')
+      const filename = contentDisposition
+        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
+        : `tournament_${tournamentId}_schedule.pdf`
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to download schedule')
+    }
+  }
+
 
   useEffect(() => {
     if (tournamentId) {
@@ -1955,10 +1994,7 @@ export function TournamentRegistrations() {
               </div>
               <div className="flex gap-3">
                 <button
-                  onClick={() => {
-                    if (!tournamentId) return;
-                    window.open(`http://localhost:5001/api/admin/tournaments/${tournamentId}/match-schedule-pdf`, '_blank');
-                  }}
+                  onClick={handleDownloadSchedulePdf}
                   className="px-6 py-3 bg-white text-[#5a0a8f] border-2 border-[#5a0a8f] rounded-xl font-bold transition-all shadow-md flex items-center gap-2 transform hover:scale-105 active:scale-95"
                 >
                   <span className="material-symbols-outlined">download</span>
