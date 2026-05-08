@@ -127,10 +127,11 @@ export type CustomPage = {
   id: string
   title: string
   slug: string
-  pageType?: 'content' | 'table' | 'people'
+  pageType?: 'content' | 'table' | 'people' | 'document'
   content: string
   tableData?: CustomPageTable
   peopleSections?: CustomPageSection[]
+  documents?: DocumentLink[]
   createdAt?: string
 }
 

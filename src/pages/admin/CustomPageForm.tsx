@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useWebsiteContent, type CustomPage, type CustomPagePerson, type CustomPageSection } from '../../context/WebsiteContentContext'
+import { useState, useRef } from 'react'
+import { useWebsiteContent, type CustomPage, type CustomPagePerson, type CustomPageSection, type DocumentLink } from '../../context/WebsiteContentContext'
 import { apiRequest } from '../../lib/api'
 
 interface CustomPageFormProps {
@@ -18,6 +18,11 @@ export function CustomPageForm({ customPage }: CustomPageFormProps) {
   const [tableRows, setTableRows] = useState<string[][]>(customPage.tableData?.rows || [])
 
   const [peopleSections, setPeopleSections] = useState<CustomPageSection[]>(customPage.peopleSections || [])
+  
+  const [documents, setDocuments] = useState<DocumentLink[]>(customPage.documents || [])
+  const [newDocTitle, setNewDocTitle] = useState('')
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -28,6 +33,7 @@ export function CustomPageForm({ customPage }: CustomPageFormProps) {
         content,
         tableData: { headers: tableHeaders, rows: tableRows },
         peopleSections,
+        documents,
       })
       setSaveMessage('Content updated successfully!')
       setTimeout(() => setSaveMessage(''), 3000)
@@ -106,6 +112,38 @@ export function CustomPageForm({ customPage }: CustomPageFormProps) {
     }
   }
 
+  const handleDocumentUpload = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newDocTitle.trim() || !fileInputRef.current?.files?.[0]) return
+
+    setIsUploadingDoc(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', fileInputRef.current.files[0])
+      formData.append('name', newDocTitle.trim())
+
+      const response = await apiRequest<{ key: string; url: string }>('/uploads/documents', {
+        method: 'POST',
+        body: formData,
+        auth: true,
+      })
+
+      if (response.url) {
+        setDocuments([...documents, { title: newDocTitle.trim(), fileUrl: response.url }])
+        setNewDocTitle('')
+        if (fileInputRef.current) fileInputRef.current.value = ''
+      }
+    } catch (err) {
+      alert('Failed to upload document')
+    } finally {
+      setIsUploadingDoc(false)
+    }
+  }
+
+  const removeDocument = (index: number) => {
+    setDocuments(documents.filter((_, i) => i !== index))
+  }
+
   return (
     <div className="space-y-6 max-w-5xl">
       <div className="flex items-center justify-between">
@@ -134,8 +172,8 @@ export function CustomPageForm({ customPage }: CustomPageFormProps) {
 
       <div className="bg-white p-6 rounded-xl border border-gray-200">
         <label className="block text-sm font-semibold text-gray-900 mb-3">Page Layout Type</label>
-        <div className="flex gap-4">
-          {['content', 'table', 'people'].map(type => (
+        <div className="flex gap-4 flex-wrap">
+          {['content', 'table', 'people', 'document'].map(type => (
             <label key={type} className="flex items-center gap-2 cursor-pointer">
               <input 
                 type="radio" 
@@ -302,6 +340,96 @@ export function CustomPageForm({ customPage }: CustomPageFormProps) {
           <button onClick={addSection} className="w-full bg-white border-2 border-dashed border-[#5a0a8f] text-[#5a0a8f] p-4 rounded-xl font-bold hover:bg-purple-50 transition-colors">
             + Add New Section
           </button>
+        </div>
+      )}
+
+      {pageType === 'document' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden space-y-0">
+          <form onSubmit={handleDocumentUpload} className="p-6 border-b border-gray-200 bg-gray-50">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Document</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Document Title (e.g. Particulars of Accounts 2023-2024)
+                </label>
+                <input
+                  type="text"
+                  value={newDocTitle}
+                  onChange={(e) => setNewDocTitle(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#5a0a8f] outline-none"
+                  required
+                />
+              </div>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    PDF File
+                  </label>
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    ref={fileInputRef}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#5a0a8f] outline-none bg-white"
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isUploadingDoc || !newDocTitle.trim()}
+                  className="bg-[#5a0a8f] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#4a087a] transition-colors disabled:opacity-50 h-[42px] whitespace-nowrap"
+                >
+                  {isUploadingDoc ? 'Uploading...' : 'Upload'}
+                </button>
+              </div>
+            </div>
+          </form>
+
+          {documents.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <span className="material-symbols-outlined text-4xl mb-2 text-gray-400">description</span>
+              <p>No documents uploaded yet. Add one above and click Save Changes.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-[#241b71] text-white">
+                    <th className="py-3 px-4 text-center w-20 font-semibold border-r border-[#3a2e8c]">Sr. No</th>
+                    <th className="py-3 px-4 font-semibold border-r border-[#3a2e8c]">Document Title</th>
+                    <th className="py-3 px-4 font-semibold text-center w-40">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {documents.map((item, index) => (
+                    <tr key={item.id || index} className="hover:bg-gray-50">
+                      <td className="py-3 px-4 text-center text-gray-500">{index + 1}</td>
+                      <td className="py-3 px-4">
+                        <span className="text-gray-900 font-medium">{item.title}</span>
+                        <a 
+                          href={item.fileUrl} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="block mt-1 text-sm text-[#5a0a8f] hover:underline"
+                        >
+                          View File
+                        </a>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <button
+                          type="button"
+                          onClick={() => removeDocument(index)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Remove Document"
+                        >
+                          <span className="material-symbols-outlined text-[20px]">delete</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

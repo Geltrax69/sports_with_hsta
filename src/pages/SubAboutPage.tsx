@@ -25,7 +25,7 @@ export function SubAboutPage({ title: propTitle }: { title?: string }) {
 
   const documentItems = isAccounts 
     ? (content.aboutPage?.accounts || []) 
-    : (isAgm ? (content.aboutPage?.agmMeetings || []) : [])
+    : (isAgm ? (content.aboutPage?.agmMeetings || []) : (customPage?.pageType === 'document' ? (customPage.documents || []) : []))
   
   const field = fieldMapping[title]
   const pageContent = customPage 
@@ -48,7 +48,7 @@ export function SubAboutPage({ title: propTitle }: { title?: string }) {
 
       <section className="py-16 md:py-24 bg-white min-h-[40vh]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          {(isAccounts || isAgm) ? (
+          {(isAccounts || isAgm || (customPage && customPage.pageType === 'document')) ? (
             <div className="overflow-x-auto border border-gray-200 rounded-xl shadow-sm">
               <table className="w-full text-left">
                 <thead>

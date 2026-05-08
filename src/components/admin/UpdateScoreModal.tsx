@@ -47,6 +47,9 @@ type Match = {
         team2: number
     }
     winner?: string
+    scorecard?: {
+        substitutions?: SubstitutionRecord[]
+    }
 }
 
 type SubstitutionRecord = {
@@ -86,7 +89,6 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
     const [matches, setMatches] = useState<Match[]>([])
     const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
     const [selectedReguIndex, setSelectedReguIndex] = useState<number>(0)
-    const [substitutionMode, setSubstitutionMode] = useState<'playerIn' | 'playerOut' | null>(null)
     const [substitutionDraft, setSubstitutionDraft] = useState<SubstitutionRecord | null>(null)
     const [substitutions, setSubstitutions] = useState<SubstitutionRecord[]>([])
 
@@ -110,7 +112,6 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
             setMatches([])
             setSelectedMatch(null)
             setSelectedReguIndex(0)
-            setSubstitutionMode(null)
             setSubstitutionDraft(null)
             setSubstitutions([])
         }
@@ -410,7 +411,6 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
             entrySetScore: activeSet ? { team1: activeSet.team1Score, team2: activeSet.team2Score } : null,
             entrySetNumber: activeSet ? activeSet.setNumber : null,
         })
-        setSubstitutionMode('playerIn')
     }
 
     const saveSubstitution = () => {
@@ -449,7 +449,6 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
 
         setSubstitutions(updatedSubs)
         setSubstitutionDraft(null)
-        setSubstitutionMode(null)
 
         // Save to backend immediately
         handleUpdateScore(selectedMatch?.regus, selectedMatch?.status, selectedMatch?.winner, updatedSubs)
@@ -680,7 +679,7 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                                                                     </div>
                                                                     <button
                                                                         type="button"
-                                                                        onClick={() => { setSubstitutionDraft(null); setSubstitutionMode(null) }}
+                                                                        onClick={() => { setSubstitutionDraft(null); }}
                                                                         className="text-gray-400 hover:text-gray-600"
                                                                     >
                                                                         <span className="material-symbols-outlined">close</span>
@@ -749,7 +748,7 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                                                                 <div className="mt-4 flex justify-end gap-2">
                                                                     <button
                                                                         type="button"
-                                                                        onClick={() => { setSubstitutionDraft(null); setSubstitutionMode(null) }}
+                                                                        onClick={() => { setSubstitutionDraft(null); }}
                                                                         className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50"
                                                                     >
                                                                         Cancel
