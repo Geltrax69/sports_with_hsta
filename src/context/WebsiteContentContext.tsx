@@ -118,6 +118,13 @@ export type NationalTeamPageSettings = {
   juniorWomensTeam: NationalTeamCategory
 }
 
+export type InternationalTeamPageSettings = {
+  mensTeam: NationalTeamCategory
+  juniorMensTeam: NationalTeamCategory
+  womensTeam: NationalTeamCategory
+  juniorWomensTeam: NationalTeamCategory
+}
+
 export type CustomPageTable = {
   headers: string[]
   rows: string[][]
@@ -220,6 +227,7 @@ export type WebsiteContent = {
   aboutPage: AboutPageSettings
   eventsPage: EventsPageSettings
   nationalTeamPage: NationalTeamPageSettings
+  internationalTeamPage: InternationalTeamPageSettings
 }
 
 type WebsiteContentContextType = {
@@ -228,6 +236,7 @@ type WebsiteContentContextType = {
   updateAboutPage: (updates: Partial<AboutPageSettings>) => void
   updateEventsPage: (updates: Partial<EventsPageSettings>) => void
   updateNationalTeamPage: (updates: Partial<NationalTeamPageSettings>) => void
+  updateInternationalTeamPage: (updates: Partial<InternationalTeamPageSettings>) => void
   addCustomPage: (page: Omit<CustomPage, 'id' | 'createdAt'>) => void
   updateCustomPage: (id: string, updates: Partial<CustomPage>) => void
   removeCustomPage: (id: string) => void
@@ -266,6 +275,12 @@ const DEFAULT_WEBSITE_CONTENT: WebsiteContent = {
     womensTeam: { title: "Women's Team", blocks: [] },
     juniorWomensTeam: { title: "Junior Women's Team", blocks: [] },
   },
+  internationalTeamPage: {
+    mensTeam: { title: "Men's Team", blocks: [] },
+    juniorMensTeam: { title: "Junior Men's Team", blocks: [] },
+    womensTeam: { title: "Women's Team", blocks: [] },
+    juniorWomensTeam: { title: "Junior Women's Team", blocks: [] },
+  },
 }
 
 async function fetchWebsiteContent(): Promise<WebsiteContent> {
@@ -295,6 +310,24 @@ async function fetchWebsiteContent(): Promise<WebsiteContent> {
         juniorWomensTeam: normalizeNationalTeamCategory({
           ...DEFAULT_WEBSITE_CONTENT.nationalTeamPage.juniorWomensTeam,
           ...(data.nationalTeamPage?.juniorWomensTeam || {}),
+        }),
+      },
+      internationalTeamPage: {
+        mensTeam: normalizeNationalTeamCategory({
+          ...DEFAULT_WEBSITE_CONTENT.internationalTeamPage.mensTeam,
+          ...(data.internationalTeamPage?.mensTeam || {}),
+        }),
+        juniorMensTeam: normalizeNationalTeamCategory({
+          ...DEFAULT_WEBSITE_CONTENT.internationalTeamPage.juniorMensTeam,
+          ...(data.internationalTeamPage?.juniorMensTeam || {}),
+        }),
+        womensTeam: normalizeNationalTeamCategory({
+          ...DEFAULT_WEBSITE_CONTENT.internationalTeamPage.womensTeam,
+          ...(data.internationalTeamPage?.womensTeam || {}),
+        }),
+        juniorWomensTeam: normalizeNationalTeamCategory({
+          ...DEFAULT_WEBSITE_CONTENT.internationalTeamPage.juniorWomensTeam,
+          ...(data.internationalTeamPage?.juniorWomensTeam || {}),
         }),
       },
     }
@@ -383,6 +416,19 @@ export function WebsiteContentProvider({ children }: { children: ReactNode }) {
     setContent(newContent)
     try {
       await updateContentOnServer('/national-team', updates)
+    } catch (error) {
+      setContent(content)
+    }
+  }
+
+  const updateInternationalTeamPage = async (updates: Partial<InternationalTeamPageSettings>) => {
+    const newContent = {
+      ...content,
+      internationalTeamPage: { ...content.internationalTeamPage, ...updates },
+    }
+    setContent(newContent)
+    try {
+      await updateContentOnServer('/international-team', updates)
     } catch (error) {
       setContent(content)
     }
@@ -658,6 +704,7 @@ export function WebsiteContentProvider({ children }: { children: ReactNode }) {
         updateAboutPage,
         updateEventsPage,
         updateNationalTeamPage,
+        updateInternationalTeamPage,
         addCustomPage,
         updateCustomPage,
         removeCustomPage,

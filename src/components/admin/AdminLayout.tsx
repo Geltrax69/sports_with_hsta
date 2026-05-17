@@ -157,7 +157,7 @@ export function AdminLayout() {
 
           {sidebarOpen && (
             <div className="px-4 pt-4 pb-2">
-              <div className="text-xs font-bold text-white/50 uppercase tracking-wider">NATIONAL TEAM</div>
+              <div className="text-xs font-bold text-white/50 uppercase tracking-wider">PLAYERS</div>
             </div>
           )}
 
@@ -172,6 +172,19 @@ export function AdminLayout() {
           >
             <span className="material-symbols-outlined text-xl">groups_3</span>
             {sidebarOpen && <span>National Team</span>}
+          </NavLink>
+
+          <NavLink
+            to="/admin/international-team"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <span className="material-symbols-outlined text-xl">public</span>
+            {sidebarOpen && <span>International Team</span>}
           </NavLink>
 
           {sidebarOpen && (
