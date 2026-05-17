@@ -192,9 +192,13 @@ export type AboutPageSettings = {
   otherBoardMemberPositions?: OtherBoardMemberPosition[]
   pastOfficeBearers?: PastOfficeBearer[]
   permanentMembers?: MemberUnit[]
+  permanentMembersHeading?: string
   associateMembers?: MemberUnit[]
+  associateMembersHeading?: string
   academyMembers?: MemberUnit[]
+  academyMembersHeading?: string
   hockeyMembers?: MemberUnit[]
+  hockeyMembersHeading?: string
   rtiExecutiveBoard?: RtiExecutiveBoard[]
   rtiOfficers?: RtiOfficer[]
   customPages?: CustomPage[]

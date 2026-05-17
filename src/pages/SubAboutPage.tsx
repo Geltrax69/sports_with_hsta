@@ -46,10 +46,20 @@ export function SubAboutPage({ title: propTitle }: { title?: string }) {
         </div>
       </section>
 
-      <section className="py-16 md:py-24 bg-white min-h-[40vh]">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section className="py-20 md:py-32 relative min-h-[40vh] bg-[#f8f9fc] overflow-hidden">
+        {/* Immersive Background Elements */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+          <div className="absolute -top-[10%] -right-[5%] w-[40%] h-[50%] rounded-full bg-gradient-to-br from-[#5a0a8f]/10 to-[#241b71]/5 blur-[100px]"></div>
+          <div className="absolute bottom-[10%] -left-[10%] w-[50%] h-[60%] rounded-full bg-gradient-to-tr from-[#f50057]/5 to-transparent blur-[120px]"></div>
+          <div className="absolute top-[40%] left-[20%] w-[60%] h-[40%] rounded-full bg-[#5a0a8f]/5 blur-[100px]"></div>
+          
+          {/* Subtle Grid Pattern Overlay */}
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(36,27,113,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(36,27,113,0.03)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)]"></div>
+        </div>
+
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
           {(isAccounts || isAgm || (customPage && customPage.pageType === 'document')) ? (
-            <div className="overflow-x-auto border border-gray-200 rounded-xl shadow-sm">
+            <div className="overflow-x-auto border border-gray-200 rounded-xl shadow-sm bg-white">
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-[#241b71] text-white">
@@ -88,7 +98,7 @@ export function SubAboutPage({ title: propTitle }: { title?: string }) {
               </table>
             </div>
           ) : customPage && customPage.pageType === 'table' && customPage.tableData ? (
-            <div className="overflow-x-auto border border-gray-200 rounded-xl shadow-sm">
+            <div className="overflow-x-auto border border-gray-200 rounded-xl shadow-sm bg-white">
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-[#241b71] text-white">
@@ -119,26 +129,51 @@ export function SubAboutPage({ title: propTitle }: { title?: string }) {
               </table>
             </div>
           ) : customPage && customPage.pageType === 'people' && customPage.peopleSections ? (
-            <div className="space-y-16">
+            <div className="space-y-24">
               {customPage.peopleSections.map((section, si) => (
-                <div key={si}>
+                <div key={si} className="mb-16">
                   {section.heading && (
-                    <h2 className="text-3xl font-bold text-gray-900 text-center mb-10">{section.heading}</h2>
+                    <div className="relative mb-20 flex justify-center w-full max-w-7xl mx-auto">
+                      <div className="bg-[#241b71] px-10 py-4 relative shadow-xl backdrop-blur-md">
+                        <h2 className="text-xl md:text-2xl font-black text-white uppercase tracking-widest text-center">
+                          {section.heading}
+                        </h2>
+                        {/* Red angled accent */}
+                        <div className="absolute right-[-20px] top-0 bottom-0 w-[40px] bg-[#f50057] transform skew-x-[-20deg] z-[-1] shadow-lg"></div>
+                        {/* Blue angled start */}
+                        <div className="absolute left-[-20px] top-0 bottom-0 w-[40px] bg-[#241b71] transform skew-x-[-20deg] z-[-1] shadow-lg"></div>
+                      </div>
+                    </div>
                   )}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-y-28 gap-x-8 max-w-6xl mx-auto px-4 mt-16">
                     {section.people.map((person, pi) => (
-                      <div key={pi} className="flex flex-col items-center bg-gray-50 rounded-2xl p-6 border border-gray-200 hover:shadow-lg transition-shadow">
-                        <div className="w-32 h-32 rounded-full overflow-hidden mb-4 border-4 border-white shadow-md">
-                          {person.imageUrl ? (
-                            <img src={person.imageUrl} alt={person.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                              <span className="material-symbols-outlined text-4xl text-gray-400">person</span>
+                      <div key={pi} className="flex flex-col items-center group pt-16">
+                        <div className="relative bg-white/70 backdrop-blur-md rounded-[2.5rem] p-6 pt-24 w-full shadow-[0_10px_40px_-10px_rgba(36,27,113,0.15)] border border-white hover:shadow-[0_20px_50px_-10px_rgba(36,27,113,0.25)] transition-all duration-500 hover:-translate-y-2 flex flex-col items-center">
+                          {/* Image Popping Out */}
+                          <div className="absolute -top-20 w-44 h-44 rounded-full border-[6px] border-white shadow-[0_20px_40px_rgba(36,27,113,0.2)] bg-white group-hover:scale-105 transition-transform duration-500 z-10">
+                            <div className="w-full h-full rounded-full overflow-hidden bg-gray-50 relative">
+                              {person.imageUrl ? (
+                                <img 
+                                  src={person.imageUrl} 
+                                  alt={person.name} 
+                                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    const fallback = e.currentTarget.nextElementSibling;
+                                    if (fallback) fallback.classList.remove('hidden');
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center text-gray-300 bg-gray-50 ${person.imageUrl ? 'hidden' : ''}`}>
+                                <span className="material-symbols-outlined text-7xl">person</span>
+                              </div>
                             </div>
-                          )}
+                          </div>
+
+                          <h3 className="text-xl font-black text-[#241b71] text-center px-2 tracking-tight">{person.name}</h3>
+                          <div className="w-10 h-[3px] rounded-full bg-gradient-to-r from-[#f50057] to-[#ff4081] my-4 group-hover:w-16 transition-all duration-300"></div>
+                          <p className="text-gray-500 font-semibold text-center text-[15px] px-4 leading-snug">{person.post}</p>
                         </div>
-                        <h3 className="text-xl font-bold text-[#241b71] text-center">{person.name}</h3>
-                        <p className="text-gray-600 font-medium text-center mt-1">{person.post}</p>
                       </div>
                     ))}
                   </div>
@@ -336,10 +371,10 @@ export function SubAboutPage({ title: propTitle }: { title?: string }) {
           {title === 'Member Unit' && (
             <div className="space-y-16">
               {[
-                { title: 'Permanent Members', data: content.aboutPage?.permanentMembers, secTitle: 'General Secretary / Treasurer' },
-                { title: 'Associate Members', data: content.aboutPage?.associateMembers, secTitle: 'General Secretary / Treasurer' },
-                { title: 'Academy Members', data: content.aboutPage?.academyMembers, secTitle: 'General Secretary' },
-                { title: 'Hoc-Key Member', data: content.aboutPage?.hockeyMembers, secTitle: 'Secretary' }
+                { title: content.aboutPage?.permanentMembersHeading || 'Permanent Members', data: content.aboutPage?.permanentMembers, secTitle: 'General Secretary / Treasurer' },
+                { title: content.aboutPage?.associateMembersHeading || 'Associate Members', data: content.aboutPage?.associateMembers, secTitle: 'General Secretary / Treasurer' },
+                { title: content.aboutPage?.academyMembersHeading || 'Academy Members', data: content.aboutPage?.academyMembers, secTitle: 'General Secretary' },
+                { title: content.aboutPage?.hockeyMembersHeading || 'Hoc-Key Member', data: content.aboutPage?.hockeyMembers, secTitle: 'Secretary' }
               ].map((section, idx) => {
                 if (!section.data || section.data.length === 0) return null
                 return (

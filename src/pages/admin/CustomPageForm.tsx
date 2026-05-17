@@ -289,12 +289,20 @@ export function CustomPageForm({ customPage }: CustomPageFormProps) {
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-24 h-24 rounded-full bg-gray-100 overflow-hidden border border-gray-200 relative group/img">
                         {person.imageUrl ? (
-                          <img src={person.imageUrl} alt="person" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400">
-                            <span className="material-symbols-outlined text-3xl">person</span>
-                          </div>
-                        )}
+                          <img 
+                            src={person.imageUrl} 
+                            alt="person" 
+                            className="w-full h-full object-cover" 
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const fallback = e.currentTarget.nextElementSibling;
+                              if (fallback) fallback.classList.remove('hidden');
+                            }}
+                          />
+                        ) : null}
+                        <div className={`w-full h-full flex items-center justify-center text-gray-400 ${person.imageUrl ? 'hidden' : ''}`}>
+                          <span className="material-symbols-outlined text-3xl">person</span>
+                        </div>
                         <label className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 cursor-pointer transition-opacity">
                           <span className="text-xs font-medium">Upload</span>
                           <input type="file" className="hidden" accept="image/*" onChange={(e) => {

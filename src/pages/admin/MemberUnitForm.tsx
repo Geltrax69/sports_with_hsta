@@ -30,6 +30,11 @@ export function MemberUnitForm() {
   const [academyMembers, setAcademyMembers] = useState<MemberUnit[]>([])
   const [hockeyMembers, setHockeyMembers] = useState<MemberUnit[]>([])
 
+  const [permanentHeading, setPermanentHeading] = useState('Permanent Members')
+  const [associateHeading, setAssociateHeading] = useState('Associate Members')
+  const [academyHeading, setAcademyHeading] = useState('Academy Members')
+  const [hockeyHeading, setHockeyHeading] = useState('Hoc-Key Member')
+
   useEffect(() => {
     if (content.aboutPage?.permanentMembers && content.aboutPage.permanentMembers.length > 0) {
       setPermanentMembers(content.aboutPage.permanentMembers)
@@ -43,11 +48,21 @@ export function MemberUnitForm() {
     if (content.aboutPage?.hockeyMembers) {
       setHockeyMembers(content.aboutPage.hockeyMembers)
     }
+    
+    if (content.aboutPage?.permanentMembersHeading) setPermanentHeading(content.aboutPage.permanentMembersHeading)
+    if (content.aboutPage?.associateMembersHeading) setAssociateHeading(content.aboutPage.associateMembersHeading)
+    if (content.aboutPage?.academyMembersHeading) setAcademyHeading(content.aboutPage.academyMembersHeading)
+    if (content.aboutPage?.hockeyMembersHeading) setHockeyHeading(content.aboutPage.hockeyMembersHeading)
   }, [content.aboutPage])
 
-  const saveSection = async (field: keyof typeof content.aboutPage, data: MemberUnit[]) => {
+  const saveSection = async (
+    field: keyof typeof content.aboutPage, 
+    data: MemberUnit[], 
+    headingField: keyof typeof content.aboutPage, 
+    headingValue: string
+  ) => {
     try {
-      await updateAboutPage({ [field]: data })
+      await updateAboutPage({ [field]: data, [headingField]: headingValue })
       alert('Saved successfully!')
     } catch (e) {
       alert('Failed to save data')
@@ -56,15 +71,23 @@ export function MemberUnitForm() {
 
   const renderTableEditor = (
     title: string,
+    setTitle: React.Dispatch<React.SetStateAction<string>>,
     data: MemberUnit[],
     setData: React.Dispatch<React.SetStateAction<MemberUnit[]>>,
     field: keyof typeof content.aboutPage,
+    headingField: keyof typeof content.aboutPage,
     secretaryHeader: string
   ) => {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden p-6 mb-8">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-gray-900">{title}</h2>
+          <input 
+            type="text" 
+            value={title} 
+            onChange={(e) => setTitle(e.target.value)} 
+            placeholder="Enter Section Heading"
+            className="text-xl font-bold text-gray-900 border-b-2 border-dashed border-gray-300 focus:border-[#5a0a8f] outline-none bg-transparent px-1 py-0.5 w-1/2 min-w-[200px]"
+          />
           <div className="space-x-2">
             <button 
               onClick={() => setData([...data, { slNo: String(data.length + 1), unit: '', president: '', secretary: '' }])}
@@ -73,7 +96,7 @@ export function MemberUnitForm() {
               Add Row
             </button>
             <button 
-              onClick={() => saveSection(field, data)} 
+              onClick={() => saveSection(field, data, headingField, title)} 
               className="bg-[#5a0a8f] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#4a087a]"
             >
               Save Section
@@ -124,10 +147,10 @@ export function MemberUnitForm() {
 
   return (
     <div className="mt-8">
-      {renderTableEditor('Permanent Members', permanentMembers, setPermanentMembers, 'permanentMembers', 'General Secretary / Treasurer')}
-      {renderTableEditor('Associate Members', associateMembers, setAssociateMembers, 'associateMembers', 'General Secretary / Treasurer')}
-      {renderTableEditor('Academy Members', academyMembers, setAcademyMembers, 'academyMembers', 'General Secretary')}
-      {renderTableEditor('Hoc-Key Member', hockeyMembers, setHockeyMembers, 'hockeyMembers', 'Secretary')}
+      {renderTableEditor(permanentHeading, setPermanentHeading, permanentMembers, setPermanentMembers, 'permanentMembers', 'permanentMembersHeading', 'General Secretary / Treasurer')}
+      {renderTableEditor(associateHeading, setAssociateHeading, associateMembers, setAssociateMembers, 'associateMembers', 'associateMembersHeading', 'General Secretary / Treasurer')}
+      {renderTableEditor(academyHeading, setAcademyHeading, academyMembers, setAcademyMembers, 'academyMembers', 'academyMembersHeading', 'General Secretary')}
+      {renderTableEditor(hockeyHeading, setHockeyHeading, hockeyMembers, setHockeyMembers, 'hockeyMembers', 'hockeyMembersHeading', 'Secretary')}
     </div>
   )
 }

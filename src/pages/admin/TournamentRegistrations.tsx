@@ -2,8 +2,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { apiRequest } from '../../lib/api'
 import { UpdateScoreModal } from '../../components/admin/UpdateScoreModal'
-import { GenerateScoreCardModal } from '../../components/admin/GenerateScoreCardModal'
-import type { ScoreCardData } from '../../components/admin/GenerateScoreCardModal'
+
 import { Autocomplete, TextField, Chip } from '@mui/material'
 
 type AdminTournament = {
@@ -242,9 +241,7 @@ export function TournamentRegistrations() {
     }
   }
 
-  // Score Card Modal State
-  const [isScoreCardModalOpen, setIsScoreCardModalOpen] = useState(false)
-  const [selectedMatchForScoreCard, setSelectedMatchForScoreCard] = useState<Match | null>(null)
+  // Score Card Modal State (Removed to bypass modal)
 
   // Wizard State
   const [wizard, setWizard] = useState<WizardState>({
@@ -1656,26 +1653,20 @@ export function TournamentRegistrations() {
 
   // ===== MAIN PAGE UI =====
   // Handle Score Card Generation
-  const handleOpenScoreCardModal = (match: Match) => {
-    setSelectedMatchForScoreCard(match)
-    setIsScoreCardModalOpen(true)
-  }
-
-  const handleGenerateScoreCard = async (data: ScoreCardData) => {
-    if (!selectedMatchForScoreCard) return
+  const handleDownloadScoreCard = async (match: Match) => {
 
     try {
       const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://sports-backend-fgsp.onrender.com'
       const baseUrl = API_BASE.replace(/\/api$/, '')
       const token = window.localStorage.getItem('stfi.token')
 
-      const response = await fetch(`${baseUrl}/api/admin/matches/${selectedMatchForScoreCard._id}/scorecard-pdf`, {
+      const response = await fetch(`${baseUrl}/api/admin/matches/${match._id}/scorecard-pdf`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify({}) // Send empty data to rely on backend match data
       })
 
       if (!response.ok) {
@@ -1685,7 +1676,7 @@ export function TournamentRegistrations() {
       const contentDisposition = response.headers.get('Content-Disposition')
       const filename = contentDisposition
         ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-        : `scorecard_${selectedMatchForScoreCard._id}.pdf`
+        : `scorecard_${match._id}.pdf`
 
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
@@ -2190,7 +2181,7 @@ export function TournamentRegistrations() {
 
                           {match.status === 'completed' && (
                             <button
-                              onClick={() => handleOpenScoreCardModal(match)}
+                              onClick={() => handleDownloadScoreCard(match)}
                               className="w-full px-4 py-2 bg-[#5a0a8f] hover:bg-[#400466] text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 shadow-sm"
                             >
                               <span className="material-symbols-outlined text-lg">sports_score</span>
@@ -2595,18 +2586,7 @@ export function TournamentRegistrations() {
         preSelectedMatch={selectedMatchForScore || undefined}
       />
 
-      {isScoreCardModalOpen && selectedMatchForScoreCard && (
-        <GenerateScoreCardModal
-          isOpen={isScoreCardModalOpen}
-          onClose={() => {
-            setIsScoreCardModalOpen(false)
-            setSelectedMatchForScoreCard(null)
-          }}
-          onGenerate={handleGenerateScoreCard}
-          match={selectedMatchForScoreCard}
-          matchTitle={`${typeof selectedMatchForScoreCard.team1 === 'string' ? selectedMatchForScoreCard.team1 : selectedMatchForScoreCard.team1} vs ${typeof selectedMatchForScoreCard.team2 === 'string' ? selectedMatchForScoreCard.team2 : selectedMatchForScoreCard.team2}`}
-        />
-      )}
+
 
       {/* Quick Registration Modal */}
       {isQuickRegModalOpen && (
