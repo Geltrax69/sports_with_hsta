@@ -204,6 +204,7 @@ export type AboutPageSettings = {
   customPages?: CustomPage[]
   accounts?: DocumentLink[]
   agmMeetings?: DocumentLink[]
+  electionReports?: DocumentLink[]
 }
 
 export type EventsPageSettings = {

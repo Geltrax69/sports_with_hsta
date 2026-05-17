@@ -4,7 +4,7 @@ import { apiRequest } from '../../lib/api'
 
 interface DocumentListFormProps {
   title: string
-  field: 'accounts' | 'agmMeetings'
+  field: 'accounts' | 'agmMeetings' | 'electionReports'
 }
 
 export function DocumentListForm({ title, field }: DocumentListFormProps) {

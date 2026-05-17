@@ -119,6 +119,12 @@ export function AdminAboutPage() {
       {pageId === 'rti' && (
         <RtiForm />
       )}
+
+      {pageId === 'election-report' && (
+        <div className="mt-8">
+          <DocumentListForm title="Election Reports Documents" field="electionReports" />
+        </div>
+      )}
     </div>
   )
 }
