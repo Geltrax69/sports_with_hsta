@@ -16,8 +16,16 @@ type Match = {
     status?: 'scheduled' | 'ongoing' | 'completed'
     description?: string
     bracket?: 'winner' | 'loser'
+    scorecard?: {
+        startTime?: string
+        endTime?: string
+        remarks?: string
+        substitutions?: SubstitutionRecord[]
+    }
     regus?: {
         reguName: string
+        startTime?: string
+        endTime?: string
         team1Score: number
         team2Score: number
         winner?: 'team1' | 'team2' | null
@@ -26,6 +34,8 @@ type Match = {
             team1Score: number
             team2Score: number
             winner?: 'team1' | 'team2' | null
+            team1Timeouts?: string[]
+            team2Timeouts?: string[]
         }[]
     }[]
     team1Players?: {
@@ -47,9 +57,6 @@ type Match = {
         team2: number
     }
     winner?: string
-    scorecard?: {
-        substitutions?: SubstitutionRecord[]
-    }
 }
 
 type SubstitutionRecord = {
@@ -159,12 +166,24 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
         }
     }
 
-    const handleUpdateScore = async (newRegus: Match['regus'], matchStatus?: string, winner?: string, subsToSave?: SubstitutionRecord[]) => {
+    const handleUpdateScore = async (
+        newRegus: Match['regus'],
+        matchStatus?: string,
+        winner?: string,
+        subsToSave?: SubstitutionRecord[],
+        scorecardPatch?: Partial<NonNullable<Match['scorecard']>>,
+    ) => {
         if (!selectedMatch) return
         try {
             // Calculate overall match score based on Regu winners
             const team1Total = newRegus?.filter(r => r.winner === 'team1').length || 0
             const team2Total = newRegus?.filter(r => r.winner === 'team2').length || 0
+
+            const mergedScorecard = {
+                ...(selectedMatch.scorecard || {}),
+                substitutions: subsToSave ?? substitutions,
+                ...scorecardPatch,
+            }
 
             const updated = await apiRequest<{ match: Match }>(`/admin/matches/${selectedMatch._id}`, {
                 method: 'PATCH',
@@ -173,9 +192,7 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                     status: matchStatus || selectedMatch.status || 'scheduled',
                     score: { team1: team1Total, team2: team2Total },
                     winner: winner,
-                    scorecard: {
-                        substitutions: subsToSave || substitutions,
-                    },
+                    scorecard: mergedScorecard,
                 }),
                 auth: true
             })
@@ -184,6 +201,19 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
             console.error('Failed to update score', err)
             alert('Failed to save score')
         }
+    }
+
+    const ensureMatchAndReguStarted = (regus: Match['regus'], reguIndex: number) => {
+        const now = formatNowHHMM()
+        const scorecardPatch: Partial<NonNullable<Match['scorecard']>> = {}
+        if (!selectedMatch?.scorecard?.startTime) {
+            scorecardPatch.startTime = now
+        }
+        const updatedRegus = [...(regus || [])]
+        if (updatedRegus[reguIndex] && !updatedRegus[reguIndex].startTime) {
+            updatedRegus[reguIndex] = { ...updatedRegus[reguIndex], startTime: now }
+        }
+        return { updatedRegus, scorecardPatch }
     }
 
     const currentRegus = selectedMatch?.regus || []
@@ -245,20 +275,29 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
         if (!selectedMatch || !activeRegu) return
         const currentSets = activeRegu.sets || []
         const nextSetNumber = currentSets.length + 1
-        
-        const newRegus = [...currentRegus]
+
+        const { updatedRegus: startedRegus, scorecardPatch } = ensureMatchAndReguStarted(currentRegus, selectedReguIndex)
+        const newRegus = [...startedRegus]
         newRegus[selectedReguIndex] = {
-            ...activeRegu,
-            sets: [...currentSets, { setNumber: nextSetNumber, team1Score: 0, team2Score: 0, winner: null }]
+            ...startedRegus[selectedReguIndex],
+            sets: [...currentSets, {
+                setNumber: nextSetNumber,
+                team1Score: 0,
+                team2Score: 0,
+                winner: null,
+                team1Timeouts: [],
+                team2Timeouts: [],
+            }],
         }
-        
-        handleUpdateScore(newRegus, 'ongoing')
+
+        handleUpdateScore(newRegus, 'ongoing', undefined, undefined, scorecardPatch)
     }
 
     const updateSetPoint = (team: 'team1' | 'team2', delta: number) => {
         if (!selectedMatch || !activeRegu || !activeSet || activeSetIndex === -1) return
-        
-        const newRegus = [...currentRegus]
+
+        const { updatedRegus: startedRegus, scorecardPatch } = ensureMatchAndReguStarted(currentRegus, selectedReguIndex)
+        const newRegus = [...startedRegus]
         const currentSets = [...(activeRegu.sets || [])]
         const set = { ...currentSets[activeSetIndex] }
 
@@ -266,9 +305,28 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
         else set.team2Score = Math.max(0, set.team2Score + delta)
 
         currentSets[activeSetIndex] = set
-        newRegus[selectedReguIndex] = { ...activeRegu, sets: currentSets }
-        
-        handleUpdateScore(newRegus)
+        newRegus[selectedReguIndex] = { ...startedRegus[selectedReguIndex], sets: currentSets }
+
+        handleUpdateScore(newRegus, 'ongoing', undefined, undefined, scorecardPatch)
+    }
+
+    const recordTimeout = (team: 'team1' | 'team2') => {
+        if (!selectedMatch || !activeRegu || !activeSet || activeSetIndex === -1) return
+
+        const { updatedRegus: startedRegus, scorecardPatch } = ensureMatchAndReguStarted(currentRegus, selectedReguIndex)
+        const newRegus = [...startedRegus]
+        const currentSets = [...(activeRegu.sets || [])]
+        const set = { ...currentSets[activeSetIndex] }
+        const now = formatNowHHMM()
+        const field = team === 'team1' ? 'team1Timeouts' : 'team2Timeouts'
+        const existing = [...(set[field] || [])]
+        existing.push(now)
+        set[field] = existing
+
+        currentSets[activeSetIndex] = set
+        newRegus[selectedReguIndex] = { ...startedRegus[selectedReguIndex], sets: currentSets }
+
+        handleUpdateScore(newRegus, 'ongoing', undefined, undefined, scorecardPatch)
     }
 
     const declareSetWinner = (winner: 'team1' | 'team2') => {
@@ -320,17 +378,19 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
         const team1Score = activeRegu.sets?.filter(s => s.winner === 'team1').length || 0
         const team2Score = activeRegu.sets?.filter(s => s.winner === 'team2').length || 0
         
-        newRegus[selectedReguIndex] = { 
-            ...activeRegu, 
+        const reguEndTime = formatNowHHMM()
+        newRegus[selectedReguIndex] = {
+            ...activeRegu,
             winner,
             team1Score,
-            team2Score
+            team2Score,
+            endTime: reguEndTime,
         }
-        
+
         // Auto-close open substitutions
         const updatedSubs = [...substitutions]
         let subsChanged = false
-        const exit = formatNowHHMM()
+        const exit = reguEndTime
         const exitMatchScore = selectedMatch?.score ? { ...selectedMatch.score } : undefined
         const exitSetScore = activeSet ? { team1: activeSet.team1Score, team2: activeSet.team2Score } : null
 
@@ -387,7 +447,10 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
             setSubstitutions(updatedSubs)
         }
 
-        handleUpdateScore(selectedMatch?.regus, 'completed', winner, updatedSubs)
+        const matchEndTime = formatNowHHMM()
+        handleUpdateScore(selectedMatch?.regus, 'completed', winner, updatedSubs, {
+            endTime: matchEndTime,
+        })
     }
 
     const addSubstitution = (team: 'team1' | 'team2') => {
@@ -631,6 +694,46 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                                                             >
                                                                 <span className="material-symbols-outlined text-xl">remove</span>
                                                             </button>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="mt-8 border-t border-purple-200/50 pt-6">
+                                                        <h4 className="font-black text-gray-400 text-xs uppercase tracking-widest mb-4 text-center">Time Out</h4>
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+                                                            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                                                                <p className="text-sm font-bold text-gray-700 mb-2 truncate">{selectedMatch.team1}</p>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => recordTimeout('team1')}
+                                                                    className="w-full rounded-xl border-2 border-amber-300 bg-white px-4 py-2.5 text-sm font-bold text-amber-900 hover:bg-amber-100 transition-colors"
+                                                                >
+                                                                    Record Timeout
+                                                                </button>
+                                                                {(activeSet.team1Timeouts || []).length > 0 ? (
+                                                                    <p className="mt-3 text-xs text-amber-900 font-semibold">
+                                                                        Recorded: {(activeSet.team1Timeouts || []).join(', ')}
+                                                                    </p>
+                                                                ) : (
+                                                                    <p className="mt-3 text-xs text-gray-400 italic">No timeout recorded for this set</p>
+                                                                )}
+                                                            </div>
+                                                            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                                                                <p className="text-sm font-bold text-gray-700 mb-2 truncate">{selectedMatch.team2}</p>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => recordTimeout('team2')}
+                                                                    className="w-full rounded-xl border-2 border-amber-300 bg-white px-4 py-2.5 text-sm font-bold text-amber-900 hover:bg-amber-100 transition-colors"
+                                                                >
+                                                                    Record Timeout
+                                                                </button>
+                                                                {(activeSet.team2Timeouts || []).length > 0 ? (
+                                                                    <p className="mt-3 text-xs text-amber-900 font-semibold">
+                                                                        Recorded: {(activeSet.team2Timeouts || []).join(', ')}
+                                                                    </p>
+                                                                ) : (
+                                                                    <p className="mt-3 text-xs text-gray-400 italic">No timeout recorded for this set</p>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
 

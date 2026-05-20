@@ -8,6 +8,7 @@ export function CreateTournament() {
   const [formData, setFormData] = useState({
     tournamentName: '',
     tournamentType: '',
+    eventType: 'regu',
     description: '',
     startDate: '',
     endDate: '',
@@ -63,6 +64,7 @@ export function CreateTournament() {
       if (formData.city) fd.append('city', formData.city)
       if (formData.pincode) fd.append('pincode', formData.pincode)
       fd.append('genderCategory', genderCategory)
+      fd.append('eventType', formData.eventType)
       if (imageFile) fd.append('image', imageFile)
 
       await apiRequest('/admin/tournaments', {
@@ -212,6 +214,29 @@ export function CreateTournament() {
                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none resize-y text-gray-900"
               />
               <div className="text-xs text-gray-500 mt-1 text-right">{formData.description.length}/500 characters</div>
+            </div>
+
+            <div>
+              <label htmlFor="eventType" className="block text-sm font-semibold text-gray-900 mb-2">
+                Event Type <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <select
+                  id="eventType"
+                  name="eventType"
+                  value={formData.eventType}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none appearance-none bg-white text-gray-900"
+                >
+                  <option value="regu">Regu</option>
+                  <option value="double">Double</option>
+                  <option value="quad">Quad</option>
+                </select>
+                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
+                  keyboard_arrow_down
+                </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

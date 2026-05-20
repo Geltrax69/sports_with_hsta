@@ -336,7 +336,17 @@ export function DistrictsProvider({ children }: { children: ReactNode }) {
   }
 
   const getDistrictById = (id: string) => {
-    return districts.find((d) => d.id === id)
+    const raw = String(id || '').trim()
+    if (!raw) return undefined
+    const upper = raw.toUpperCase()
+    return districts.find(
+      (d) =>
+        d.id === raw ||
+        d.code === raw ||
+        d.id?.toUpperCase() === upper ||
+        d.code?.toUpperCase() === upper ||
+        d.name?.toLowerCase() === raw.toLowerCase(),
+    )
   }
 
   return (

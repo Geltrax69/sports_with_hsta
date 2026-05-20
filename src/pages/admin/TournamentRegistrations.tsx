@@ -1,28 +1,47 @@
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { apiRequest } from '../../lib/api'
 import { UpdateScoreModal } from '../../components/admin/UpdateScoreModal'
+import { ScorecardRemarksModal } from '../../components/admin/ScorecardRemarksModal'
+import { useDistricts } from '../../context/DistrictsContext'
 
-import { Autocomplete, TextField, Chip } from '@mui/material'
+type EventType = 'regu' | 'double' | 'quad'
+
+const squadLimitsForEvent = (eventType: EventType) => {
+  const starters = ({ regu: 3, double: 2, quad: 4 }[eventType] ?? 3)
+  const subs = 2
+  return { starters, subs, total: starters + subs }
+}
+
+const eventTypeLabel = (eventType: EventType) =>
+  ({ regu: 'Regu', double: 'Double', quad: 'Quad' }[eventType] ?? 'Regu')
+
+const countSquad = (players: { isSubstitute?: boolean }[]) => ({
+  starters: players.filter((p) => !p.isSubstitute).length,
+  subs: players.filter((p) => p.isSubstitute).length,
+  total: players.length,
+})
 
 type AdminTournament = {
   _id: string
   title: string
+  eventType?: EventType
   startDate?: string
   endDate?: string
   venueName?: string
   city?: string
   status?: string
   winners?: {
-    first: Player[]
-    second: Player[]
-    third: Player[]
+    first: WinnerEntry[]
+    second: WinnerEntry[]
+    third: WinnerEntry[]
   }
 }
 
 type Applicant = {
   _id: string
   fullName: string
+  playerId?: string
   email: string
   district?: string
   profilePhoto?: string
@@ -45,6 +64,73 @@ type Player = {
   fullName: string
   playerId: string
   district?: string
+}
+
+type WinnerEntry = {
+  key: string
+  role: 'player' | 'coach' | 'referee' | 'written'
+  refId?: string
+  fullName: string
+  district: string
+}
+
+const toWinnerEntry = (item: {
+  role?: string
+  refId?: string
+  _id?: string
+  name?: string
+  fullName?: string
+  district?: string
+}): WinnerEntry => {
+  const role = (item.role || 'player') as WinnerEntry['role']
+  const refId = item.refId || item._id
+  const fullName = item.name || item.fullName || ''
+  return {
+    key: `${role}:${refId || fullName}`,
+    role,
+    refId,
+    fullName,
+    district: item.district || '',
+  }
+}
+
+/** Players who were on a match lineup for the selected district */
+const buildMatchPlayers = (matchList: Match[], districtId: string): WinnerEntry[] => {
+  if (!districtId) return []
+  const map = new Map<string, WinnerEntry>()
+  const add = (entry: WinnerEntry) => {
+    if (entry.fullName.trim() && !map.has(entry.key)) map.set(entry.key, entry)
+  }
+
+  const addFromLineup = (lineup: Match['team1Players'], district: string) => {
+    for (const tp of lineup || []) {
+      const p = tp.player
+      if (typeof p === 'object' && p) {
+        if (p._id) {
+          add({
+            key: `player:${p._id}`,
+            role: 'player',
+            refId: p._id,
+            fullName: p.fullName || p.name || 'Player',
+            district,
+          })
+        } else if ((p.fullName || p.name)?.trim()) {
+          const name = (p.fullName || p.name)!.trim()
+          add({ key: `player:name:${name}`, role: 'player', fullName: name, district })
+        }
+      } else if (typeof p === 'string' && p.trim() && !/^[0-9a-fA-F]{24}$/.test(p)) {
+        add({ key: `player:name:${p.trim()}`, role: 'player', fullName: p.trim(), district })
+      }
+    }
+  }
+
+  for (const m of matchList) {
+    if (m.team1District !== districtId && m.team2District !== districtId) continue
+    if (m.team1District === districtId) addFromLineup(m.team1Players, districtId)
+    if (m.team2District === districtId) addFromLineup(m.team2Players, districtId)
+  }
+
+  return Array.from(map.values()).sort((a, b) => a.fullName.localeCompare(b.fullName))
 }
 
 type Team = {
@@ -84,11 +170,22 @@ type Match = {
     }[]
   }[]
   winner?: 'team1' | 'team2' | 'tie'
+  team1District?: string
+  team2District?: string
+  team1Coach?: { _id?: string; fullName?: string; district?: string } | string
+  team2Coach?: { _id?: string; fullName?: string; district?: string } | string
+  team1CoachName?: string
+  team2CoachName?: string
+  referee?: { _id?: string; fullName?: string; district?: string } | string
+  assistantReferee?: { _id?: string; fullName?: string; district?: string } | string
+  officialReferee?: { _id?: string; fullName?: string; district?: string } | string
+  scorecard?: Record<string, unknown>
   team1Players?: {
     player?: {
       _id?: string
       fullName?: string
       name?: string
+      district?: string
     } | string
     jerseyNumber?: number
     position?: string
@@ -102,6 +199,7 @@ type Match = {
       _id?: string
       fullName?: string
       name?: string
+      district?: string
     } | string
     jerseyNumber?: number
     position?: string
@@ -148,16 +246,26 @@ type Referee = {
 
 type SimpleMatchState = {
   title: string
+  matchNo: string
+  round: string
   team1Name: string
   team2Name: string
+  team1District: string
+  team2District: string
   team1Players: SimpleMatchPlayer[]
   team2Players: SimpleMatchPlayer[]
   team1Coach: Coach | null
   team2Coach: Coach | null
+  team1CoachName: string
+  team2CoachName: string
   team1Manager: string
   team2Manager: string
   referee: Referee | null
   assistantReferee: Referee | null
+  officialReferee: Referee | null
+  refereeName: string
+  assistantRefereeName: string
+  officialRefereeName: string
   date: string
   time: string
 }
@@ -169,55 +277,169 @@ type WizardState = {
 
 export function TournamentRegistrations() {
   const { tournamentId } = useParams<{ tournamentId: string }>()
-  const navigate = useNavigate()
+  const { districts, getDistrictById } = useDistricts()
 
   const [tournament, setTournament] = useState<AdminTournament | null>(null)
   const [registrations, setRegistrations] = useState<TournamentRegistration[]>([])
-  const [teams, setTeams] = useState<Team[]>([])
+  const [, setTeams] = useState<Team[]>([])
   const [matches, setMatches] = useState<Match[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [typeFilter, setTypeFilter] = useState('all')
-  const [selectedRegistration, setSelectedRegistration] = useState<string | null>(null)
-
   // UI State
   const [activeTab, setActiveTab] = useState<'registrations' | 'matches' | 'winners'>('registrations')
 
   const [winners, setWinners] = useState<{
-    first: Player[]
-    second: Player[]
-    third: Player[]
+    first: WinnerEntry[]
+    second: WinnerEntry[]
+    third: WinnerEntry[]
   }>({
     first: [],
     second: [],
     third: []
   })
+  const [winnerDistricts, setWinnerDistricts] = useState({
+    first: '',
+    second: '',
+    third: '',
+  })
   const [savingWinners, setSavingWinners] = useState(false)
 
-  // Derived list of players from registrations for the winners dropdown
-  const playerOptions = useMemo(() => {
-    return registrations
-      .filter((r) => r.registerAs === 'player' && r.applicant)
-      .map((r) => ({
-        _id: r.applicant!._id,
-        fullName: r.applicant!.fullName,
-        playerId: r.applicant!._id, // Using _id as fallback
-        district: r.applicant!.district
-      }))
-      .filter((p, index, self) => index === self.findIndex((t) => t._id === p._id))
-  }, [registrations])
+  type WinnerPlace = 'first' | 'second' | 'third'
+
+  const winnerPlayersForPlace = useMemo(
+    () => ({
+      first: buildMatchPlayers(matches, winnerDistricts.first),
+      second: buildMatchPlayers(matches, winnerDistricts.second),
+      third: buildMatchPlayers(matches, winnerDistricts.third),
+    }),
+    [matches, winnerDistricts],
+  )
+
+  const toggleWinnerPick = (place: WinnerPlace, entry: WinnerEntry) => {
+    setWinners((prev) => {
+      const list = prev[place]
+      const exists = list.some((w) => w.key === entry.key)
+      const district = winnerDistricts[place]
+      return {
+        ...prev,
+        [place]: exists
+          ? list.filter((w) => w.key !== entry.key)
+          : [...list, { ...entry, district }],
+      }
+    })
+  }
+
+  const renderWinnerPlace = (
+    place: WinnerPlace,
+    title: string,
+    cardClass: string,
+    avatarSelectedClass: string,
+  ) => {
+    const districtId = winnerDistricts[place]
+    const districtName = getDistrictById(districtId)?.name
+    const matchPlayers = winnerPlayersForPlace[place]
+    const selected = winners[place]
+
+    return (
+      <div className={cardClass}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-sm ${avatarSelectedClass}`}>
+            <span className="material-symbols-outlined text-white">emoji_events</span>
+          </div>
+          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+        </div>
+        <label className="block text-sm font-semibold text-gray-700 mb-2">District</label>
+        <select
+          value={districtId}
+          onChange={(e) => {
+            const nextDistrict = e.target.value
+            setWinnerDistricts((prev) => ({ ...prev, [place]: nextDistrict }))
+            const options = buildMatchPlayers(matches, nextDistrict)
+            setWinners((prev) => ({
+              ...prev,
+              [place]: prev[place].filter((w) => options.some((o) => o.key === w.key)),
+            }))
+          }}
+          className="w-full mb-4 rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900"
+        >
+          <option value="">Select district</option>
+          {districts.map((d) => (
+            <option key={d.id} value={d.id}>{d.name}</option>
+          ))}
+        </select>
+
+        {districtId && (
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <p className="text-sm font-semibold text-gray-800 mb-3">
+              Players from matches{districtName ? ` — ${districtName}` : ''}
+              <span className="text-gray-500 font-normal"> ({matchPlayers.length})</span>
+            </p>
+            {matchPlayers.length === 0 ? (
+              <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg p-3">
+                No players found for this district. Add matches with teams from this district first.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {matchPlayers.map((player) => {
+                  const isSelected = selected.some((w) => w.key === player.key)
+                  return (
+                    <button
+                      key={player.key}
+                      type="button"
+                      onClick={() => toggleWinnerPick(place, player)}
+                      className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+                        isSelected
+                          ? 'border-[#5a0a8f] bg-purple-50 ring-2 ring-[#5a0a8f]/25'
+                          : 'border-gray-200 bg-gray-50 hover:border-purple-200 hover:bg-white'
+                      }`}
+                    >
+                      <div
+                        className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 ${
+                          isSelected ? 'bg-[#5a0a8f]' : 'bg-gradient-to-br from-gray-400 to-gray-600'
+                        }`}
+                      >
+                        {isSelected ? (
+                          <span className="material-symbols-outlined text-lg">check</span>
+                        ) : (
+                          player.fullName.charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <span className="font-semibold text-gray-900 text-sm truncate">{player.fullName}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            {selected.length > 0 && (
+              <p className="mt-3 text-xs font-medium text-[#5a0a8f]">
+                {selected.length} player{selected.length !== 1 ? 's' : ''} selected — click again to remove
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const handleSaveWinners = async () => {
     if (!tournamentId) return
     setSavingWinners(true)
     try {
-      // Map back to just IDs for the backend
+      const toPayload = (list: WinnerEntry[]) =>
+        list.map((e) => ({
+          role: e.role,
+          refId: e.refId || null,
+          name: e.fullName,
+          district: e.district || '',
+        }))
+
       const winnersData = {
-        first: winners.first.map(p => p._id),
-        second: winners.second.map(p => p._id),
-        third: winners.third.map(p => p._id)
+        first: toPayload(winners.first),
+        second: toPayload(winners.second),
+        third: toPayload(winners.third),
       }
 
       await apiRequest(`/admin/tournaments/${tournamentId}`, {
@@ -248,25 +470,38 @@ export function TournamentRegistrations() {
     phase: 'idle',
     simpleMatch: {
       title: '',
+      matchNo: '',
+      round: '',
       team1Name: 'Team A',
       team2Name: 'Team B',
+      team1District: '',
+      team2District: '',
       team1Players: [],
       team2Players: [],
       team1Coach: null,
       team2Coach: null,
+      team1CoachName: '',
+      team2CoachName: '',
       team1Manager: '',
       team2Manager: '',
       referee: null,
       assistantReferee: null,
+      officialReferee: null,
+      refereeName: '',
+      assistantRefereeName: '',
+      officialRefereeName: '',
       date: new Date().toISOString().split('T')[0],
       time: '10:00'
     }
   })
 
+  const matchEventType: EventType = (tournament?.eventType as EventType) || 'regu'
+  const squadLimits = squadLimitsForEvent(matchEventType)
+
   // Player Search State for the Wizard
   const [playerSearch, setPlayerSearch] = useState('')
   const [activeSearchSide, setActiveSearchSide] = useState<1 | 2 | null>(null)
-  const [playerResults, setPlayerResults] = useState<Player[]>([])
+  const [, setPlayerResults] = useState<Player[]>([])
 
   // Coach and Referee Search States
   const [coachSearch, setCoachSearch] = useState('')
@@ -275,9 +510,14 @@ export function TournamentRegistrations() {
 
   const [refereeSearch, setRefereeSearch] = useState('')
   const [refereeResults, setRefereeResults] = useState<Referee[]>([])
-  const [activeRefereeSide, setActiveRefereeSide] = useState<'main' | 'assistant' | null>(null)
+  const [activeRefereeSide, setActiveRefereeSide] = useState<'main' | 'assistant' | 'official' | null>(null)
 
   const [savingMatch, setSavingMatch] = useState(false)
+
+  const [scorecardRemarksOpen, setScorecardRemarksOpen] = useState(false)
+  const [scorecardRemarksMatch, setScorecardRemarksMatch] = useState<Match | null>(null)
+  const [scorecardRemarksText, setScorecardRemarksText] = useState('')
+  const [downloadingScorecard, setDownloadingScorecard] = useState(false)
 
   // Score Update Modal State
   const [isScoreModalOpen, setIsScoreModalOpen] = useState(false)
@@ -285,10 +525,12 @@ export function TournamentRegistrations() {
 
   // Quick Registration Modal State
   const [isQuickRegModalOpen, setIsQuickRegModalOpen] = useState(false)
+  const [quickRegDistrict, setQuickRegDistrict] = useState('')
   const [quickRegSearch, setQuickRegSearch] = useState('')
   const [quickRegType, setQuickRegType] = useState<'player' | 'coach' | 'referee'>('player')
   const [quickRegResults, setQuickRegResults] = useState<any[]>([])
   const [quickRegLoading, setQuickRegLoading] = useState(false)
+  const [quickRegSuccessMsg, setQuickRegSuccessMsg] = useState('')
 
   const calculateTimePlayed = (entryTime?: string, exitTime?: string) => {
     if (!entryTime || !exitTime) return '—'
@@ -313,10 +555,14 @@ export function TournamentRegistrations() {
         )
         setTournament(res.tournament)
         if (res.tournament.winners) {
-          setWinners({
-            first: res.tournament.winners.first || [],
-            second: res.tournament.winners.second || [],
-            third: res.tournament.winners.third || []
+          const first = (res.tournament.winners.first || []).map(toWinnerEntry)
+          const second = (res.tournament.winners.second || []).map(toWinnerEntry)
+          const third = (res.tournament.winners.third || []).map(toWinnerEntry)
+          setWinners({ first, second, third })
+          setWinnerDistricts({
+            first: first[0]?.district || '',
+            second: second[0]?.district || '',
+            third: third[0]?.district || '',
           })
         }
       } catch (e) {
@@ -392,47 +638,6 @@ export function TournamentRegistrations() {
     }
   }
 
-  // Download match PDF
-  const handleDownloadMatchPdf = async (matchId: string) => {
-    try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://sports-backend-fgsp.onrender.com'
-      const baseUrl = API_BASE.replace(/\/api$/, '') // Remove /api if present to add it back
-
-      // Get token from localStorage using the same key as api.ts
-      const token = window.localStorage.getItem('stfi.token')
-
-      const response = await fetch(`${baseUrl}/api/admin/matches/${matchId}/pdf`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to generate PDF')
-      }
-
-      // Get filename from Content-Disposition header or use default
-      const contentDisposition = response.headers.get('Content-Disposition')
-      const filename = contentDisposition
-        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-        : `match_${matchId}.pdf`
-
-      // Create blob and download
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to download match PDF')
-    }
-  }
-
   // Download schedule PDF
   const handleDownloadSchedulePdf = async () => {
     if (!tournamentId) return;
@@ -479,25 +684,53 @@ export function TournamentRegistrations() {
     }
   }, [tournamentId])
 
-  // Handle player search
-  const handlePlayerSearch = async (query: string, side: 1 | 2) => {
-    setPlayerSearch(query)
-    setActiveSearchSide(side)
+  const applicantMatchesDistrict = (applicantDistrict: string | undefined, districtId: string) => {
+    if (!applicantDistrict?.trim() || !districtId) return false
+    const meta = getDistrictById(districtId)
+    const norm = applicantDistrict.trim().toUpperCase()
+    const keys = [districtId, meta?.id, meta?.code, meta?.name]
+      .filter(Boolean)
+      .map((v) => String(v).trim().toUpperCase())
+    if (keys.some((k) => k === norm)) return true
+    if (meta?.name && applicantDistrict.trim().toLowerCase() === meta.name.trim().toLowerCase()) return true
+    return false
+  }
 
-    if (!query.trim() || query.trim().length < 2) {
+  const getTournamentPlayersForDistrict = (districtId: string, query = '') => {
+    const q = query.trim().toLowerCase()
+    return registrations
+      .filter((r) => r.registerAs === 'player' && r.status === 'approved' && r.applicant)
+      .filter((r) => applicantMatchesDistrict(r.applicant!.district, districtId))
+      .map((r) => ({
+        _id: r.applicant!._id,
+        fullName: r.applicant!.fullName,
+        playerId: r.applicant!.playerId || r.userId || r.applicant!._id,
+        district: r.applicant!.district,
+      }))
+      .filter((p) => {
+        if (!q) return true
+        return (
+          p.fullName.toLowerCase().includes(q) ||
+          String(p.playerId || '').toLowerCase().includes(q)
+        )
+      })
+  }
+
+  const loadMatchPlayersForSide = (side: 1 | 2, districtId: string, query = '') => {
+    setActiveSearchSide(side)
+    setPlayerResults(districtId ? getTournamentPlayersForDistrict(districtId, query) : [])
+  }
+
+  // Filter tournament-registered players for the selected district
+  const handlePlayerSearch = (query: string, side: 1 | 2) => {
+    setPlayerSearch(query)
+    const districtId = side === 1 ? wizard.simpleMatch.team1District : wizard.simpleMatch.team2District
+    if (!districtId) {
       setPlayerResults([])
+      setActiveSearchSide(null)
       return
     }
-
-    try {
-      const res = await apiRequest<{ players: Player[] }>(
-        `/admin/players/search?q=${encodeURIComponent(query)}`,
-        { auth: true }
-      )
-      setPlayerResults(Array.isArray(res.players) ? res.players : [])
-    } catch (e) {
-      setPlayerResults([])
-    }
+    loadMatchPlayersForSide(side, districtId, query)
   }
 
   // Start Create Match Wizard
@@ -506,16 +739,26 @@ export function TournamentRegistrations() {
       phase: 'create-match',
       simpleMatch: {
         title: '',
+        matchNo: '',
+        round: '',
         team1Name: 'Team A',
         team2Name: 'Team B',
+        team1District: '',
+        team2District: '',
         team1Players: [],
         team2Players: [],
         team1Coach: null,
         team2Coach: null,
+        team1CoachName: '',
+        team2CoachName: '',
         team1Manager: '',
         team2Manager: '',
         referee: null,
         assistantReferee: null,
+        officialReferee: null,
+        refereeName: '',
+        assistantRefereeName: '',
+        officialRefereeName: '',
         date: new Date().toISOString().split('T')[0],
         time: '10:00'
       }
@@ -532,42 +775,50 @@ export function TournamentRegistrations() {
   }
 
   const addPlayerToTeam = (side: 1 | 2, player: Player) => {
+    const districtId = side === 1 ? wizard.simpleMatch.team1District : wizard.simpleMatch.team2District
+    if (!districtId) {
+      alert('Please select a district first')
+      return
+    }
+    const squad = side === 1 ? wizard.simpleMatch.team1Players : wizard.simpleMatch.team2Players
+    if (squad.some((p) => p._id === player._id)) return
+
+    const { starters, subs, total } = countSquad(squad)
+    if (total >= squadLimits.total) {
+      alert(
+        `${eventTypeLabel(matchEventType)}: maximum ${squadLimits.total} players per team (${squadLimits.starters} playing + ${squadLimits.subs} substitutes)`,
+      )
+      return
+    }
+
+    let asSubstitute = false
+    if (starters >= squadLimits.starters) {
+      if (subs >= squadLimits.subs) {
+        alert(
+          `${eventTypeLabel(matchEventType)}: already have ${squadLimits.starters} playing players and ${squadLimits.subs} substitutes`,
+        )
+        return
+      }
+      asSubstitute = true
+    }
+
     setWizard(prev => {
       const newState = { ...prev }
+      const newPlayer = {
+        _id: player._id,
+        fullName: player.fullName,
+        playerId: player.playerId,
+        jerseyNumber: undefined,
+        position: '',
+        isCaptain: false,
+        isSubstitute: asSubstitute,
+        entryTime: '',
+        exitTime: '',
+      }
       if (side === 1) {
-        if (!newState.simpleMatch.team1Players.some(p => p._id === player._id)) {
-          newState.simpleMatch.team1Players = [
-            ...newState.simpleMatch.team1Players,
-            {
-              _id: player._id,
-              fullName: player.fullName,
-              playerId: player.playerId,
-              jerseyNumber: undefined,
-              position: '',
-              isCaptain: false,
-              isSubstitute: false,
-              entryTime: '',
-              exitTime: '',
-            }
-          ]
-        }
+        newState.simpleMatch.team1Players = [...newState.simpleMatch.team1Players, newPlayer]
       } else {
-        if (!newState.simpleMatch.team2Players.some(p => p._id === player._id)) {
-          newState.simpleMatch.team2Players = [
-            ...newState.simpleMatch.team2Players,
-            {
-              _id: player._id,
-              fullName: player.fullName,
-              playerId: player.playerId,
-              jerseyNumber: undefined,
-              position: '',
-              isCaptain: false,
-              isSubstitute: false,
-              entryTime: '',
-              exitTime: '',
-            }
-          ]
-        }
+        newState.simpleMatch.team2Players = [...newState.simpleMatch.team2Players, newPlayer]
       }
       return newState
     })
@@ -647,41 +898,39 @@ export function TournamentRegistrations() {
   }
 
   const togglePlayerSubstitute = (side: 1 | 2, playerId: string) => {
+    const squad = side === 1 ? wizard.simpleMatch.team1Players : wizard.simpleMatch.team2Players
+    const player = squad.find((p) => p._id === playerId)
+    if (!player) return
+
+    const { starters, subs } = countSquad(squad)
+    const willBeSub = !player.isSubstitute
+
+    if (willBeSub && subs >= squadLimits.subs) {
+      alert(`Maximum ${squadLimits.subs} substitutes per team for ${eventTypeLabel(matchEventType)}`)
+      return
+    }
+    if (!willBeSub && starters >= squadLimits.starters) {
+      alert(`Maximum ${squadLimits.starters} playing players per team for ${eventTypeLabel(matchEventType)}`)
+      return
+    }
+
     setWizard(prev => {
-      if (side === 1) {
-        return {
-          ...prev,
-          simpleMatch: {
-            ...prev.simpleMatch,
-            team1Players: prev.simpleMatch.team1Players.map(p =>
-              p._id === playerId
-                ? {
-                    ...p,
-                    isSubstitute: !p.isSubstitute,
-                    entryTime: !p.isSubstitute ? p.entryTime || '' : '',
-                    exitTime: !p.isSubstitute ? p.exitTime || '' : '',
-                  }
-                : p
-            )
-          }
-        }
-      } else {
-        return {
-          ...prev,
-          simpleMatch: {
-            ...prev.simpleMatch,
-            team2Players: prev.simpleMatch.team2Players.map(p =>
-              p._id === playerId
-                ? {
-                    ...p,
-                    isSubstitute: !p.isSubstitute,
-                    entryTime: !p.isSubstitute ? p.entryTime || '' : '',
-                    exitTime: !p.isSubstitute ? p.exitTime || '' : '',
-                  }
-                : p
-            )
-          }
-        }
+      const key = side === 1 ? 'team1Players' : 'team2Players'
+      return {
+        ...prev,
+        simpleMatch: {
+          ...prev.simpleMatch,
+          [key]: prev.simpleMatch[key].map((p) =>
+            p._id === playerId
+              ? {
+                  ...p,
+                  isSubstitute: willBeSub,
+                  entryTime: willBeSub ? p.entryTime || '' : '',
+                  exitTime: willBeSub ? p.exitTime || '' : '',
+                }
+              : p,
+          ),
+        },
       }
     })
   }
@@ -709,9 +958,12 @@ export function TournamentRegistrations() {
       return
     }
 
+    const districtId = side === 1 ? wizard.simpleMatch.team1District : wizard.simpleMatch.team2District
+    const districtParam = districtId ? `&district=${encodeURIComponent(districtId)}` : ''
+
     try {
       const res = await apiRequest<{ coaches: Coach[] }>(
-        `/admin/coaches/search?q=${encodeURIComponent(query)}`,
+        `/admin/coaches/search?q=${encodeURIComponent(query)}${districtParam}`,
         { auth: true }
       )
       setCoachResults(Array.isArray(res.coaches) ? res.coaches : [])
@@ -725,7 +977,9 @@ export function TournamentRegistrations() {
       ...prev,
       simpleMatch: {
         ...prev.simpleMatch,
-        ...(side === 1 ? { team1Coach: coach } : { team2Coach: coach })
+        ...(side === 1
+          ? { team1Coach: coach, team1CoachName: coach.fullName }
+          : { team2Coach: coach, team2CoachName: coach.fullName }),
       }
     }))
     setCoachSearch('')
@@ -733,18 +987,48 @@ export function TournamentRegistrations() {
     setActiveCoachSide(null)
   }
 
-  const removeCoach = (side: 1 | 2) => {
+  const setCoachName = (side: 1 | 2, name: string) => {
     setWizard(prev => ({
       ...prev,
       simpleMatch: {
         ...prev.simpleMatch,
-        ...(side === 1 ? { team1Coach: null } : { team2Coach: null })
+        ...(side === 1
+          ? { team1CoachName: name, team1Coach: null }
+          : { team2CoachName: name, team2Coach: null }),
       }
     }))
   }
 
+  const setTeamDistrict = (side: 1 | 2, districtId: string) => {
+    const district = getDistrictById(districtId)
+    setWizard((prev) => ({
+      ...prev,
+      simpleMatch: {
+        ...prev.simpleMatch,
+        ...(side === 1
+          ? {
+              team1District: districtId,
+              team1Name: district?.name || prev.simpleMatch.team1Name,
+              team1Players: [],
+            }
+          : {
+              team2District: districtId,
+              team2Name: district?.name || prev.simpleMatch.team2Name,
+              team2Players: [],
+            }),
+      },
+    }))
+    setPlayerSearch('')
+    if (districtId) {
+      loadMatchPlayersForSide(side, districtId, '')
+    } else {
+      setPlayerResults([])
+      setActiveSearchSide(null)
+    }
+  }
+
   // Handle referee search
-  const handleRefereeSearch = async (query: string, type: 'main' | 'assistant') => {
+  const handleRefereeSearch = async (query: string, type: 'main' | 'assistant' | 'official') => {
     setRefereeSearch(query)
     setActiveRefereeSide(type)
 
@@ -764,12 +1048,16 @@ export function TournamentRegistrations() {
     }
   }
 
-  const selectReferee = (type: 'main' | 'assistant', referee: Referee) => {
+  const selectReferee = (type: 'main' | 'assistant' | 'official', referee: Referee) => {
     setWizard(prev => ({
       ...prev,
       simpleMatch: {
         ...prev.simpleMatch,
-        ...(type === 'main' ? { referee } : { assistantReferee: referee })
+        ...(type === 'main'
+          ? { referee, refereeName: referee.fullName }
+          : type === 'assistant'
+            ? { assistantReferee: referee, assistantRefereeName: referee.fullName }
+            : { officialReferee: referee, officialRefereeName: referee.fullName }),
       }
     }))
     setRefereeSearch('')
@@ -777,12 +1065,16 @@ export function TournamentRegistrations() {
     setActiveRefereeSide(null)
   }
 
-  const removeReferee = (type: 'main' | 'assistant') => {
+  const setRefereeName = (type: 'main' | 'assistant' | 'official', name: string) => {
     setWizard(prev => ({
       ...prev,
       simpleMatch: {
         ...prev.simpleMatch,
-        ...(type === 'main' ? { referee: null } : { assistantReferee: null })
+        ...(type === 'main'
+          ? { refereeName: name, referee: null }
+          : type === 'assistant'
+            ? { assistantRefereeName: name, assistantReferee: null }
+            : { officialRefereeName: name, officialReferee: null }),
       }
     }))
   }
@@ -796,6 +1088,39 @@ export function TournamentRegistrations() {
       alert('Team names are required')
       return
     }
+    if (!wizard.simpleMatch.team1District || !wizard.simpleMatch.team2District) {
+      alert('Please select a district for both teams')
+      return
+    }
+
+    const validateTeamSquad = (players: SimpleMatchPlayer[], teamLabel: string) => {
+      const { starters, subs } = countSquad(players)
+      if (starters < 1) {
+        return `${teamLabel} needs at least 1 playing player`
+      }
+      if (starters > squadLimits.starters) {
+        return `${teamLabel} has ${starters} playing players (max ${squadLimits.starters} for ${eventTypeLabel(matchEventType)})`
+      }
+      if (subs > squadLimits.subs) {
+        return `${teamLabel} has ${subs} substitutes (max ${squadLimits.subs})`
+      }
+      if (players.length > squadLimits.total) {
+        return `${teamLabel} has too many players (max ${squadLimits.total})`
+      }
+      return null
+    }
+
+    const team1Err = validateTeamSquad(wizard.simpleMatch.team1Players, 'Team A')
+    const team2Err = validateTeamSquad(wizard.simpleMatch.team2Players, 'Team B')
+    if (team1Err || team2Err) {
+      alert(team1Err || team2Err)
+      return
+    }
+
+    const resolveCoachName = (coach: Coach | null, manual: string) =>
+      coach?.fullName?.trim() || manual.trim() || ''
+    const resolveRefName = (ref: Referee | null, manual: string) =>
+      ref?.fullName?.trim() || manual.trim() || ''
 
     setSavingMatch(true)
     try {
@@ -831,8 +1156,15 @@ export function TournamentRegistrations() {
           tournamentId,
           team1: team1Res.team._id,
           team2: team2Res.team._id,
+          eventType: matchEventType,
+          matchNo: wizard.simpleMatch.matchNo || '',
+          round: wizard.simpleMatch.round || '',
+          team1District: wizard.simpleMatch.team1District,
+          team2District: wizard.simpleMatch.team2District,
           team1Coach: wizard.simpleMatch.team1Coach?._id || null,
           team2Coach: wizard.simpleMatch.team2Coach?._id || null,
+          team1CoachName: resolveCoachName(wizard.simpleMatch.team1Coach, wizard.simpleMatch.team1CoachName),
+          team2CoachName: resolveCoachName(wizard.simpleMatch.team2Coach, wizard.simpleMatch.team2CoachName),
           team1Manager: wizard.simpleMatch.team1Manager || null,
           team2Manager: wizard.simpleMatch.team2Manager || null,
           team1Players: wizard.simpleMatch.team1Players.map(p => ({
@@ -855,6 +1187,16 @@ export function TournamentRegistrations() {
           })),
           referee: wizard.simpleMatch.referee?._id || null,
           assistantReferee: wizard.simpleMatch.assistantReferee?._id || null,
+          officialReferee: wizard.simpleMatch.officialReferee?._id || null,
+          refereeName: resolveRefName(wizard.simpleMatch.referee, wizard.simpleMatch.refereeName),
+          assistantRefereeName: resolveRefName(
+            wizard.simpleMatch.assistantReferee,
+            wizard.simpleMatch.assistantRefereeName
+          ),
+          officialRefereeName: resolveRefName(
+            wizard.simpleMatch.officialReferee,
+            wizard.simpleMatch.officialRefereeName
+          ),
           date: wizard.simpleMatch.date,
           time: wizard.simpleMatch.time,
           bracket: 'winner',
@@ -875,6 +1217,53 @@ export function TournamentRegistrations() {
       alert('Failed to save match: ' + (e instanceof Error ? e.message : 'Unknown error'))
     } finally {
       setSavingMatch(false)
+    }
+  }
+
+
+  const openScorecardDownload = (match: Match) => {
+    setScorecardRemarksMatch(match)
+    setScorecardRemarksText('')
+    setScorecardRemarksOpen(true)
+  }
+
+  const downloadScorecardPdf = async (remarks?: string) => {
+    if (!scorecardRemarksMatch) return
+    setDownloadingScorecard(true)
+    try {
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://sports-backend-fgsp.onrender.com'
+      const baseUrl = API_BASE.replace(/\/api$/, '')
+      const token = window.localStorage.getItem('stfi.token')
+      const body: Record<string, string> = {}
+      if (remarks?.trim()) body.remarks = remarks.trim()
+      const response = await fetch(
+        `${baseUrl}/api/admin/matches/${scorecardRemarksMatch._id}/scorecard-pdf`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+      )
+      if (!response.ok) throw new Error('Failed to generate Score Card PDF')
+      const contentDisposition = response.headers.get('Content-Disposition')
+      const filename = contentDisposition
+        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
+        : `scorecard_${scorecardRemarksMatch._id}.pdf`
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      setScorecardRemarksOpen(false)
+      setScorecardRemarksMatch(null)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to generate Score Card PDF')
+    } finally {
+      setDownloadingScorecard(false)
     }
   }
 
@@ -899,38 +1288,82 @@ export function TournamentRegistrations() {
   }
 
   // Quick Registration Handlers
+  const fetchQuickRegPeople = async (districtId: string, type: 'player' | 'coach' | 'referee', query: string) => {
+    if (!districtId) {
+      setQuickRegResults([])
+      return
+    }
+
+    let endpoint = ''
+    if (type === 'player') endpoint = '/admin/players/search'
+    else if (type === 'coach') endpoint = '/admin/coaches/search'
+    else endpoint = '/admin/referees/search'
+
+    const districtMeta = getDistrictById(districtId)
+    const params = new URLSearchParams({ district: districtMeta?.code || districtMeta?.id || districtId })
+    if (districtMeta?.name) {
+      params.set('districtName', districtMeta.name)
+    }
+    if (query.trim().length >= 2) {
+      params.set('q', query.trim())
+    }
+
+    const res = await apiRequest<any>(`${endpoint}?${params.toString()}`, { auth: true })
+
+    if (type === 'player') setQuickRegResults(res.players || [])
+    else if (type === 'coach') setQuickRegResults(res.coaches || [])
+    else setQuickRegResults(res.referees || [])
+  }
+
   const handleQuickRegSearch = async (query: string) => {
     setQuickRegSearch(query)
-    if (query.trim().length < 2) {
+    if (!quickRegDistrict) {
       setQuickRegResults([])
       return
     }
 
     try {
-      let endpoint = ''
-      if (quickRegType === 'player') endpoint = '/admin/players/search'
-      else if (quickRegType === 'coach') endpoint = '/admin/coaches/search'
-      else if (quickRegType === 'referee') endpoint = '/admin/referees/search'
-
-      const res = await apiRequest<any>(`${endpoint}?q=${encodeURIComponent(query)}`, { auth: true })
-
-      if (quickRegType === 'player') {
-        setQuickRegResults(res.players || [])
-      } else if (quickRegType === 'coach') {
-        setQuickRegResults(res.coaches || [])
-      } else if (quickRegType === 'referee') {
-        setQuickRegResults(res.referees || [])
-      }
+      setQuickRegLoading(true)
+      await fetchQuickRegPeople(quickRegDistrict, quickRegType, query)
     } catch (e) {
       console.error('Search error:', e)
       setQuickRegResults([])
+    } finally {
+      setQuickRegLoading(false)
     }
   }
 
-  const handleQuickRegister = async (userId: string) => {
+  const handleQuickRegDistrictChange = async (districtId: string) => {
+    setQuickRegDistrict(districtId)
+    setQuickRegSearch('')
+    if (!districtId) {
+      setQuickRegResults([])
+      return
+    }
+    try {
+      setQuickRegLoading(true)
+      await fetchQuickRegPeople(districtId, quickRegType, '')
+    } catch (e) {
+      console.error('District load error:', e)
+      setQuickRegResults([])
+    } finally {
+      setQuickRegLoading(false)
+    }
+  }
+
+  const resetQuickRegModal = () => {
+    setIsQuickRegModalOpen(false)
+    setQuickRegDistrict('')
+    setQuickRegSearch('')
+    setQuickRegResults([])
+    setQuickRegSuccessMsg('')
+  }
+
+  const handleQuickRegister = async (userId: string, displayName?: string) => {
     if (!tournamentId) return
 
     setQuickRegLoading(true)
+    setQuickRegSuccessMsg('')
     try {
       await apiRequest(`/admin/tournaments/${tournamentId}/registrations`, {
         method: 'POST',
@@ -941,19 +1374,15 @@ export function TournamentRegistrations() {
         })
       })
 
-      // Refresh registrations
+      // Refresh registrations so the row shows "Registered" without closing the modal
       const res = await apiRequest<{ registrations: TournamentRegistration[] }>(
         `/admin/tournaments/${tournamentId}/registrations`,
         { auth: true }
       )
       setRegistrations(Array.isArray(res.registrations) ? res.registrations : [])
 
-      // Close modal and reset
-      setIsQuickRegModalOpen(false)
-      setQuickRegSearch('')
-      setQuickRegResults([])
-
-      alert('Participant registered successfully!')
+      const label = displayName?.trim() || 'Participant'
+      setQuickRegSuccessMsg(`${label} registered successfully. You can register more below.`)
     } catch (e: any) {
       alert(e?.message || 'Failed to register participant')
     } finally {
@@ -1055,7 +1484,14 @@ export function TournamentRegistrations() {
           </div>
 
           <div className="p-6 flex-1 overflow-y-auto space-y-6">
-            {/* Title and Round Input */}
+            <div className="rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-900">
+              <span className="font-bold">Event Type:</span> {eventTypeLabel(matchEventType)} —{' '}
+              {squadLimits.starters} playing player{squadLimits.starters !== 1 ? 's' : ''} +{' '}
+              {squadLimits.subs} substitute{squadLimits.subs !== 1 ? 's' : ''} per team (
+              {squadLimits.total} total)
+            </div>
+
+            {/* Title, match no, round */}
             <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
               <div>
                 <label className="block text-sm font-bold uppercase tracking-wide text-gray-700 mb-2">
@@ -1074,6 +1510,44 @@ export function TournamentRegistrations() {
                 />
               </div>
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold uppercase tracking-wide text-gray-700 mb-2">
+                  Match No.
+                </label>
+                <input
+                  type="text"
+                  value={wizard.simpleMatch.matchNo}
+                  onChange={(e) =>
+                    setWizard((prev) => ({
+                      ...prev,
+                      simpleMatch: { ...prev.simpleMatch, matchNo: e.target.value },
+                    }))
+                  }
+                  placeholder="e.g. 12"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5a0a8f] font-semibold text-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold uppercase tracking-wide text-gray-700 mb-2">
+                  Round
+                </label>
+                <input
+                  type="text"
+                  value={wizard.simpleMatch.round}
+                  onChange={(e) =>
+                    setWizard((prev) => ({
+                      ...prev,
+                      simpleMatch: { ...prev.simpleMatch, round: e.target.value },
+                    }))
+                  }
+                  placeholder="e.g. Quarter Final"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5a0a8f] font-semibold text-gray-900"
+                />
+              </div>
+            </div>
+
 
             {/* Date and Time Input */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1115,6 +1589,22 @@ export function TournamentRegistrations() {
                 </h3>
 
                 <div className="mb-4">
+                  <label className="block text-xs font-bold uppercase text-blue-800 mb-1">District</label>
+                  <select
+                    value={wizard.simpleMatch.team1District}
+                    onChange={(e) => setTeamDistrict(1, e.target.value)}
+                    className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-gray-900"
+                  >
+                    <option value="">Select district</option>
+                    {districts.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="mb-4">
                   <label className="block text-xs font-bold uppercase text-blue-800 mb-1">Team Name</label>
                   <input
                     type="text"
@@ -1129,34 +1619,61 @@ export function TournamentRegistrations() {
 
                 <div className="mb-4">
                   <label className="block text-xs font-bold uppercase text-blue-800 mb-1">Add Players</label>
+                  {(() => {
+                    const c = countSquad(wizard.simpleMatch.team1Players)
+                    return (
+                      <p className="text-xs font-semibold text-blue-700 mb-2">
+                        Playing: {c.starters}/{squadLimits.starters} · Subs: {c.subs}/{squadLimits.subs} · Total:{' '}
+                        {c.total}/{squadLimits.total}
+                      </p>
+                    )
+                  })()}
                   <input
                     type="text"
                     value={activeSearchSide === 1 ? playerSearch : ''}
                     onFocus={() => {
-                      setPlayerSearch('')
-                      setActiveSearchSide(1)
+                      if (wizard.simpleMatch.team1District) {
+                        loadMatchPlayersForSide(1, wizard.simpleMatch.team1District, playerSearch)
+                      }
                     }}
                     onChange={(e) => handlePlayerSearch(e.target.value, 1)}
-                    placeholder="Search player by name or ID..."
-                    className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-gray-900"
+                    placeholder={
+                      wizard.simpleMatch.team1District
+                        ? 'Filter tournament players (optional)…'
+                        : 'Select district first'
+                    }
+                    disabled={!wizard.simpleMatch.team1District}
+                    className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-gray-900 disabled:bg-gray-100"
                   />
-                  {activeSearchSide === 1 && playerResults.length > 0 && (
-                    <div className="mt-2 bg-white rounded-lg shadow-lg border border-gray-200 max-h-40 overflow-y-auto">
-                      {playerResults.map(p => (
-                        <div
-                          key={p._id}
-                          onClick={() => addPlayerToTeam(1, p)}
-                          className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
-                        >
-                          <div>
-                            <div className="font-semibold text-sm text-gray-900">{p.fullName}</div>
-                            <div className="text-xs text-gray-500">{p.playerId}</div>
-                          </div>
-                          <span className="text-blue-600 font-bold">+</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {wizard.simpleMatch.team1District && (() => {
+                    const available = getTournamentPlayersForDistrict(
+                      wizard.simpleMatch.team1District,
+                      activeSearchSide === 1 ? playerSearch : '',
+                    )
+                    return (
+                    <div className="mt-2 bg-white rounded-lg shadow-lg border border-gray-200 max-h-48 overflow-y-auto">
+                        {available.length === 0 ? (
+                          <p className="px-3 py-4 text-xs text-blue-700 italic text-center">
+                            No approved players registered for this district in this tournament.
+                          </p>
+                        ) : (
+                          available.map((pl) => (
+                            <div
+                              key={pl._id}
+                              onClick={() => addPlayerToTeam(1, pl)}
+                              className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
+                            >
+                              <div>
+                                <div className="font-semibold text-sm text-gray-900">{pl.fullName}</div>
+                                <div className="text-xs text-gray-500">{pl.playerId}</div>
+                              </div>
+                              <span className="text-blue-600 font-bold">+</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
 
                 <div className="space-y-3">
@@ -1251,51 +1768,39 @@ export function TournamentRegistrations() {
                 {/* Team 1 Coach */}
                 <div className="mt-4">
                   <label className="block text-xs font-bold uppercase text-blue-800 mb-1">Team Coach</label>
-                  {wizard.simpleMatch.team1Coach ? (
-                    <div className="bg-white px-3 py-2 rounded-lg border-2 border-blue-200 flex justify-between items-center">
-                      <div>
-                        <div className="font-semibold text-blue-900">{wizard.simpleMatch.team1Coach.fullName}</div>
-                        <div className="text-xs text-gray-500">{wizard.simpleMatch.team1Coach.email}</div>
-                      </div>
-                      <button onClick={() => removeCoach(1)} className="text-red-500 hover:text-red-700 font-bold text-xl">×</button>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={activeCoachSide === 1 ? coachSearch : ''}
-                        onFocus={() => {
-                          setCoachSearch('')
-                          setActiveCoachSide(1)
-                        }}
-                        onChange={(e) => handleCoachSearch(e.target.value, 1)}
-                        placeholder="Search by name, email, phone, or district..."
-                        className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-gray-900"
-                      />
-                      {activeCoachSide === 1 && coachResults.length > 0 && (
-                        <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-blue-300 max-h-48 overflow-y-auto">
-                          {coachResults.map(c => (
-                            <div
-                              key={c._id}
-                              onClick={() => selectCoach(1, c)}
-                              className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
-                            >
-                              <div>
-                                <div className="font-semibold text-sm text-gray-900">{c.fullName}</div>
-                                <div className="text-xs text-gray-500">{c.email} {c.phone && `• ${c.phone}`}</div>
-                              </div>
-                              <span className="text-blue-600 font-bold">+</span>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={activeCoachSide === 1 ? coachSearch : wizard.simpleMatch.team1CoachName}
+                      onFocus={() => {
+                        setCoachSearch(wizard.simpleMatch.team1CoachName)
+                        setActiveCoachSide(1)
+                      }}
+                      onChange={(e) => {
+                        setCoachName(1, e.target.value)
+                        handleCoachSearch(e.target.value, 1)
+                      }}
+                      placeholder="Type name or search to select..."
+                      className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-gray-900"
+                    />
+                    {activeCoachSide === 1 && coachResults.length > 0 && (
+                      <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-blue-300 max-h-48 overflow-y-auto">
+                        {coachResults.map((c) => (
+                          <div
+                            key={c._id}
+                            onClick={() => selectCoach(1, c)}
+                            className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
+                          >
+                            <div>
+                              <div className="font-semibold text-sm text-gray-900">{c.fullName}</div>
+                              <div className="text-xs text-gray-500">{c.email} {c.phone && `• ${c.phone}`}</div>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                      {activeCoachSide === 1 && coachSearch.length >= 2 && coachResults.length === 0 && (
-                        <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-blue-300 px-3 py-2 text-sm text-gray-500 italic">
-                          No coaches found
-                        </div>
-                      )}
-                    </div>
-                  )}
+                            <span className="text-blue-600 font-bold">+</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Team 1 Manager */}
@@ -1321,6 +1826,22 @@ export function TournamentRegistrations() {
                 </h3>
 
                 <div className="mb-4">
+                  <label className="block text-xs font-bold uppercase text-orange-800 mb-1">District</label>
+                  <select
+                    value={wizard.simpleMatch.team2District}
+                    onChange={(e) => setTeamDistrict(2, e.target.value)}
+                    className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg focus:outline-none focus:border-orange-500 bg-white text-gray-900"
+                  >
+                    <option value="">Select district</option>
+                    {districts.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="mb-4">
                   <label className="block text-xs font-bold uppercase text-orange-800 mb-1">Team Name</label>
                   <input
                     type="text"
@@ -1335,34 +1856,61 @@ export function TournamentRegistrations() {
 
                 <div className="mb-4">
                   <label className="block text-xs font-bold uppercase text-orange-800 mb-1">Add Players</label>
+                  {(() => {
+                    const c = countSquad(wizard.simpleMatch.team2Players)
+                    return (
+                      <p className="text-xs font-semibold text-orange-700 mb-2">
+                        Playing: {c.starters}/{squadLimits.starters} · Subs: {c.subs}/{squadLimits.subs} · Total:{' '}
+                        {c.total}/{squadLimits.total}
+                      </p>
+                    )
+                  })()}
                   <input
                     type="text"
                     value={activeSearchSide === 2 ? playerSearch : ''}
                     onFocus={() => {
-                      setPlayerSearch('')
-                      setActiveSearchSide(2)
+                      if (wizard.simpleMatch.team2District) {
+                        loadMatchPlayersForSide(2, wizard.simpleMatch.team2District, playerSearch)
+                      }
                     }}
                     onChange={(e) => handlePlayerSearch(e.target.value, 2)}
-                    placeholder="Search player by name or ID..."
-                    className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg focus:outline-none focus:border-orange-500 bg-white text-gray-900"
+                    placeholder={
+                      wizard.simpleMatch.team2District
+                        ? 'Filter tournament players (optional)…'
+                        : 'Select district first'
+                    }
+                    disabled={!wizard.simpleMatch.team2District}
+                    className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg focus:outline-none focus:border-orange-500 bg-white text-gray-900 disabled:bg-gray-100"
                   />
-                  {activeSearchSide === 2 && playerResults.length > 0 && (
-                    <div className="mt-2 bg-white rounded-lg shadow-lg border border-gray-200 max-h-40 overflow-y-auto">
-                      {playerResults.map(p => (
-                        <div
-                          key={p._id}
-                          onClick={() => addPlayerToTeam(2, p)}
-                          className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
-                        >
-                          <div>
-                            <div className="font-semibold text-sm text-gray-900">{p.fullName}</div>
-                            <div className="text-xs text-gray-500">{p.playerId}</div>
-                          </div>
-                          <span className="text-orange-600 font-bold">+</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {wizard.simpleMatch.team2District && (() => {
+                    const available = getTournamentPlayersForDistrict(
+                      wizard.simpleMatch.team2District,
+                      activeSearchSide === 2 ? playerSearch : '',
+                    )
+                    return (
+                      <div className="mt-2 bg-white rounded-lg shadow-lg border border-gray-200 max-h-48 overflow-y-auto">
+                        {available.length === 0 ? (
+                          <p className="px-3 py-4 text-xs text-orange-700 italic text-center">
+                            No approved players registered for this district in this tournament.
+                          </p>
+                        ) : (
+                          available.map((pl) => (
+                            <div
+                              key={pl._id}
+                              onClick={() => addPlayerToTeam(2, pl)}
+                              className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
+                            >
+                              <div>
+                                <div className="font-semibold text-sm text-gray-900">{pl.fullName}</div>
+                                <div className="text-xs text-gray-500">{pl.playerId}</div>
+                              </div>
+                              <span className="text-orange-600 font-bold">+</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
 
                 <div className="space-y-3">
@@ -1454,57 +2002,44 @@ export function TournamentRegistrations() {
                   )}
                 </div>
 
-                {/* Team 2 Coach */}
+                
                 <div className="mt-4">
                   <label className="block text-xs font-bold uppercase text-orange-800 mb-1">Team Coach</label>
-                  {wizard.simpleMatch.team2Coach ? (
-                    <div className="bg-white px-3 py-2 rounded-lg border-2 border-orange-200 flex justify-between items-center">
-                      <div>
-                        <div className="font-semibold text-orange-900">{wizard.simpleMatch.team2Coach.fullName}</div>
-                        <div className="text-xs text-gray-500">{wizard.simpleMatch.team2Coach.email}</div>
-                      </div>
-                      <button onClick={() => removeCoach(2)} className="text-red-500 hover:text-red-700 font-bold text-xl">×</button>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={activeCoachSide === 2 ? coachSearch : ''}
-                        onFocus={() => {
-                          setCoachSearch('')
-                          setActiveCoachSide(2)
-                        }}
-                        onChange={(e) => handleCoachSearch(e.target.value, 2)}
-                        placeholder="Search by name, email, phone, or district..."
-                        className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg focus:outline-none focus:border-orange-500 bg-white text-gray-900"
-                      />
-                      {activeCoachSide === 2 && coachResults.length > 0 && (
-                        <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-orange-300 max-h-48 overflow-y-auto">
-                          {coachResults.map(c => (
-                            <div
-                              key={c._id}
-                              onClick={() => selectCoach(2, c)}
-                              className="px-3 py-2 hover:bg-orange-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
-                            >
-                              <div>
-                                <div className="font-semibold text-sm text-gray-900">{c.fullName}</div>
-                                <div className="text-xs text-gray-500">{c.email} {c.phone && `• ${c.phone}`}</div>
-                              </div>
-                              <span className="text-orange-600 font-bold">+</span>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={activeCoachSide === 2 ? coachSearch : wizard.simpleMatch.team2CoachName}
+                      onFocus={() => {
+                        setCoachSearch(wizard.simpleMatch.team2CoachName)
+                        setActiveCoachSide(2)
+                      }}
+                      onChange={(e) => {
+                        setCoachName(2, e.target.value)
+                        handleCoachSearch(e.target.value, 2)
+                      }}
+                      placeholder="Type name or search to select..."
+                      className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg focus:outline-none focus:border-orange-500 bg-white text-gray-900"
+                    />
+                    {activeCoachSide === 2 && coachResults.length > 0 && (
+                      <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-orange-300 max-h-48 overflow-y-auto">
+                        {coachResults.map((c) => (
+                          <div
+                            key={c._id}
+                            onClick={() => selectCoach(2, c)}
+                            className="px-3 py-2 hover:bg-orange-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
+                          >
+                            <div>
+                              <div className="font-semibold text-sm text-gray-900">{c.fullName}</div>
+                              <div className="text-xs text-gray-500">{c.email} {c.phone && `• ${c.phone}`}</div>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                      {activeCoachSide === 2 && coachSearch.length >= 2 && coachResults.length === 0 && (
-                        <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-orange-300 px-3 py-2 text-sm text-gray-500 italic">
-                          No coaches found
-                        </div>
-                      )}
-                    </div>
-                  )}
+                            <span className="text-orange-600 font-bold">+</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* Team 2 Manager */}
                 <div className="mt-4">
                   <label className="block text-xs font-bold uppercase text-orange-800 mb-1">Team Manager</label>
                   <input
@@ -1521,112 +2056,111 @@ export function TournamentRegistrations() {
               </div>
             </div>
 
-            {/* Match Officials Section */}
             <div className="bg-green-50 rounded-xl p-5 border-2 border-green-200">
-              <h3 className="text-xl font-black text-green-900 mb-4 flex items-center gap-2">
-                <span className="material-symbols-outlined">sports</span> Match Officials
+              <h3 className="text-lg font-black text-green-900 mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined">gavel</span> Match Officials
               </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Referee */}
                 <div>
                   <label className="block text-xs font-bold uppercase text-green-800 mb-1">Referee</label>
-                  {wizard.simpleMatch.referee ? (
-                    <div className="bg-white px-3 py-2 rounded-lg border-2 border-green-200 flex justify-between items-center">
-                      <div>
-                        <div className="font-semibold text-green-900">{wizard.simpleMatch.referee.fullName}</div>
-                        <div className="text-xs text-gray-500">{wizard.simpleMatch.referee.email}</div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={activeRefereeSide === 'main' ? refereeSearch : wizard.simpleMatch.refereeName}
+                      onFocus={() => {
+                        setRefereeSearch(wizard.simpleMatch.refereeName)
+                        setActiveRefereeSide('main')
+                      }}
+                      onChange={(e) => {
+                        setRefereeName('main', e.target.value)
+                        handleRefereeSearch(e.target.value, 'main')
+                      }}
+                      placeholder="Type or search referee..."
+                      className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:outline-none focus:border-green-500 bg-white text-gray-900"
+                    />
+                    {activeRefereeSide === 'main' && refereeResults.length > 0 && (
+                      <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-green-300 max-h-48 overflow-y-auto">
+                        {refereeResults.map((r) => (
+                          <div
+                            key={r._id}
+                            onClick={() => selectReferee('main', r)}
+                            className="px-3 py-2 hover:bg-green-50 cursor-pointer border-b last:border-0"
+                          >
+                            <div className="font-semibold text-sm text-gray-900">{r.fullName}</div>
+                          </div>
+                        ))}
                       </div>
-                      <button onClick={() => removeReferee('main')} className="text-red-500 hover:text-red-700 font-bold text-xl">×</button>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={activeRefereeSide === 'main' ? refereeSearch : ''}
-                        onFocus={() => {
-                          setRefereeSearch('')
-                          setActiveRefereeSide('main')
-                        }}
-                        onChange={(e) => handleRefereeSearch(e.target.value, 'main')}
-                        placeholder="Search by name, email, phone, or district..."
-                        className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:outline-none focus:border-green-500 bg-white text-gray-900"
-                      />
-                      {activeRefereeSide === 'main' && refereeResults.length > 0 && (
-                        <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-green-300 max-h-48 overflow-y-auto">
-                          {refereeResults.map(r => (
-                            <div
-                              key={r._id}
-                              onClick={() => selectReferee('main', r)}
-                              className="px-3 py-2 hover:bg-green-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
-                            >
-                              <div>
-                                <div className="font-semibold text-sm text-gray-900">{r.fullName}</div>
-                                <div className="text-xs text-gray-500">{r.email} {r.phone && `• ${r.phone}`}</div>
-                              </div>
-                              <span className="text-green-600 font-bold">+</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {activeRefereeSide === 'main' && refereeSearch.length >= 2 && refereeResults.length === 0 && (
-                        <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-green-300 px-3 py-2 text-sm text-gray-500 italic">
-                          No referees found
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
-                {/* Assistant Referee */}
                 <div>
-                  <label className="block text-xs font-bold uppercase text-green-800 mb-1">Assistant Referee</label>
-                  {wizard.simpleMatch.assistantReferee ? (
-                    <div className="bg-white px-3 py-2 rounded-lg border-2 border-green-200 flex justify-between items-center">
-                      <div>
-                        <div className="font-semibold text-green-900">{wizard.simpleMatch.assistantReferee.fullName}</div>
-                        <div className="text-xs text-gray-500">{wizard.simpleMatch.assistantReferee.email}</div>
+                  <label className="block text-xs font-bold uppercase text-green-800 mb-1">Asst. Referee</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={activeRefereeSide === 'assistant' ? refereeSearch : wizard.simpleMatch.assistantRefereeName}
+                      onFocus={() => {
+                        setRefereeSearch(wizard.simpleMatch.assistantRefereeName)
+                        setActiveRefereeSide('assistant')
+                      }}
+                      onChange={(e) => {
+                        setRefereeName('assistant', e.target.value)
+                        handleRefereeSearch(e.target.value, 'assistant')
+                      }}
+                      placeholder="Type or search assistant..."
+                      className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:outline-none focus:border-green-500 bg-white text-gray-900"
+                    />
+                    {activeRefereeSide === 'assistant' && refereeResults.length > 0 && (
+                      <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-green-300 max-h-48 overflow-y-auto">
+                        {refereeResults.map((r) => (
+                          <div
+                            key={r._id}
+                            onClick={() => selectReferee('assistant', r)}
+                            className="px-3 py-2 hover:bg-green-50 cursor-pointer border-b last:border-0"
+                          >
+                            <div className="font-semibold text-sm text-gray-900">{r.fullName}</div>
+                          </div>
+                        ))}
                       </div>
-                      <button onClick={() => removeReferee('assistant')} className="text-red-500 hover:text-red-700 font-bold text-xl">×</button>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={activeRefereeSide === 'assistant' ? refereeSearch : ''}
-                        onFocus={() => {
-                          setRefereeSearch('')
-                          setActiveRefereeSide('assistant')
-                        }}
-                        onChange={(e) => handleRefereeSearch(e.target.value, 'assistant')}
-                        placeholder="Search by name, email, phone, or district..."
-                        className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:outline-none focus:border-green-500 bg-white text-gray-900"
-                      />
-                      {activeRefereeSide === 'assistant' && refereeResults.length > 0 && (
-                        <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-green-300 max-h-48 overflow-y-auto">
-                          {refereeResults.map(r => (
-                            <div
-                              key={r._id}
-                              onClick={() => selectReferee('assistant', r)}
-                              className="px-3 py-2 hover:bg-green-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
-                            >
-                              <div>
-                                <div className="font-semibold text-sm text-gray-900">{r.fullName}</div>
-                                <div className="text-xs text-gray-500">{r.email} {r.phone && `• ${r.phone}`}</div>
-                              </div>
-                              <span className="text-green-600 font-bold">+</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {activeRefereeSide === 'assistant' && refereeSearch.length >= 2 && refereeResults.length === 0 && (
-                        <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-green-300 px-3 py-2 text-sm text-gray-500 italic">
-                          No referees found
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-green-800 mb-1">Official Referee</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={activeRefereeSide === 'official' ? refereeSearch : wizard.simpleMatch.officialRefereeName}
+                      onFocus={() => {
+                        setRefereeSearch(wizard.simpleMatch.officialRefereeName)
+                        setActiveRefereeSide('official')
+                      }}
+                      onChange={(e) => {
+                        setRefereeName('official', e.target.value)
+                        handleRefereeSearch(e.target.value, 'official')
+                      }}
+                      placeholder="Type or search official referee..."
+                      className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:outline-none focus:border-green-500 bg-white text-gray-900"
+                    />
+                    {activeRefereeSide === 'official' && refereeResults.length > 0 && (
+                      <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border-2 border-green-300 max-h-48 overflow-y-auto">
+                        {refereeResults.map((r) => (
+                          <div
+                            key={r._id}
+                            onClick={() => selectReferee('official', r)}
+                            className="px-3 py-2 hover:bg-green-50 cursor-pointer border-b last:border-0"
+                          >
+                            <div className="font-semibold text-sm text-gray-900">{r.fullName}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
               </div>
             </div>
           </div>
@@ -1641,9 +2175,9 @@ export function TournamentRegistrations() {
             <button
               onClick={saveSimpleMatch}
               disabled={savingMatch}
-              className="px-8 py-3 bg-gradient-to-r from-[#5a0a8f] to-[#400466] hover:from-[#400466] hover:to-[#2d0333] text-white rounded-xl font-bold transition-all shadow-lg disabled:opacity-50"
+              className="px-6 py-3 bg-[#5a0a8f] text-white rounded-xl font-bold hover:bg-[#4a087a] transition-all disabled:opacity-60"
             >
-              {savingMatch ? 'Saving...' : 'Save & Exit'}
+              {savingMatch ? 'Saving…' : 'Save & Exit'}
             </button>
           </div>
         </div>
@@ -1651,1075 +2185,199 @@ export function TournamentRegistrations() {
     )
   }
 
-  // ===== MAIN PAGE UI =====
-  // Handle Score Card Generation
-  const handleDownloadScoreCard = async (match: Match) => {
-
-    try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://sports-backend-fgsp.onrender.com'
-      const baseUrl = API_BASE.replace(/\/api$/, '')
-      const token = window.localStorage.getItem('stfi.token')
-
-      const response = await fetch(`${baseUrl}/api/admin/matches/${match._id}/scorecard-pdf`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({}) // Send empty data to rely on backend match data
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to generate Score Card PDF')
-      }
-
-      const contentDisposition = response.headers.get('Content-Disposition')
-      const filename = contentDisposition
-        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-        : `scorecard_${match._id}.pdf`
-
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to generate Score Card PDF')
-    }
-  }
+  const isRegistered = (userId: string, type: string) =>
+    registrations.some((r) => r.userId === userId && r.registerAs === type)
 
   return (
-    <div className="space-y-6">
-      {/* Breadcrumbs */}
-      <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-        <Link to="/admin/dashboard" className="hover:text-[#5a0a8f]">
-          Dashboard
-        </Link>
-        <span>›</span>
-        <Link to="/admin/tournaments" className="hover:text-[#5a0a8f]">
-          Tournaments
-        </Link>
-        <span>›</span>
-        <span className="text-gray-900 font-medium">{tournament.title} - Registrations</span>
-      </div>
-
-      {/* Header */}
-      <div className="mb-4">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-black text-gray-900 mb-2">{tournament.title}</h1>
-            <p className="text-gray-600">
-              Manage registrations, create teams, and schedule matches.
-            </p>
-          </div>
-          <button
-            onClick={() => navigate('/admin/tournaments')}
-            className="px-4 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium"
-          >
-            Back to Tournaments
-          </button>
-        </div>
-
-        {/* Tournament Info Card */}
-        <div className="bg-gradient-to-r from-[#5a0a8f] to-[#400466] rounded-xl p-6 text-white mb-6 shadow-lg">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-6">
+          <Link to="/admin/tournaments" className="text-[#5a0a8f] hover:underline text-sm font-medium flex items-center gap-1 mb-2">
+            <span className="material-symbols-outlined text-lg">arrow_back</span> Back to Tournaments
+          </Link>
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <div className="text-sm opacity-90 mb-1">Tournament Date</div>
-              <div className="text-lg font-bold">
-                {tournament.startDate ? new Date(tournament.startDate).toLocaleDateString() : '—'}
-                {tournament.endDate ? ` - ${new Date(tournament.endDate).toLocaleDateString()}` : ''}
-              </div>
+              <h1 className="text-3xl font-black text-gray-900">{tournament.title}</h1>
+              <p className="text-gray-600 mt-1">
+                {tournament.venueName && `${tournament.venueName} · `}
+                {eventTypeLabel(matchEventType)} · {tournament.status}
+              </p>
             </div>
-            <div>
-              <div className="text-sm opacity-90 mb-1">Location</div>
-              <div className="text-lg font-bold">
-                {[tournament.venueName, tournament.city].filter(Boolean).join(', ') || '—'}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm opacity-90 mb-1">Status</div>
-              <div className="flex items-center gap-2">
-                <div className="text-lg font-bold">{tournament.status || '—'}</div>
-                {tournament.status === 'COMPLETED' && (
-                  <span className="bg-amber-400 text-[#400466] px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest shadow-lg">
-                    🏆 Completed
-                  </span>
-                )}
-              </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setIsQuickRegModalOpen(true)} className="px-4 py-2 bg-white border-2 border-[#5a0a8f] text-[#5a0a8f] rounded-lg font-bold hover:bg-purple-50">Quick Registration</button>
+              <button type="button" onClick={startCreateMatch} className="px-4 py-2 bg-[#5a0a8f] text-white rounded-lg font-bold hover:bg-[#4a087a]">Create Match</button>
+              <button type="button" onClick={handleDownloadSchedulePdf} className="px-4 py-2 bg-gray-800 text-white rounded-lg font-bold hover:bg-gray-900">Download Schedule PDF</button>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Tabs Switcher */}
-      <div className="flex border-b border-gray-200 mb-6">
-        <button
-          onClick={() => setActiveTab('registrations')}
-          className={`pb-3 px-6 text-sm font-bold uppercase tracking-wide transition-colors relative ${activeTab === 'registrations'
-            ? 'text-[#5a0a8f] border-b-2 border-[#5a0a8f]'
-            : 'text-gray-500 hover:text-gray-700'
-            }`}
-        >
-          Registrations
-        </button>
-        <button
-          onClick={() => setActiveTab('matches')}
-          className={`pb-3 px-6 text-sm font-bold uppercase tracking-wide transition-colors relative ${activeTab === 'matches'
-            ? 'text-[#5a0a8f] border-b-2 border-[#5a0a8f]'
-            : 'text-gray-500 hover:text-gray-700'
-            }`}
-        >
-          Matches & Teams
-        </button>
-        <button
-          onClick={() => setActiveTab('winners')}
-          className={`pb-3 px-6 text-sm font-bold uppercase tracking-wide transition-colors relative ${activeTab === 'winners'
-            ? 'text-[#5a0a8f] border-b-2 border-[#5a0a8f]'
-            : 'text-gray-500 hover:text-gray-700'
-            }`}
-        >
-          Winners
-        </button>
-      </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {[
+            { label: 'Total', value: stats.total, color: 'bg-gray-100 text-gray-800' },
+            { label: 'Pending', value: stats.pending, color: 'bg-amber-100 text-amber-800' },
+            { label: 'Approved', value: stats.approved, color: 'bg-green-100 text-green-800' },
+            { label: 'Rejected', value: stats.rejected, color: 'bg-red-100 text-red-800' },
+          ].map((s) => (
+            <div key={s.label} className={`rounded-xl p-4 ${s.color}`}>
+              <p className="text-sm font-semibold opacity-80">{s.label}</p>
+              <p className="text-2xl font-black">{s.value}</p>
+            </div>
+          ))}
+        </div>
 
-      {activeTab === 'registrations' && (
-        <>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-            <div className="bg-white rounded-xl border-2 border-blue-100 p-6">
-              <div className="text-3xl font-black text-gray-900 mb-1">{stats.total}</div>
-              <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Total Applications</div>
-            </div>
-            <div className="bg-white rounded-xl border-2 border-yellow-100 p-6">
-              <div className="text-3xl font-black text-yellow-600 mb-1">{stats.pending}</div>
-              <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Pending Review</div>
-            </div>
-            <div className="bg-white rounded-xl border-2 border-green-100 p-6">
-              <div className="text-3xl font-black text-green-600 mb-1">{stats.approved}</div>
-              <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Approved</div>
-            </div>
-            <div className="bg-white rounded-xl border-2 border-red-100 p-6">
-              <div className="text-3xl font-black text-red-600 mb-1">{stats.rejected}</div>
-              <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Rejected</div>
-            </div>
-          </div>
-
-          {/* Quick Register Button */}
-          <div className="flex justify-end mb-4">
+        <div className="flex gap-2 mb-6 border-b border-gray-200">
+          {(['registrations', 'matches', 'winners'] as const).map((tab) => (
             <button
-              onClick={() => setIsQuickRegModalOpen(true)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#5a0a8f] to-[#7b1fa2] text-white rounded-lg font-bold shadow-md hover:shadow-lg hover:from-[#7b1fa2] hover:to-[#5a0a8f] transition-all duration-200"
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 font-bold capitalize border-b-2 -mb-px ${
+                activeTab === tab ? 'border-[#5a0a8f] text-[#5a0a8f]' : 'border-transparent text-gray-500'
+              }`}
             >
-              <span className="material-symbols-outlined text-xl">person_add</span>
-              Quick Register
+              {tab}
             </button>
-          </div>
+          ))}
+        </div>
 
-          {/* Search and Filters */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-            <div className="flex flex-col md:flex-row gap-4 items-center">
-              <div className="flex-1 relative w-full">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  search
-                </span>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by name, email, or Aadhaar..."
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900"
-                />
-              </div>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white"
-              >
-                <option value="all">All Statuses</option>
+        {error && <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">{error}</div>}
+
+        {activeTab === 'registrations' && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-3">
+              <input type="text" placeholder="Search by name or email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="flex-1 min-w-[200px] px-4 py-2 border border-gray-300 rounded-lg" />
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-4 py-2 border rounded-lg">
+                <option value="all">All statuses</option>
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
               </select>
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white"
-              >
-                <option value="all">All Types</option>
+              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-4 py-2 border rounded-lg">
+                <option value="all">All types</option>
                 <option value="player">Players</option>
                 <option value="coach">Coaches</option>
                 <option value="referee">Referees</option>
               </select>
             </div>
-          </div>
-
-          {/* Registrations Table */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            {error && (
-              <div className="px-6 py-4 border-b border-gray-200 bg-red-50 text-red-700">{error}</div>
-            )}
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">Applicant</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">Type</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">Category</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">District</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">Applied On</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">Status</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {!loading && filteredRegistrations.length === 0 ? (
+            {loading ? (
+              <p className="text-gray-500">Loading registrations...</p>
+            ) : (
+              <div className="bg-white rounded-xl shadow overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
                     <tr>
-                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                        No registrations found for this tournament.
-                      </td>
+                      <th className="text-left px-4 py-3 font-bold">Name</th>
+                      <th className="text-left px-4 py-3 font-bold">ID</th>
+                      <th className="text-left px-4 py-3 font-bold">Type</th>
+                      <th className="text-left px-4 py-3 font-bold">District</th>
+                      <th className="text-left px-4 py-3 font-bold">Status</th>
+                      <th className="text-right px-4 py-3 font-bold">Actions</th>
                     </tr>
-                  ) : (
-                    filteredRegistrations.map((tr) => (
-                      <tr key={tr._id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#5a0a8f] to-[#400466] flex items-center justify-center text-white font-bold text-sm">
-                              {tr.applicant?.fullName?.charAt(0).toUpperCase() || 'A'}
-                            </div>
-                            <div>
-                              <div className="font-semibold text-gray-900">{tr.applicant?.fullName || '—'}</div>
-                              <div className="text-sm text-gray-500">{tr.applicant?.email || ''}</div>
-                            </div>
-                          </div>
+                  </thead>
+                  <tbody>
+                    {filteredRegistrations.map((r) => (
+                      <tr key={r._id} className="border-b hover:bg-gray-50">
+                        <td className="px-4 py-3 font-medium">{r.applicant?.fullName || '—'}</td>
+                        <td className="px-4 py-3 text-gray-600">{r.applicant?.playerId || r.userId}</td>
+                        <td className="px-4 py-3 capitalize">{r.registerAs}</td>
+                        <td className="px-4 py-3">{r.applicant?.district || '—'}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${r.status === 'approved' ? 'bg-green-100 text-green-800' : r.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>{r.status}</span>
                         </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`px-2 py-1 text-xs font-bold rounded ${tr.registerAs === 'player'
-                              ? 'bg-blue-100 text-blue-700'
-                              : tr.registerAs === 'coach'
-                                ? 'bg-purple-100 text-purple-700'
-                                : 'bg-orange-100 text-orange-700'
-                              }`}
-                          >
-                            {tr.registerAs === 'referee' ? 'REFEREE' : tr.registerAs.toUpperCase()}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
-                            {tr.category || '—'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">{tr.applicant?.district || '—'}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {tr.appliedAt ? new Date(tr.appliedAt).toLocaleDateString() : '—'}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`px-2 py-1 text-xs font-bold rounded ${tr.status === 'approved'
-                              ? 'bg-green-100 text-green-700'
-                              : tr.status === 'rejected'
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-yellow-100 text-yellow-700'
-                              }`}
-                          >
-                            {tr.status.toUpperCase()}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => setSelectedRegistration(tr._id)}
-                              className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                              title="View Details"
-                            >
-                              <span className="material-symbols-outlined text-lg">visibility</span>
-                            </button>
-                            {tr.status === 'pending' && (
-                              <>
-                                <button
-                                  onClick={() => handleApprove(tr._id)}
-                                  className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 transition-colors"
-                                  title="Approve"
-                                >
-                                  <span className="material-symbols-outlined text-lg">check</span>
-                                </button>
-                                <button
-                                  onClick={() => handleReject(tr._id)}
-                                  className="p-2 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors"
-                                  title="Reject"
-                                >
-                                  <span className="material-symbols-outlined text-lg">close</span>
-                                </button>
-                              </>
-                            )}
-                            <button
-                              onClick={() => handleDeleteRegistration(tr._id)}
-                              className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors ml-1"
-                              title="Remove Participant"
-                            >
-                              <span className="material-symbols-outlined text-lg">delete</span>
-                            </button>
-                          </div>
+                        <td className="px-4 py-3 text-right space-x-2">
+                          {r.status === 'pending' && (
+                            <>
+                              <button type="button" onClick={() => handleApprove(r._id)} className="text-green-600 font-bold hover:underline">Approve</button>
+                              <button type="button" onClick={() => handleReject(r._id)} className="text-red-600 font-bold hover:underline">Reject</button>
+                            </>
+                          )}
+                          <button type="button" onClick={() => handleDeleteRegistration(r._id)} className="text-gray-500 hover:text-red-600 font-bold">Remove</button>
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
-
-      {
-        activeTab === 'matches' && (
-          <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Matches & Teams</h2>
-                <p className="text-gray-500 mt-1">Create teams and schedule matches for this tournament</p>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={handleDownloadSchedulePdf}
-                  className="px-6 py-3 bg-white text-[#5a0a8f] border-2 border-[#5a0a8f] rounded-xl font-bold transition-all shadow-md flex items-center gap-2 transform hover:scale-105 active:scale-95"
-                >
-                  <span className="material-symbols-outlined">download</span>
-                  Download Schedule & Scorecards
-                </button>
-                <button
-                  onClick={startCreateMatch}
-                  className="px-6 py-3 bg-[#5a0a8f] hover:bg-[#400466] text-white rounded-xl font-bold transition-all shadow-md flex items-center gap-2 transform hover:scale-105 active:scale-95"
-                >
-                  <span className="material-symbols-outlined">add_circle</span>
-                  Create Match
-                </button>
-              </div>
-            </div>
-
-            {/* Teams List */}
-            <div className="mb-10">
-              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <span className="material-symbols-outlined text-blue-600">groups</span>
-                Teams Created
-              </h3>
-
-              {teams.length === 0 ? (
-                <div className="bg-gray-50 rounded-xl p-8 text-center border-2 border-dashed border-gray-200">
-                  <span className="material-symbols-outlined text-4xl text-gray-300 mb-2">sports_kabaddi</span>
-                  <p className="text-gray-500 font-medium">No teams created yet. Create a match to automatically generate teams.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {teams.map(team => (
-                    <div key={team._id} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex justify-between items-start mb-4">
-                        <h4 className="font-bold text-xl text-gray-900">{team.name}</h4>
-                        <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-100">
-                          {team.members.length} Players
-                        </span>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Roster</div>
-                        <div className="flex flex-wrap gap-2">
-                          {team.members.map((m: any, idx) => (
-                            <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-50 text-gray-700 text-sm border border-gray-200">
-                              {m.fullName || m.name || 'Player'}
-                            </span>
-                          ))}
-                          {team.members.length === 0 && (
-                            <span className="text-gray-400 text-sm italic">No players assigned</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Scheduled Matches */}
-            {matches.length > 0 && (
-              <div className="border-t border-gray-100 pt-8">
-                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-purple-600">calendar_month</span>
-                  Scheduled Matches
-                </h3>
-
-                <div className="space-y-4">
-                  {matches.map((match, idx) => (
-                    <div key={idx} className={`bg-white rounded-xl border p-0 overflow-hidden transition-colors ${match.status === 'completed' ? 'border-purple-200 shadow-sm' : 'border-gray-200'
-                      }`}>
-                      <div className="flex flex-col md:flex-row">
-                        {/* Date/Time Column */}
-                        <div className="bg-gray-50 p-6 flex flex-col justify-center items-center min-w-[150px] border-b md:border-b-0 md:border-r border-gray-200">
-                          <div className="text-2xl font-black text-gray-700">
-                            {new Date(match.date).getDate()}
-                          </div>
-                          <div className="text-sm font-bold text-gray-500 uppercase tracking-wide">
-                            {new Date(match.date).toLocaleDateString('en-US', { month: 'short' })}
-                          </div>
-                          <div className="mt-2 px-3 py-1 bg-white rounded-full text-xs font-bold text-gray-600 border border-gray-200 shadow-sm">
-                            {new Date(`2000-01-01T${match.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                          </div>
-                          {match.status === 'completed' && (
-                            <div className="mt-3 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-black uppercase tracking-wide border border-green-200">
-                              Completed
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Match Details */}
-                        <div className="flex-1 p-6 flex flex-col justify-center">
-                          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                            {/* Team 1 */}
-                            <div className={`flex-1 text-center md:text-right ${match.winner === 'team1' ? 'opacity-100' : match.winner ? 'opacity-50' : ''}`}>
-                              <div className="text-xl font-black text-gray-900">{match.team1}</div>
-                              {match.status === 'completed' && match.score && (
-                                <div className="text-3xl font-black text-[#5a0a8f] mt-1">{match.score.team1} Sets</div>
-                              )}
-                            </div>
-
-                            {/* VS Badge / Score */}
-                            <div className="flex flex-col items-center">
-                              {match.status === 'completed' ? (
-                                <div className="flex flex-col items-center gap-1">
-                                  <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-green-700 font-black text-sm border-4 border-white shadow-sm ring-1 ring-green-100">
-                                    ✓
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-black text-sm border-4 border-white shadow-sm ring-1 ring-purple-100">
-                                  VS
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Team 2 */}
-                            <div className={`flex-1 text-center md:text-left ${match.winner === 'team2' ? 'opacity-100' : match.winner ? 'opacity-50' : ''}`}>
-                              <div className="text-xl font-black text-gray-900">{match.team2}</div>
-                              {match.status === 'completed' && match.score && (
-                                <div className="text-3xl font-black text-[#5a0a8f] mt-1">{match.score.team2} Sets</div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Regu Scores */}
-                          {match.status === 'completed' && match.regus && match.regus.length > 0 && (
-                            <div className="mt-6 pt-4 border-t border-gray-100 flex flex-col items-center">
-                              <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Regu Results</div>
-                              <div className="flex flex-col gap-4 w-full px-4">
-                                {match.regus.map((regu, idx) => (
-                                  <div key={idx} className="bg-gray-50 rounded-xl border border-gray-200 p-4 w-full">
-                                    <div className="flex justify-between items-center mb-3">
-                                      <div className="font-black text-gray-900 uppercase tracking-wide">{regu.reguName}</div>
-                                      <div className="flex items-center gap-4">
-                                        <div className="text-sm font-bold bg-white px-3 py-1 rounded-full shadow-sm border border-gray-100">
-                                          <span className={regu.winner === 'team1' ? 'text-green-600' : 'text-gray-500'}>{regu.team1Score}</span>
-                                          <span className="mx-2 text-gray-300">-</span>
-                                          <span className={regu.winner === 'team2' ? 'text-green-600' : 'text-gray-500'}>{regu.team2Score}</span>
-                                        </div>
-                                        <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${regu.winner === 'team1' ? 'bg-purple-100 text-[#5a0a8f]' : regu.winner === 'team2' ? 'bg-purple-100 text-[#5a0a8f]' : 'bg-gray-200 text-gray-600'}`}>
-                                          {regu.winner === 'team1' ? `${match.team1} Won` : regu.winner === 'team2' ? `${match.team2} Won` : 'Ongoing'}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    {regu.sets && regu.sets.length > 0 && (
-                                      <div className="flex flex-wrap gap-2">
-                                        {regu.sets.map((set, sIdx) => (
-                                          <div key={sIdx} className="flex items-center px-3 py-1.5 bg-white rounded-md border border-gray-100 shadow-sm">
-                                            <span className="text-xs font-bold text-gray-400 mr-2">S{set.setNumber}</span>
-                                            <div className="font-mono font-bold text-sm">
-                                              <span className={set.team1Score > set.team2Score ? 'text-green-600' : ''}>{set.team1Score}</span>
-                                              <span className="mx-1 text-gray-300">-</span>
-                                              <span className={set.team2Score > set.team1Score ? 'text-green-600' : ''}>{set.team2Score}</span>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Description/Location footer */}
-                          {match.description && (
-                            <div className="mt-4 pt-4 border-t border-gray-100 text-center">
-                              <span className="inline-block px-3 py-1 bg-gray-50 text-gray-600 text-sm font-medium rounded-lg">
-                                {match.description}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Update Score Button - Separate column for better visibility */}
-                        <div className="border-t md:border-t-0 md:border-l border-gray-200 bg-gray-50 p-4 flex flex-col gap-2 items-center justify-center min-w-[180px]">
-                          <button
-                            onClick={() => {
-                              setSelectedMatchForScore(match)
-                              setIsScoreModalOpen(true)
-                            }}
-                            className="w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 shadow-sm"
-                          >
-                            <span className="material-symbols-outlined text-lg">edit_square</span>
-                            Update Score
-                          </button>
-                          <button
-                            onClick={() => handleDownloadMatchPdf(match._id)}
-                            className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
-                          >
-                            <span className="material-symbols-outlined text-lg">download</span>
-                            Download PDF
-                          </button>
-
-                          {match.status === 'completed' && (
-                            <button
-                              onClick={() => handleDownloadScoreCard(match)}
-                              className="w-full px-4 py-2 bg-[#5a0a8f] hover:bg-[#400466] text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 shadow-sm"
-                            >
-                              <span className="material-symbols-outlined text-lg">sports_score</span>
-                              Score Card
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDeleteMatch(match._id, match.team1, match.team2)}
-                            className="w-full px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 border border-red-200"
-                          >
-                            <span className="material-symbols-outlined text-lg">delete</span>
-                            Delete Match
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredRegistrations.length === 0 && <p className="p-8 text-center text-gray-500">No registrations found.</p>}
               </div>
             )}
           </div>
         )}
 
-      {activeTab === 'winners' && (
-        <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Tournament Winners</h2>
-              <p className="text-gray-500 mt-1">Select the top performers for this tournament</p>
-            </div>
-            <button
-              onClick={handleSaveWinners}
-              disabled={savingWinners}
-              className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold transition-all shadow-md flex items-center gap-2 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <span className="material-symbols-outlined">save</span>
-              {savingWinners ? 'Saving...' : 'Save Winners'}
-            </button>
+        {activeTab === 'matches' && (
+          <div className="space-y-4">
+            {matches.length === 0 ? (
+              <p className="text-gray-500">No matches yet. Create a match to get started.</p>
+            ) : (
+              matches.map((match) => (
+                <div key={match._id} className="bg-white rounded-xl border p-4 flex flex-wrap justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-lg">{match.team1} vs {match.team2}</p>
+                    <p className="text-sm text-gray-600">{match.date} {match.time} · {match.status || 'scheduled'}{match.description && ` · ${match.description}`}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => { setSelectedMatchForScore(match); setIsScoreModalOpen(true) }} className="px-3 py-1.5 bg-[#5a0a8f] text-white rounded-lg text-sm font-bold">Update Score</button>
+                    <button type="button" onClick={() => openScorecardDownload(match)} className="px-3 py-1.5 border-2 border-[#5a0a8f] text-[#5a0a8f] rounded-lg text-sm font-bold">Score Card</button>
+                    <button type="button" onClick={() => handleDeleteMatch(match._id, match.team1, match.team2)} className="px-3 py-1.5 border border-red-300 text-red-600 rounded-lg text-sm font-bold">Delete</button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
+        )}
 
-          <div className="space-y-8 max-w-4xl">
-            {/* 1st Place */}
-            <div className="p-6 rounded-xl border-2 border-yellow-100 bg-yellow-50/30">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center shadow-sm">
-                  <span className="material-symbols-outlined text-white">emoji_events</span>
-                </div>
-                <h3 className="text-lg font-bold text-gray-900">1st Place (Gold)</h3>
-              </div>
-              <Autocomplete
-                multiple
-                options={playerOptions}
-                getOptionLabel={(option) => `${option.fullName} (${option.district || 'N/A'})`}
-                value={winners.first}
-                onChange={(_, newValue) => {
-                  setWinners(prev => ({ ...prev, first: newValue }))
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    placeholder="Search and select winner(s)"
-                    variant="outlined"
-                    className="bg-white"
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '0.75rem' } }}
-                  />
-                )}
-                renderTags={(value, getTagProps) =>
-                  value.map((option, index) => {
-                    const { key, ...tagProps } = getTagProps({ index });
-                    return (
-                      <Chip
-                        key={key}
-                        variant="outlined"
-                        label={option.fullName}
-                        color="primary"
-                        {...tagProps}
-                      />
-                    );
-                  })
-                }
-                isOptionEqualToValue={(option, value) => option._id === value._id}
-              />
-            </div>
-
-            {/* 2nd Place */}
-            <div className="p-6 rounded-xl border-2 border-gray-100 bg-gray-50/30">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center shadow-sm">
-                  <span className="material-symbols-outlined text-white">emoji_events</span>
-                </div>
-                <h3 className="text-lg font-bold text-gray-900">2nd Place (Silver)</h3>
-              </div>
-              <Autocomplete
-                multiple
-                options={playerOptions}
-                getOptionLabel={(option) => `${option.fullName} (${option.district || 'N/A'})`}
-                value={winners.second}
-                onChange={(_, newValue) => {
-                  setWinners(prev => ({ ...prev, second: newValue }))
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    placeholder="Search and select winner(s)"
-                    variant="outlined"
-                    className="bg-white"
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '0.75rem' } }}
-                  />
-                )}
-                renderTags={(value, getTagProps) =>
-                  value.map((option, index) => {
-                    const { key, ...tagProps } = getTagProps({ index });
-                    return (
-                      <Chip
-                        key={key}
-                        variant="outlined"
-                        label={option.fullName}
-                        {...tagProps}
-                      />
-                    );
-                  })
-                }
-                isOptionEqualToValue={(option, value) => option._id === value._id}
-              />
-            </div>
-
-            {/* 3rd Place */}
-            <div className="p-6 rounded-xl border-2 border-orange-100 bg-orange-50/30">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-orange-400 rounded-full flex items-center justify-center shadow-sm">
-                  <span className="material-symbols-outlined text-white">emoji_events</span>
-                </div>
-                <h3 className="text-lg font-bold text-gray-900">3rd Place (Bronze)</h3>
-              </div>
-              <Autocomplete
-                multiple
-                options={playerOptions}
-                getOptionLabel={(option) => `${option.fullName} (${option.district || 'N/A'})`}
-                value={winners.third}
-                onChange={(_, newValue) => {
-                  setWinners(prev => ({ ...prev, third: newValue }))
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    placeholder="Search and select winner(s)"
-                    variant="outlined"
-                    className="bg-white"
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '0.75rem' } }}
-                  />
-                )}
-                renderTags={(value, getTagProps) =>
-                  value.map((option, index) => {
-                    const { key, ...tagProps } = getTagProps({ index });
-                    return (
-                      <Chip
-                        key={key}
-                        variant="outlined"
-                        label={option.fullName}
-                        {...tagProps}
-                      />
-                    );
-                  })
-                }
-                isOptionEqualToValue={(option, value) => option._id === value._id}
-              />
-            </div>
-            {/* Participation - players who are approved but not in winners */}
-            {(() => {
-              const winnerIds = new Set([
-                ...winners.first.map(p => p._id),
-                ...winners.second.map(p => p._id),
-                ...winners.third.map(p => p._id),
-              ])
-              const participationPlayers = registrations
-                .filter(r => r.registerAs === 'player' && r.status === 'approved' && r.applicant && !winnerIds.has(r.applicant._id))
-                .map(r => r.applicant!)
-
-              return (
-                <div className="p-6 rounded-xl border-2 border-blue-100 bg-blue-50/30">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center shadow-sm">
-                      <span className="material-symbols-outlined text-white">groups</span>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900">Participation</h3>
-                      <p className="text-sm text-gray-500">{participationPlayers.length} player{participationPlayers.length !== 1 ? 's' : ''}</p>
-                    </div>
-                  </div>
-                  {participationPlayers.length === 0 ? (
-                    <p className="text-sm text-gray-400 italic">No participants yet</p>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {participationPlayers.map(p => (
-                        <div key={p._id} className="flex items-center gap-3 bg-white rounded-xl p-3 border border-blue-100">
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                            {p.fullName?.charAt(0)?.toUpperCase() || '?'}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="font-semibold text-gray-900 text-sm truncate">{p.fullName}</div>
-                            <div className="text-xs text-gray-500 truncate">{p.district || '—'}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-
-            {/* Coaches */}
-            {(() => {
-              const coaches = registrations
-                .filter(r => r.registerAs === 'coach' && r.status === 'approved' && r.applicant)
-                .map(r => r.applicant!)
-
-              return (
-                <div className="p-6 rounded-xl border-2 border-purple-100 bg-purple-50/30">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center shadow-sm">
-                      <span className="material-symbols-outlined text-white">sports</span>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900">Coaches</h3>
-                      <p className="text-sm text-gray-500">{coaches.length} coach{coaches.length !== 1 ? 'es' : ''}</p>
-                    </div>
-                  </div>
-                  {coaches.length === 0 ? (
-                    <p className="text-sm text-gray-400 italic">No coaches registered</p>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {coaches.map(c => (
-                        <div key={c._id} className="flex items-center gap-3 bg-white rounded-xl p-3 border border-purple-100">
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                            {c.fullName?.charAt(0)?.toUpperCase() || '?'}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="font-semibold text-gray-900 text-sm truncate">{c.fullName}</div>
-                            <div className="text-xs text-gray-500 truncate">{c.email || c.district || '—'}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-
-            {/* Referees */}
-            {(() => {
-              const referees = registrations
-                .filter(r => r.registerAs === 'referee' && r.status === 'approved' && r.applicant)
-                .map(r => r.applicant!)
-
-              return (
-                <div className="p-6 rounded-xl border-2 border-orange-100 bg-orange-50/30">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center shadow-sm">
-                      <span className="material-symbols-outlined text-white">flag</span>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900">Referees</h3>
-                      <p className="text-sm text-gray-500">{referees.length} referee{referees.length !== 1 ? 's' : ''}</p>
-                    </div>
-                  </div>
-                  {referees.length === 0 ? (
-                    <p className="text-sm text-gray-400 italic">No referees registered</p>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {referees.map(r => (
-                        <div key={r._id} className="flex items-center gap-3 bg-white rounded-xl p-3 border border-orange-100">
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                            {r.fullName?.charAt(0)?.toUpperCase() || '?'}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="font-semibold text-gray-900 text-sm truncate">{r.fullName}</div>
-                            <div className="text-xs text-gray-500 truncate">{r.email || r.district || '—'}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
+        {activeTab === 'winners' && (
+          <div className="space-y-6">
+            {renderWinnerPlace('first', '1st Place', 'p-6 rounded-xl border-2 border-yellow-200 bg-yellow-50/40', 'bg-yellow-500')}
+            {renderWinnerPlace('second', '2nd Place', 'p-6 rounded-xl border-2 border-gray-200 bg-gray-50', 'bg-gray-500')}
+            {renderWinnerPlace('third', '3rd Place', 'p-6 rounded-xl border-2 border-orange-200 bg-orange-50/40', 'bg-orange-600')}
+            <button type="button" onClick={handleSaveWinners} disabled={savingWinners} className="px-6 py-3 bg-[#5a0a8f] text-white rounded-xl font-bold disabled:opacity-60">{savingWinners ? 'Saving…' : 'Save Winners'}</button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Detail Modal */}
-      {selectedRegistration && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto my-8">
-            <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
-              <h2 className="text-2xl font-bold text-gray-900">Application Details</h2>
-              <button
-                onClick={() => setSelectedRegistration(null)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <span className="material-symbols-outlined text-2xl">close</span>
-              </button>
-            </div>
+      <UpdateScoreModal isOpen={isScoreModalOpen} onClose={() => { setIsScoreModalOpen(false); setSelectedMatchForScore(null); if (tournamentId) fetchMatches(tournamentId) }} preSelectedTournamentId={tournamentId} preSelectedMatch={selectedMatchForScore || undefined} />
+      <ScorecardRemarksModal isOpen={scorecardRemarksOpen} matchLabel={scorecardRemarksMatch ? `${scorecardRemarksMatch.team1} vs ${scorecardRemarksMatch.team2}` : undefined} remarks={scorecardRemarksText} downloading={downloadingScorecard} onRemarksChange={setScorecardRemarksText} onDownload={() => downloadScorecardPdf(scorecardRemarksText)} onClose={() => { if (!downloadingScorecard) { setScorecardRemarksOpen(false); setScorecardRemarksMatch(null) } }} />
 
-            <div className="p-6">
-              {(() => {
-                const tr = registrations.find((r) => r._id === selectedRegistration)
-                if (!tr) return null
-
-                return (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <h3 className="font-semibold text-gray-900 mb-4">Applicant</h3>
-                        <div className="space-y-3">
-                          <div>
-                            <label className="text-sm text-gray-600">Full Name</label>
-                            <div className="font-semibold text-gray-900">{tr.applicant?.fullName || '—'}</div>
-                          </div>
-                          <div>
-                            <label className="text-sm text-gray-600">Email</label>
-                            <div className="font-semibold text-gray-900">{tr.applicant?.email || '—'}</div>
-                          </div>
-                          <div>
-                            <label className="text-sm text-gray-600">District</label>
-                            <div className="font-semibold text-gray-900">{tr.applicant?.district || '—'}</div>
-                          </div>
-                          <div>
-                            <label className="text-sm text-gray-600">Registered As</label>
-                            <div className="font-semibold text-gray-900">{tr.registerAs}</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <h3 className="font-semibold text-gray-900 mb-4">Details</h3>
-                        <div className="space-y-3">
-                          <div>
-                            <label className="text-sm text-gray-600">Category</label>
-                            <div className="font-semibold text-gray-900">{tr.category || '—'}</div>
-                          </div>
-                          <div>
-                            <label className="text-sm text-gray-600">Status</label>
-                            <div className="font-semibold text-gray-900">{tr.status}</div>
-                          </div>
-                          <div>
-                            <label className="text-sm text-gray-600">Applied On</label>
-                            <div className="font-semibold text-gray-900">
-                              {tr.appliedAt ? new Date(tr.appliedAt).toLocaleString() : '—'}
-                            </div>
-                          </div>
-                          <div>
-                            <label className="text-sm text-gray-600">Notes</label>
-                            <div className="font-semibold text-gray-900">{tr.notes || '—'}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    {tr.status === 'pending' && (
-                      <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200">
-                        <button
-                          onClick={() => {
-                            handleReject(tr._id)
-                            setSelectedRegistration(null)
-                          }}
-                          className="px-5 py-2.5 border-2 border-red-300 rounded-lg hover:bg-red-50 transition-colors text-red-700 font-medium"
-                        >
-                          Reject Application
-                        </button>
-                        <button
-                          onClick={() => {
-                            handleApprove(tr._id)
-                            setSelectedRegistration(null)
-                          }}
-                          className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold transition-colors"
-                        >
-                          Approve Application
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )
-              })()}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Score Update Modal */}
-      <UpdateScoreModal
-        isOpen={isScoreModalOpen}
-        onClose={() => {
-          setIsScoreModalOpen(false)
-          setSelectedMatchForScore(null)
-          // Refresh matches after modal closes
-          if (tournamentId) {
-            fetchMatches(tournamentId)
-          }
-        }}
-        preSelectedTournamentId={tournamentId}
-        preSelectedMatch={selectedMatchForScore || undefined}
-      />
-
-
-
-      {/* Quick Registration Modal */}
       {isQuickRegModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden">
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-[#5a0a8f] to-[#400466] p-5 text-white flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-black flex items-center gap-2">
-                  <span className="material-symbols-outlined">person_add</span>
-                  Quick Registration
-                </h2>
-                <p className="text-purple-200 text-sm mt-1">Add a player, coach, or referee to this tournament</p>
-              </div>
-              <button
-                onClick={() => {
-                  setIsQuickRegModalOpen(false)
-                  setQuickRegSearch('')
-                  setQuickRegResults([])
-                }}
-                className="text-white hover:text-gray-200 transition-colors"
-              >
-                <span className="material-symbols-outlined text-2xl">close</span>
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+            <div className="bg-[#5a0a8f] text-white p-5 flex justify-between items-center">
+              <h2 className="text-xl font-black">Quick Registration</h2>
+              <button type="button" onClick={resetQuickRegModal} className="text-white"><span className="material-symbols-outlined">close</span></button>
             </div>
-
-            {/* Type Selector */}
-            <div className="px-5 pt-4">
-              <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
-                {(['player', 'coach', 'referee'] as const).map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => {
-                      setQuickRegType(type)
-                      setQuickRegSearch('')
-                      setQuickRegResults([])
-                    }}
-                    className={`flex-1 py-2 px-3 text-sm font-bold rounded-md transition-all duration-200 capitalize ${quickRegType === type
-                      ? 'bg-white text-[#5a0a8f] shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                  >
-                    {type}
-                  </button>
+            <div className="p-5 space-y-4 overflow-y-auto flex-1">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">District</label>
+                <select value={quickRegDistrict} onChange={(e) => handleQuickRegDistrictChange(e.target.value)} className="w-full px-3 py-2 border rounded-lg">
+                  <option value="">Select district</option>
+                  {districts.map((d) => (<option key={d.id} value={d.id}>{d.name}</option>))}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                {(['player', 'coach', 'referee'] as const).map((t) => (
+                  <button key={t} type="button" onClick={() => { setQuickRegType(t); if (quickRegDistrict) handleQuickRegDistrictChange(quickRegDistrict) }} className={`px-3 py-1.5 rounded-lg text-sm font-bold capitalize ${quickRegType === t ? 'bg-[#5a0a8f] text-white' : 'bg-gray-100 text-gray-700'}`}>{t}</button>
                 ))}
               </div>
-            </div>
-
-            {/* Search Input */}
-            <div className="px-5 pt-4">
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  search
-                </span>
-                <input
-                  type="text"
-                  placeholder={`Search ${quickRegType}s by name...`}
-                  value={quickRegSearch}
-                  onChange={(e) => handleQuickRegSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 transition-colors"
-                  autoFocus
-                />
-              </div>
-            </div>
-
-            {/* Results */}
-            <div className="px-5 py-4 max-h-[300px] overflow-y-auto">
-              {quickRegSearch.trim().length < 2 ? (
-                <div className="text-center text-gray-400 py-8">
-                  <span className="material-symbols-outlined text-4xl mb-2 block">search</span>
-                  <p className="text-sm">Type at least 2 characters to search</p>
-                </div>
-              ) : quickRegResults.length === 0 ? (
-                <div className="text-center text-gray-400 py-8">
-                  <span className="material-symbols-outlined text-4xl mb-2 block">person_off</span>
-                  <p className="text-sm">No {quickRegType}s found</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {quickRegResults.map((person: any) => {
-                    const alreadyRegistered = registrations.some(
-                      (r) => r.userId === person._id && r.registerAs === quickRegType
-                    )
+              <input type="text" placeholder="Filter by name (optional)..." value={quickRegSearch} onChange={(e) => handleQuickRegSearch(e.target.value)} disabled={!quickRegDistrict} className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-100" />
+              {quickRegSuccessMsg && <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">{quickRegSuccessMsg}</div>}
+              {quickRegLoading ? <p className="text-gray-500 text-sm">Loading...</p> : !quickRegDistrict ? <p className="text-gray-500 text-sm">Select a district to see people.</p> : quickRegResults.length === 0 ? <p className="text-gray-500 text-sm">No {quickRegType}s found for this district.</p> : (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {quickRegResults.map((person: { _id: string; fullName: string; playerId?: string }) => {
+                    const already = isRegistered(person._id, quickRegType)
                     return (
-                      <div
-                        key={person._id}
-                        className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all duration-200 ${alreadyRegistered
-                          ? 'border-green-200 bg-green-50'
-                          : 'border-gray-100 hover:border-[#5a0a8f]/30 hover:bg-purple-50'
-                          }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#5a0a8f] to-[#400466] flex items-center justify-center text-white font-bold text-sm">
-                            {person.fullName?.charAt(0)?.toUpperCase() || '?'}
-                          </div>
-                          <div>
-                            <div className="font-semibold text-gray-900 text-sm">{person.fullName || '—'}</div>
-                            <div className="text-xs text-gray-500">
-                              {person.email || person.district || person.playerId || ''}
-                            </div>
-                          </div>
+                      <div key={person._id} className="flex justify-between items-center border rounded-lg p-3">
+                        <div>
+                          <p className="font-bold text-gray-900">{person.fullName}</p>
+                          <p className="text-xs text-gray-500">{person.playerId || person._id}</p>
                         </div>
-
-                        {alreadyRegistered ? (
-                          <span className="flex items-center gap-1 text-green-600 text-xs font-bold">
-                            <span className="material-symbols-outlined text-base">check_circle</span>
-                            Registered
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => handleQuickRegister(person._id)}
-                            disabled={quickRegLoading}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-[#5a0a8f] text-white text-xs font-bold rounded-lg hover:bg-[#7b1fa2] transition-colors disabled:opacity-50"
-                          >
-                            <span className="material-symbols-outlined text-base">add</span>
-                            Register
-                          </button>
+                        {already ? <span className="text-green-600 text-sm font-bold">Registered</span> : (
+                          <button type="button" onClick={() => handleQuickRegister(person._id, person.fullName)} className="px-3 py-1 bg-[#5a0a8f] text-white rounded-lg text-sm font-bold">Register</button>
                         )}
                       </div>
                     )
                   })}
                 </div>
               )}
-            </div>
-
-            {/* Footer Note */}
-            <div className="px-5 pb-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
-                <span className="material-symbols-outlined text-blue-500 text-lg mt-0.5">info</span>
-                <p className="text-xs text-blue-700">
-                  Admin registrations are <strong>auto-approved</strong> and bypass registration status checks.
-                </p>
-              </div>
             </div>
           </div>
         </div>
