@@ -30,51 +30,6 @@ export function Header() {
         { name: 'Documents', to: '/documents' },
       ]
 
-      const playersDropdown = [
-        {
-          name: 'National Players',
-          subDropdown: [
-            {
-              name: content.nationalTeamPage.mensTeam.title || "Men's Team",
-              to: '/national-team/mens-team',
-            },
-            {
-              name: content.nationalTeamPage.juniorMensTeam.title || "Junior Men's Team",
-              to: '/national-team/junior-mens-team',
-            },
-            {
-              name: content.nationalTeamPage.womensTeam.title || "Women's Team",
-              to: '/national-team/womens-team',
-            },
-            {
-              name: content.nationalTeamPage.juniorWomensTeam.title || "Junior Women's Team",
-              to: '/national-team/junior-womens-team',
-            },
-          ]
-        },
-        {
-          name: 'International Players',
-          subDropdown: [
-            {
-              name: content.internationalTeamPage?.mensTeam.title || "Men's Team",
-              to: '/international-team/mens-team',
-            },
-            {
-              name: content.internationalTeamPage?.juniorMensTeam.title || "Junior Men's Team",
-              to: '/international-team/junior-mens-team',
-            },
-            {
-              name: content.internationalTeamPage?.womensTeam.title || "Women's Team",
-              to: '/international-team/womens-team',
-            },
-            {
-              name: content.internationalTeamPage?.juniorWomensTeam.title || "Junior Women's Team",
-              to: '/international-team/junior-womens-team',
-            },
-          ]
-        }
-      ]
-
       if (content.aboutPage?.customPages) {
         content.aboutPage.customPages.forEach((p) => {
           aboutDropdown.push({ name: p.title, to: `/about/${p.slug}` })
@@ -88,18 +43,14 @@ export function Header() {
           to: '/about',
           dropdown: aboutDropdown
         },
-        {
-          name: 'Players',
-          to: '/players',
-          dropdown: playersDropdown,
-        },
+        { name: 'Players', to: '/players' },
         { name: 'Events', to: '/events' },
         { name: 'News', to: '/news' },
         { name: 'Certificates', to: '/certificates' },
         { name: 'Contact Us', to: '/contact' },
       ]
     },
-    [content.aboutPage?.customPages, content.nationalTeamPage, content.internationalTeamPage],
+    [content.aboutPage?.customPages],
   )
 
   useEffect(() => {

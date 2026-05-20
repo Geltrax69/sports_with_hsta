@@ -45,6 +45,7 @@ import { WebsiteContentManagement } from './pages/admin/WebsiteContentManagement
 import { AdminAboutPage } from './pages/admin/AdminAboutPage'
 import { NationalTeamManagement } from './pages/admin/NationalTeamManagement'
 import { InternationalTeamManagement } from './pages/admin/InternationalTeamManagement'
+import { PlayersDataManagement } from './pages/admin/PlayersDataManagement'
 import { AdminManageDirectories } from './pages/admin/AdminManageDirectories'
 import { TournamentRegistrations } from './pages/admin/TournamentRegistrations'
 import { AdminCertificates } from './pages/admin/AdminCertificates'
@@ -140,6 +141,7 @@ export default function App() {
                       <Route path="coaches" element={<CoachManagement />} />
                       <Route path="national-team" element={<NationalTeamManagement />} />
                       <Route path="international-team" element={<InternationalTeamManagement />} />
+                      <Route path="players-data" element={<PlayersDataManagement />} />
                       <Route path="website" element={<WebsiteContentManagement />} />
                       <Route path="about/manage-directories" element={<AdminManageDirectories />} />
                       <Route path="about/:pageId" element={<AdminAboutPage />} />

@@ -10,7 +10,6 @@ export function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   useEffect(() => {
-    // On phones, start with the sidebar closed (off-canvas)
     if (window.innerWidth < 768) setSidebarOpen(false)
   }, [])
 
@@ -21,7 +20,6 @@ export function AdminLayout() {
 
   return (
     <div className="min-h-screen flex bg-gray-50">
-      {/* Sidebar */}
       {sidebarOpen && (
         <button
           type="button"
@@ -162,7 +160,7 @@ export function AdminLayout() {
           )}
 
           <NavLink
-            to="/admin/national-team"
+            to="/admin/players-data"
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
                 ? 'bg-white/20 text-white font-semibold'
@@ -170,21 +168,8 @@ export function AdminLayout() {
               }`
             }
           >
-            <span className="material-symbols-outlined text-xl">groups_3</span>
-            {sidebarOpen && <span>National Team</span>}
-          </NavLink>
-
-          <NavLink
-            to="/admin/international-team"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                ? 'bg-white/20 text-white font-semibold'
-                : 'text-white/80 hover:bg-white/10 hover:text-white'
-              }`
-            }
-          >
-            <span className="material-symbols-outlined text-xl">public</span>
-            {sidebarOpen && <span>International Team</span>}
+            <span className="material-symbols-outlined text-xl">person_search</span>
+            {sidebarOpen && <span>Players Data</span>}
           </NavLink>
 
           {sidebarOpen && (
@@ -429,11 +414,9 @@ export function AdminLayout() {
         </div>
       </aside>
 
-      {/* Main Content */}
       <div
         className={`flex-1 transition-all duration-300 ml-0 ${sidebarOpen ? 'md:ml-64' : 'md:ml-20'}`}
       >
-        {/* Top Header */}
         <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
           <div className="px-4 md:px-6 py-3 md:py-4 flex items-center justify-between gap-3">
             <button

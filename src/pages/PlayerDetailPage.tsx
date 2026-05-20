@@ -1,10 +1,41 @@
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getPlayerById } from '../data/playersData'
+import type { Player } from '../data/playersData'
+import { fetchDirectoryPlayer, toDisplayPlayer } from '../lib/directoryPlayers'
 
 export function PlayerDetailPage() {
   const { playerId } = useParams<{ playerId: string }>()
-  // const navigate = useNavigate()
-  const player = playerId ? getPlayerById(playerId) : undefined
+  const [player, setPlayer] = useState<Player | undefined>(undefined)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!playerId) {
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    const load = async () => {
+      setLoading(true)
+      try {
+        const data = await fetchDirectoryPlayer(playerId)
+        if (!cancelled) setPlayer(toDisplayPlayer(data))
+      } catch {
+        if (!cancelled) setPlayer(undefined)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [playerId])
+
+  if (loading) {
+    return (
+      <main className="flex-grow w-full flex items-center justify-center min-h-[60vh]">
+        <div className="text-center text-gray-500">Loading player profile...</div>
+      </main>
+    )
+  }
 
   if (!player) {
     return (
@@ -12,7 +43,7 @@ export function PlayerDetailPage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Player Not Found</h1>
           <Link to="/players" className="text-[#5a0a8f] hover:underline">
-            Back to Players Directory
+            Back to Players
           </Link>
         </div>
       </main>
@@ -37,7 +68,7 @@ export function PlayerDetailPage() {
             </Link>
             <span className="opacity-50">›</span>
             <Link to="/players" className="hover:text-white transition-colors">
-              Players &amp; Officials
+              Players
             </Link>
             <span className="opacity-50">›</span>
             <span className="text-white">{player.name}</span>
@@ -65,20 +96,7 @@ export function PlayerDetailPage() {
                   <span className="material-symbols-outlined text-lg">location_on</span>
                   <span>{player.state}, India</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-lg">badge</span>
-                  <span>ID: {player.id}</span>
-                </div>
               </div>
-            </div>
-            <div className="flex gap-3">
-              <button className="flex items-center gap-2 bg-[#5a0a8f] hover:bg-[#4a0880] text-white px-5 py-2.5 rounded-lg font-medium transition-colors">
-                <span className="material-symbols-outlined text-lg">mail</span>
-                <span>Contact</span>
-              </button>
-              <button className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-5 py-2.5 rounded-lg font-medium transition-colors">
-                <span className="material-symbols-outlined text-lg">share</span>
-              </button>
             </div>
           </div>
         </div>
@@ -87,9 +105,7 @@ export function PlayerDetailPage() {
       <div className="bg-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Column */}
             <div className="lg:col-span-1 space-y-6">
-              {/* National Rank Card */}
               <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#5a0a8f] to-[#7c3aed] p-6 text-white shadow-xl">
                 {player.rankChange && player.rankChange > 0 && (
                   <div className="absolute top-3 right-3 bg-[#fcd34d] text-gray-900 text-[10px] font-bold uppercase px-2 py-1 rounded">
@@ -111,7 +127,6 @@ export function PlayerDetailPage() {
                 )}
               </div>
 
-              {/* Personal Details */}
               <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
                 <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                   <span className="material-symbols-outlined text-xl text-gray-600">person</span>
@@ -149,7 +164,6 @@ export function PlayerDetailPage() {
                 </div>
               </div>
 
-              {/* Skills & Strengths */}
               {player.skills && player.skills.length > 0 && (
                 <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
                   <h2 className="text-lg font-bold text-gray-900 mb-4">Skills &amp; Strengths</h2>
@@ -167,9 +181,7 @@ export function PlayerDetailPage() {
               )}
             </div>
 
-            {/* Right Column */}
             <div className="lg:col-span-2 space-y-8">
-              {/* Biography */}
               {player.biography && (
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900 mb-4">Biography</h2>
@@ -177,57 +189,33 @@ export function PlayerDetailPage() {
                 </div>
               )}
 
-              {/* Career Statistics */}
-              {(player.matchesPlayed || player.goldMedals || player.winRate || player.mvpAwards) && (
+              {(player.goldMedals !== undefined || player.silverMedals !== undefined) && (
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900 mb-4">Career Statistics</h2>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {player.matchesPlayed !== undefined && (
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                        <p className="text-2xl font-black text-[#5a0a8f] mb-1">{player.matchesPlayed}</p>
-                        <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">
-                          MATCHES PLAYED
-                        </p>
-                      </div>
-                    )}
+                  <div className="grid grid-cols-2 gap-4 max-w-md">
                     {player.goldMedals !== undefined && (
                       <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                        <p className="text-2xl font-black text-red-600 mb-1">{player.goldMedals}</p>
+                        <p className="text-2xl font-black text-[#5a0a8f] mb-1">{player.goldMedals}</p>
                         <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">
                           GOLD MEDALS
                         </p>
                       </div>
                     )}
-                    {player.winRate !== undefined && (
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                        <p className="text-2xl font-black text-gray-800 mb-1">{player.winRate}%</p>
-                        <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">WIN RATE</p>
-                      </div>
-                    )}
-                    {player.mvpAwards !== undefined && (
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                        <p className="text-2xl font-black text-red-600 mb-1">
-                          {String(player.mvpAwards).padStart(2, '0')}
+                    {player.silverMedals !== undefined && (
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                        <p className="text-2xl font-black text-gray-700 mb-1">{player.silverMedals}</p>
+                        <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">
+                          SILVER MEDALS
                         </p>
-                        <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">MVP AWARDS</p>
                       </div>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* Tournament History */}
               {player.tournaments && player.tournaments.length > 0 && (
                 <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-2xl font-bold text-gray-900">Tournament History</h2>
-                    <select className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-700 focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f]">
-                      <option>2023</option>
-                      <option>2022</option>
-                      <option>2021</option>
-                      <option>All Time</option>
-                    </select>
-                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">Tournament History</h2>
                   <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="w-full">
@@ -276,12 +264,6 @@ export function PlayerDetailPage() {
                         </tbody>
                       </table>
                     </div>
-                  </div>
-                  <div className="mt-4">
-                    <button className="text-[#5a0a8f] font-medium text-sm hover:underline flex items-center gap-1">
-                      View Full History
-                      <span className="material-symbols-outlined text-lg">keyboard_arrow_down</span>
-                    </button>
                   </div>
                 </div>
               )}

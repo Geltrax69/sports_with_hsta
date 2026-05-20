@@ -1,23 +1,69 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { playersData } from '../data/playersData'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { fetchDirectoryPlayers, toDisplayPlayer } from '../lib/directoryPlayers'
 import { MaintenanceNotice } from '../components/MaintenanceNotice'
+import type { DirectoryPlayer, PlayerType } from '../types/directoryPlayer'
+import type { Player } from '../data/playersData'
 
 export function PlayersPage() {
-  const navigate = useNavigate()
-  const [currentMode, setCurrentMode] = useState<'players' | 'officials'>('players')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const initialMode: PlayerType = tabParam === 'international' ? 'international' : 'national'
+  const [currentMode, setCurrentMode] = useState<PlayerType>(initialMode)
   const [searchQuery, setSearchQuery] = useState('')
+  const [stateFilter, setStateFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
   const [sortBy, setSortBy] = useState<'rank' | 'name' | 'age'>('rank')
   const [currentPage, setCurrentPage] = useState(1)
+  const [directoryPlayers, setDirectoryPlayers] = useState<DirectoryPlayer[]>([])
+  const [loading, setLoading] = useState(true)
   const itemsPerPage = 8
 
-  const currentData = currentMode === 'players' ? playersData : []
-  const filteredData = currentData.filter(
-    (item) =>
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.state.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setLoading(true)
+      try {
+        const data = await fetchDirectoryPlayers()
+        if (!cancelled) setDirectoryPlayers(data)
+      } catch {
+        if (!cancelled) setDirectoryPlayers([])
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+
+  const currentData: Player[] = directoryPlayers
+    .filter((p) => p.playerType === currentMode)
+    .map(toDisplayPlayer)
+
+  const stateOptions = useMemo(() => {
+    const states = new Set(
+      currentData.map((p) => p.state?.trim()).filter((s): s is string => Boolean(s)),
+    )
+    return Array.from(states).sort((a, b) => a.localeCompare(b))
+  }, [currentData])
+
+  const categoryOptions = [
+    { value: 'MEN', label: 'Men' },
+    { value: 'WOMEN', label: 'Women' },
+    { value: 'JUNIOR', label: 'Junior' },
+  ]
+
+  const filteredData = currentData.filter((item) => {
+    const q = searchQuery.toLowerCase().trim()
+    const matchesSearch =
+      !q ||
+      item.name.toLowerCase().includes(q) ||
+      item.state.toLowerCase().includes(q)
+    const matchesState = !stateFilter || item.state === stateFilter
+    const matchesCategory =
+      !categoryFilter || item.category.toUpperCase() === categoryFilter
+    return matchesSearch && matchesState && matchesCategory
+  })
 
   const sortedData = [...filteredData].sort((a, b) => {
     if (sortBy === 'name') return a.name.localeCompare(b.name)
@@ -30,14 +76,25 @@ export function PlayersPage() {
   const endIdx = startIdx + itemsPerPage
   const paginatedData = sortedData.slice(startIdx, endIdx)
 
-  const handleCardClick = (playerId: string) => {
-    navigate(`/players/${playerId}`)
+  const setMode = (mode: PlayerType) => {
+    setCurrentMode(mode)
+    setSearchParams(mode === 'international' ? { tab: 'international' } : {}, { replace: true })
   }
+
+  useEffect(() => {
+    if (tabParam === 'international') setCurrentMode('international')
+    else if (tabParam === 'national' || !tabParam) setCurrentMode('national')
+  }, [tabParam])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1)
-  }, [searchQuery, sortBy, currentMode])
+  }, [searchQuery, sortBy, currentMode, stateFilter, categoryFilter])
+
+  useEffect(() => {
+    setStateFilter('')
+    setCategoryFilter('')
+  }, [currentMode])
 
   return (
     <main id="page-content" className="flex-grow w-full">
@@ -74,22 +131,22 @@ export function PlayersPage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setCurrentMode('players')}
-                className={`flex h-10 items-center justify-center rounded-lg px-5 text-sm font-medium transition-colors ${currentMode === 'players'
+                onClick={() => setMode('national')}
+                className={`flex h-10 items-center justify-center rounded-lg px-5 text-sm font-medium transition-colors ${currentMode === 'national'
                   ? 'bg-[#5a0a8f] text-white shadow-md'
                   : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                   }`}
               >
-                Players Directory
+                National Player
               </button>
               <button
-                onClick={() => setCurrentMode('officials')}
-                className={`flex h-10 items-center justify-center rounded-lg px-5 text-sm font-medium transition-colors ${currentMode === 'officials'
+                onClick={() => setMode('international')}
+                className={`flex h-10 items-center justify-center rounded-lg px-5 text-sm font-medium transition-colors ${currentMode === 'international'
                   ? 'bg-[#5a0a8f] text-white shadow-md'
                   : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                   }`}
               >
-                Officials Directory
+                International Player
               </button>
             </div>
 
@@ -100,24 +157,32 @@ export function PlayersPage() {
                 </div>
                 <input
                   type="text"
-                  placeholder="Search by name, ID, or state..."
+                  placeholder="Search by name or state..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="h-10 w-full rounded-lg border-0 bg-white pl-10 pr-4 text-sm text-gray-900 placeholder:text-gray-500 ring-1 ring-gray-200 focus:ring-2 focus:ring-[#5a0a8f]"
                 />
               </div>
 
-              <select className="h-10 w-full sm:w-auto cursor-pointer rounded-lg border-0 bg-white pl-3 pr-10 text-sm text-gray-700 ring-1 ring-gray-200 focus:ring-2 focus:ring-[#5a0a8f] min-w-[140px]">
-                <option>All States</option>
-                <option>Maharashtra</option>
-                <option>Delhi</option>
-                <option>Kerala</option>
+              <select
+                value={stateFilter}
+                onChange={(e) => setStateFilter(e.target.value)}
+                className="h-10 w-full sm:w-auto cursor-pointer rounded-lg border-0 bg-white pl-3 pr-10 text-sm text-gray-700 ring-1 ring-gray-200 focus:ring-2 focus:ring-[#5a0a8f] min-w-[140px]"
+              >
+                <option value="">All States</option>
+                {stateOptions.map((state) => (
+                  <option key={state} value={state}>{state}</option>
+                ))}
               </select>
-              <select className="h-10 w-full sm:w-auto cursor-pointer rounded-lg border-0 bg-white pl-3 pr-10 text-sm text-gray-700 ring-1 ring-gray-200 focus:ring-2 focus:ring-[#5a0a8f] min-w-[160px]">
-                <option>All Categories</option>
-                <option>Men Senior</option>
-                <option>Women Senior</option>
-                <option>Junior</option>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="h-10 w-full sm:w-auto cursor-pointer rounded-lg border-0 bg-white pl-3 pr-10 text-sm text-gray-700 ring-1 ring-gray-200 focus:ring-2 focus:ring-[#5a0a8f] min-w-[160px]"
+              >
+                <option value="">All Categories</option>
+                {categoryOptions.map((cat) => (
+                  <option key={cat.value} value={cat.value}>{cat.label}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -127,30 +192,36 @@ export function PlayersPage() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 lg:py-12 bg-white">
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm text-gray-600">
-            Showing <span className="font-bold text-gray-900">{startIdx + 1}-{Math.min(endIdx, sortedData.length)}</span> of{' '}
-            <span className="font-bold text-gray-900">{sortedData.length}</span> players
+            {loading ? (
+              'Loading players...'
+            ) : (
+              <>
+                Showing <span className="font-bold text-gray-900">{sortedData.length === 0 ? 0 : startIdx + 1}-{Math.min(endIdx, sortedData.length)}</span> of{' '}
+                <span className="font-bold text-gray-900">{sortedData.length}</span>{' '}
+                {currentMode === 'national' ? 'national' : 'international'} players
+              </>
+            )}
           </p>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Sort by:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as 'rank' | 'name' | 'age')}
-              className="text-sm font-medium bg-transparent border-none text-gray-900 p-0 pr-6 focus:ring-0 cursor-pointer"
-            >
-              <option value="rank">Ranking (High to Low)</option>
-              <option value="name">Name (A-Z)</option>
-              <option value="age">Age (Youngest)</option>
-            </select>
-          </div>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'rank' | 'name' | 'age')}
+            className="h-10 cursor-pointer rounded-lg border-0 bg-white pl-3 pr-10 text-sm text-gray-700 ring-1 ring-gray-200 focus:ring-2 focus:ring-[#5a0a8f] min-w-[180px]"
+          >
+            <option value="rank">Ranking (High to Low)</option>
+            <option value="name">Name (A-Z)</option>
+            <option value="age">Age (Youngest)</option>
+          </select>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
-          {paginatedData.length > 0 ? (
+          {loading ? (
+            <div className="col-span-full py-12 text-center text-gray-500">Loading player directory...</div>
+          ) : paginatedData.length > 0 ? (
             paginatedData.map((player) => (
-              <div
+              <Link
                 key={player.id}
-                onClick={() => handleCardClick(player.id)}
-                className="group cursor-pointer overflow-hidden rounded-xl bg-white border border-gray-200 shadow-sm hover:shadow-lg hover:border-[#5a0a8f]/30 transition-all"
+                to={`/players/${encodeURIComponent(player.id)}`}
+                className="group block overflow-hidden rounded-xl bg-white border border-gray-200 shadow-sm hover:shadow-lg hover:border-[#5a0a8f]/30 transition-all"
               >
                 <div className="relative h-48 bg-gray-100 flex items-center justify-center p-4">
                   <img
@@ -170,7 +241,6 @@ export function PlayersPage() {
                 </div>
                 <div className="p-4">
                   <div className="mb-3">
-                    <p className="text-[11px] text-gray-500 mb-1">ID: {player.id}</p>
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <h3 className="text-base font-bold text-gray-900 group-hover:text-[#5a0a8f] transition-colors truncate">
                         {player.name}
@@ -196,24 +266,21 @@ export function PlayersPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                    <span className="text-[11px] text-gray-500">Last active: {player.lastActive}</span>
-                    <button className="inline-flex items-center gap-1 text-xs font-bold text-[#5a0a8f] hover:text-[#5a0a8f]/80 group-hover:gap-2 transition-all">
+                  <div className="flex items-center justify-end pt-3 border-t border-gray-100">
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-[#5a0a8f] group-hover:gap-2 transition-all">
                       View Profile
                       <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                    </button>
+                    </span>
                   </div>
                 </div>
-              </div>
+              </Link>
             ))
           ) : (
             <div className="col-span-full">
               <MaintenanceNotice
-                title={currentMode === 'officials' ? "Officials Directory Under Update" : "No Results Found"}
-                message={currentMode === 'officials'
-                  ? "We are currently digitizing our official list of referees and coaching staff from the 2024 season. The directory will be available shortly."
-                  : "We couldn't find any players matching your search criteria. Please try adjusting your filters."}
-                icon={currentMode === 'officials' ? "badge" : "search_off"}
+                title="No Players Found"
+                message="No players match your search or filters. Try adjusting your criteria."
+                icon="search_off"
               />
             </div>
           )}
