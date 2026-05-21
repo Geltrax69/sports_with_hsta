@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { resolveImageUrl } from '../lib/images'
 
 type FeaturedGalleryItem = {
@@ -43,9 +44,19 @@ const DEFAULT_ITEMS: FeaturedGalleryItem[] = [
 type FeaturedGalleryProps = {
   items?: FeaturedGalleryItem[]
   showHeader?: boolean
+  viewAllHref?: string
+  maxPreview?: number
+  showSerial?: boolean
 }
 
-export function FeaturedGallery({ items = DEFAULT_ITEMS, showHeader = true }: FeaturedGalleryProps) {
+export function FeaturedGallery({
+  items = DEFAULT_ITEMS,
+  showHeader = true,
+  viewAllHref = '/media',
+  maxPreview = 9,
+  showSerial = false,
+}: FeaturedGalleryProps) {
+  const previewItems = items.slice(0, maxPreview)
   const galleryRef = useRef<HTMLDivElement | null>(null)
   const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({})
   const [resolvedUrls, setResolvedUrls] = useState<Record<string, string>>({})
@@ -54,7 +65,7 @@ export function FeaturedGallery({ items = DEFAULT_ITEMS, showHeader = true }: Fe
   useEffect(() => {
     const resolveUrls = async () => {
       const resolved: Record<string, string> = {}
-      for (const item of items) {
+      for (const item of previewItems) {
         // Pass false for requireAuth since this is public homepage
         const url = await resolveImageUrl(item.imageUrl, false)
         resolved[item.imageUrl] = url
@@ -62,7 +73,7 @@ export function FeaturedGallery({ items = DEFAULT_ITEMS, showHeader = true }: Fe
       setResolvedUrls(resolved)
     }
     void resolveUrls()
-  }, [items])
+  }, [previewItems])
 
   const handleImageLoad = useCallback((imageUrl: string) => {
     setLoadedImages(prev => ({ ...prev, [imageUrl]: true }))
@@ -133,13 +144,19 @@ export function FeaturedGallery({ items = DEFAULT_ITEMS, showHeader = true }: Fe
         className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide"
         aria-label="Featured gallery"
       >
-        {items.map((g, index) => {
+        {previewItems.map((g, index) => {
           const displayUrl = resolvedUrls[g.imageUrl] || g.imageUrl
+          const label = g.title?.trim() || 'Gallery Image'
           return (
             <div
               key={`${g.imageUrl}-${index}`}
               className="min-w-[280px] sm:min-w-[360px] lg:min-w-[420px] h-64 md:h-80 rounded-xl overflow-hidden relative group snap-start flex-none bg-gray-200"
             >
+              {showSerial && (
+                <span className="absolute top-3 left-3 z-10 bg-[#5a0a8f] text-white text-xs font-black px-2.5 py-1 rounded-full shadow">
+                  {index + 1}
+                </span>
+              )}
               <img
                 src={displayUrl}
                 alt={g.alt}
@@ -156,11 +173,9 @@ export function FeaturedGallery({ items = DEFAULT_ITEMS, showHeader = true }: Fe
                 }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent"></div>
-              {g.title && (
-                <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <h3 className="text-white font-bold text-lg">{g.title}</h3>
-                </div>
-              )}
+              <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
+                <h3 className="text-white font-bold text-lg drop-shadow-md">{label}</h3>
+              </div>
             </div>
           )
         })}
@@ -172,11 +187,28 @@ export function FeaturedGallery({ items = DEFAULT_ITEMS, showHeader = true }: Fe
     <section className="bg-gray-50 py-16">
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
-          <h2 className="text-4xl font-bold text-[#5a0a8f] flex items-center gap-3">
-            <span className="w-1 h-12 bg-[#5a0a8f]"></span>
-            Featured Gallery
-          </h2>
-          {galleryControls}
+          <div>
+            <h2 className="text-4xl font-bold text-[#5a0a8f] flex items-center gap-3">
+              <span className="w-1 h-12 bg-[#5a0a8f]"></span>
+              Featured Gallery
+            </h2>
+            {items.length > maxPreview && (
+              <p className="text-sm text-gray-600 mt-2 ml-4">
+                Showing {maxPreview} of {items.length} images
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {viewAllHref && (
+              <Link
+                to={viewAllHref}
+                className="px-5 py-2.5 rounded-lg border-2 border-[#5a0a8f] text-[#5a0a8f] font-bold hover:bg-purple-50 transition-colors bg-white"
+              >
+                View All
+              </Link>
+            )}
+            {galleryControls}
+          </div>
         </div>
 
         <div
@@ -185,13 +217,19 @@ export function FeaturedGallery({ items = DEFAULT_ITEMS, showHeader = true }: Fe
           className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide"
           aria-label="Featured gallery"
         >
-          {items.map((g, index) => {
+          {previewItems.map((g, index) => {
             const displayUrl = resolvedUrls[g.imageUrl] || g.imageUrl
+            const label = g.title?.trim() || 'Gallery Image'
             return (
               <div
                 key={`${g.imageUrl}-${index}`}
                 className="min-w-[280px] sm:min-w-[360px] lg:min-w-[420px] h-64 md:h-80 rounded-xl overflow-hidden relative group snap-start flex-none bg-gray-200"
               >
+                {showSerial && (
+                  <span className="absolute top-3 left-3 z-10 bg-[#5a0a8f] text-white text-xs font-black px-2.5 py-1 rounded-full shadow">
+                    {index + 1}
+                  </span>
+                )}
                 <img
                   src={displayUrl}
                   alt={g.alt}
@@ -208,11 +246,9 @@ export function FeaturedGallery({ items = DEFAULT_ITEMS, showHeader = true }: Fe
                   }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent"></div>
-                {g.title && (
-                  <div className="absolute bottom-0 left-0 right-0 p-4">
-                    <h3 className="text-white font-bold text-lg">{g.title}</h3>
-                  </div>
-                )}
+                <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
+                  <h3 className="text-white font-bold text-lg drop-shadow-md">{label}</h3>
+                </div>
               </div>
             )
           })}

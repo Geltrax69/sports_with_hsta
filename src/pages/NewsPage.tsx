@@ -4,10 +4,11 @@ import { useSiteContent } from '../content/SiteContentContext'
 import { useWebsiteContent } from '../context/WebsiteContentContext'
 import { resolveImageUrl } from '../lib/images'
 import { getRelativeDate } from '../lib/dateUtils'
+import { Skeleton } from 'boneyard-js/react'
 
 export function NewsPage() {
   const { content } = useSiteContent()
-  const { content: websiteContent } = useWebsiteContent()
+  const { content: websiteContent, contentLoading } = useWebsiteContent()
   const galleryRef = useRef<HTMLDivElement | null>(null)
   const [loadedGalleryImages, setLoadedGalleryImages] = useState<Record<string, boolean>>({})
   const [resolvedGalleryUrls, setResolvedGalleryUrls] = useState<Record<string, string>>({})
@@ -86,8 +87,9 @@ export function NewsPage() {
   }, [])
 
   return (
-    <main id="page-content" className="flex-1 bg-white">
-      <section className="bg-white pt-12 pb-8">
+    <Skeleton name="news-page" loading={contentLoading}>
+      <main id="page-content" className="flex-1 bg-white">
+        <section className="bg-white pt-12 pb-8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-2">
             <h2 className="text-4xl font-black leading-tight tracking-tight text-gray-900">
@@ -157,7 +159,15 @@ export function NewsPage() {
                 Relive the best moments from recent tournaments.
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href="/media"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-5 py-2 rounded-lg border-2 border-[#5a0a8f] text-[#5a0a8f] font-bold hover:bg-purple-50 transition-colors"
+              >
+                View All
+              </a>
               <button
                 type="button"
                 aria-label="Scroll gallery left"
@@ -238,7 +248,7 @@ export function NewsPage() {
           </div>
         </div>
       </section>
-
     </main>
+    </Skeleton>
   )
 }

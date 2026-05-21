@@ -13,6 +13,7 @@ export type User = {
 
 type AuthContextType = {
   user: User | null
+  authReady: boolean
   login: (email: string, password: string, role?: UserRole) => Promise<boolean>
   logout: () => void
   isAuthenticated: boolean
@@ -24,25 +25,23 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [authReady, setAuthReady] = useState(false)
 
   useEffect(() => {
-    // Check if user is stored in localStorage
     const storedUser = localStorage.getItem('stfi.user')
     if (storedUser) {
       try {
         const token = getAuthToken()
         if (!token) {
-          // Avoid restoring a privileged UI state without an auth token.
           localStorage.removeItem('stfi.user')
-          return
+        } else {
+          setUser(JSON.parse(storedUser))
         }
-
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setUser(JSON.parse(storedUser))
       } catch {
         localStorage.removeItem('stfi.user')
       }
     }
+    setAuthReady(true)
   }, [])
 
   const login = async (email: string, password: string, role?: UserRole): Promise<boolean> => {
@@ -86,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, authReady, login, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   )

@@ -5,6 +5,8 @@ import { useSiteContent } from '../content/SiteContentContext'
 import { useAuth } from '../context/AuthContext'
 import type { TournamentStatus } from '../content/types'
 import { apiRequest } from '../lib/api'
+import { isTournamentEnded, isTournamentUpcoming, winnerDisplayNames } from '../lib/tournamentDates'
+import { Skeleton } from 'boneyard-js/react'
 
 type MatchResult = {
   id: string
@@ -63,17 +65,36 @@ export function EventsPage() {
   >([])
   const [loadingTournaments, setLoadingTournaments] = useState(true)
 
-  // Get featured tournaments or all tournaments, fallback to local content if API returns empty
-  const displayedTournaments = useMemo(() => {
-    // If API returned tournaments, use them
+  const upcomingTournaments = useMemo(() => {
     if (tournaments.length > 0) {
-      const list = tournaments.filter((t) => t.status !== 'TENTATIVE' && t.status !== 'COMPLETED')
+      return tournaments.filter((t) => isTournamentUpcoming(t))
+    }
+    return []
+  }, [tournaments])
+
+  const pastTournaments = useMemo(() => {
+    if (tournaments.length > 0) {
+      return tournaments
+        .filter((t) => isTournamentEnded(t))
+        .sort((a, b) => {
+          const ae = a.endDate ? new Date(a.endDate).getTime() : 0
+          const be = b.endDate ? new Date(b.endDate).getTime() : 0
+          return be - ae
+        })
+    }
+    return []
+  }, [tournaments])
+
+  // Featured upcoming only
+  const displayedTournaments = useMemo(() => {
+    if (upcomingTournaments.length > 0) {
       const featured = (websiteContent.eventsPage.featuredEventIds || []).map(String)
       if (featured.length > 0) {
-        const m = new Map(list.map((t) => [t._id, t]))
-        return featured.map((id) => m.get(id)).filter((t): t is NonNullable<typeof t> => Boolean(t))
+        const m = new Map(upcomingTournaments.map((t) => [t._id, t]))
+        const picked = featured.map((id) => m.get(id)).filter((t): t is NonNullable<typeof t> => Boolean(t))
+        if (picked.length > 0) return picked
       }
-      return list
+      return upcomingTournaments
     }
     // Fallback to local content - convert to API-compatible format
     return siteContent.tournaments
@@ -92,7 +113,7 @@ export function EventsPage() {
         month: t.month,
         day: t.day,
       }))
-  }, [tournaments, websiteContent.eventsPage.featuredEventIds, siteContent.tournaments])
+  }, [upcomingTournaments, websiteContent.eventsPage.featuredEventIds, siteContent.tournaments])
 
   useEffect(() => {
     let cancelled = false
@@ -134,21 +155,20 @@ export function EventsPage() {
   }
 
   const recentResults = useMemo<MatchResult[]>(() => {
-    return tournaments
-      .filter((t) => t.status === 'COMPLETED')
-      .map((t) => {
-        const firstPlace = t.winners?.first || []
-        const winnerNames = firstPlace.map((p: any) => p.fullName).join(', ')
-        return {
-          id: t._id,
-          date: t.endDate ? new Date(t.endDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '—',
-          tournament: t.title,
-          location: [t.venueName, t.city].filter(Boolean).join(', ') || '—',
-          winner: winnerNames || 'N/A',
-          actionType: winnerNames ? 'scorecard' : 'squad',
-        }
-      })
-  }, [tournaments])
+    return pastTournaments.map((t) => {
+      const winnerNames = winnerDisplayNames(t.winners)
+      return {
+        id: t._id,
+        date: t.endDate
+          ? new Date(t.endDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+          : '—',
+        tournament: t.title,
+        location: [t.venueName, t.city].filter(Boolean).join(', ') || '—',
+        winner: winnerNames || 'Results pending',
+        actionType: winnerNames ? 'scorecard' : 'squad',
+      }
+    })
+  }, [pastTournaments])
 
   const handleViewDetails = async (tournamentId: string) => {
     setSelectedTournamentForDetails(tournamentId)
@@ -169,14 +189,13 @@ export function EventsPage() {
   }
 
   const stats = useMemo(() => {
-    const upcoming = tournaments.filter((t) => t.status !== 'COMPLETED' && t.status !== 'TENTATIVE').length
-    const completed = tournaments.filter((t) => t.status === 'COMPLETED').length
-    return { upcoming, completed }
-  }, [tournaments])
+    return { upcoming: upcomingTournaments.length, completed: pastTournaments.length }
+  }, [upcomingTournaments.length, pastTournaments.length])
 
   return (
-    <main id="page-content" className="flex-grow bg-white">
-      {/* Hero Section */}
+    <Skeleton name="events-page" loading={loadingTournaments}>
+      <main id="page-content" className="flex-grow bg-white">
+        {/* Hero Section */}
       <section className="relative bg-[#5a0a8f] text-white overflow-hidden py-20">
         <div className="absolute inset-0 bg-gradient-to-r from-[#5a0a8f]/95 via-[#5a0a8f]/90 to-transparent z-10"></div>
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
@@ -268,9 +287,7 @@ export function EventsPage() {
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {loadingTournaments ? (
-                <div className="col-span-full text-center py-12 text-gray-500">Loading…</div>
-              ) : displayedTournaments.length === 0 ? (
+              {displayedTournaments.length === 0 ? (
                 <div className="col-span-full text-center py-12 text-gray-500">
                   No upcoming tournaments available. Check back later!
                 </div>
@@ -389,22 +406,80 @@ export function EventsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {recentResults.map((result) => (
-                      <tr key={result.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{result.date}</td>
-                        <td className="px-6 py-4 text-sm text-gray-900">{result.tournament}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600">{result.location}</td>
+                    {recentResults.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="px-6 py-10 text-center text-gray-500 text-sm">
+                          No past tournament results yet. Completed events will appear here after their end date.
+                        </td>
                       </tr>
-                    ))}
+                    ) : (
+                      recentResults.map((result) => (
+                        <tr key={result.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{result.date}</td>
+                          <td className="px-6 py-4 text-sm text-gray-900">{result.tournament}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600">{result.location}</td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
-              <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-                <button className="w-full text-center text-sm font-bold text-gray-700 hover:text-[#5a0a8f] transition-colors">
-                  LOAD MORE PAST EVENTS
-                </button>
-              </div>
             </div>
+          </div>
+
+          {/* Past Tournaments */}
+          <div className="mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 flex items-center gap-3 mb-6">
+              <span className="w-1 h-12 bg-[#5a0a8f]"></span>
+              Past Tournaments
+            </h2>
+            {pastTournaments.length === 0 ? (
+              <p className="text-center text-gray-500 py-8 rounded-xl border border-dashed border-gray-200">
+                No past tournaments yet.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {pastTournaments.map((tournament) => (
+                  <article
+                    key={tournament._id}
+                    className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col"
+                  >
+                    <div className="relative h-40 bg-gradient-to-br from-gray-600 to-gray-800">
+                      {tournament.imageUrl && (
+                        <div
+                          className="absolute inset-0 bg-cover bg-center opacity-80"
+                          style={{ backgroundImage: `url('${tournament.imageUrl}')` }}
+                        />
+                      )}
+                      <span className="absolute top-3 right-3 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                        Completed
+                      </span>
+                    </div>
+                    <div className="p-5 flex-1 flex flex-col">
+                      <h3 className="font-bold text-gray-900 mb-1">{tournament.title}</h3>
+                      <p className="text-sm text-gray-600 mb-3">
+                        {formatDateRange(tournament.startDate, tournament.endDate, (tournament as any).month, (tournament as any).day)}
+                      </p>
+                      <p className="text-sm text-gray-500 flex-1">
+                        {[tournament.venueName, tournament.city].filter(Boolean).join(', ') || (tournament as any).location || '—'}
+                      </p>
+                      {winnerDisplayNames(tournament.winners) && (
+                        <p className="text-sm font-semibold text-[#5a0a8f] mt-3">
+                          Winner: {winnerDisplayNames(tournament.winners)}
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleViewDetails(tournament._id)}
+                        className="mt-4 w-full py-2.5 border-2 border-gray-300 rounded-lg font-bold text-gray-700 hover:bg-gray-50"
+                      >
+                        View Schedule & Results
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -488,5 +563,6 @@ export function EventsPage() {
         </div>
       )}
     </main>
+    </Skeleton>
   )
 }

@@ -16,6 +16,8 @@ import { SubAboutPage } from './pages/SubAboutPage'
 import { EventsPage } from './pages/EventsPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { NewsPage } from './pages/NewsPage'
+import { MediaPage } from './pages/MediaPage'
+import { LiveScoresPage } from './pages/LiveScoresPage'
 import { NewsDetailPage } from './pages/NewsDetailPage'
 import { FeatureStoryPage } from './pages/FeatureStoryPage'
 import { PlayersPage } from './pages/PlayersPage'
@@ -42,6 +44,9 @@ import { EditTournament } from './pages/admin/EditTournament'
 import { NewsManagement } from './pages/admin/NewsManagement'
 import { DocumentsManagement } from './pages/admin/DocumentsManagement'
 import { WebsiteContentManagement } from './pages/admin/WebsiteContentManagement'
+import { MediaManagement } from './pages/admin/MediaManagement'
+import { GalleryImagesManagement } from './pages/admin/GalleryImagesManagement'
+import { VideosManagement } from './pages/admin/VideosManagement'
 import { AdminAboutPage } from './pages/admin/AdminAboutPage'
 import { NationalTeamManagement } from './pages/admin/NationalTeamManagement'
 import { InternationalTeamManagement } from './pages/admin/InternationalTeamManagement'
@@ -98,6 +103,8 @@ export default function App() {
                     <Route path="/events" element={<EventsPage />} />
                     <Route path="/documents" element={<DocumentsPage />} />
                     <Route path="/news" element={<NewsPage />} />
+                    <Route path="/media" element={<MediaPage />} />
+                    <Route path="/live-scores" element={<LiveScoresPage />} />
                     <Route path="/news/:id" element={<NewsDetailPage />} />
                     <Route path="/news/feature-story" element={<FeatureStoryPage />} />
                     <Route path="/players" element={<PlayersPage />} />
@@ -143,6 +150,9 @@ export default function App() {
                       <Route path="international-team" element={<InternationalTeamManagement />} />
                       <Route path="players-data" element={<PlayersDataManagement />} />
                       <Route path="website" element={<WebsiteContentManagement />} />
+                      <Route path="media" element={<MediaManagement />} />
+                      <Route path="media/gallery" element={<GalleryImagesManagement />} />
+                      <Route path="media/videos" element={<VideosManagement />} />
                       <Route path="about/manage-directories" element={<AdminManageDirectories />} />
                       <Route path="about/:pageId" element={<AdminAboutPage />} />
                       <Route path="news" element={<NewsManagement />} />

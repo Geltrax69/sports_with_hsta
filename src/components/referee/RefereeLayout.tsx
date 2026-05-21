@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { apiRequest } from '../../lib/api'
+import { RouteErrorBoundary } from '../RouteErrorBoundary'
 
 export function RefereeLayout() {
   const { user, logout } = useAuth()
@@ -65,7 +66,11 @@ export function RefereeLayout() {
   }
 
   if (isStatusPage) {
-    return <Outlet />
+    return (
+      <RouteErrorBoundary title="Referee page error" homeTo="/referee/status">
+        <Outlet />
+      </RouteErrorBoundary>
+    )
   }
 
   return (
@@ -213,7 +218,9 @@ export function RefereeLayout() {
 
         {/* Content */}
         <main className="p-6">
-          <Outlet />
+          <RouteErrorBoundary title="Referee page error" homeTo="/referee/dashboard">
+            <Outlet />
+          </RouteErrorBoundary>
         </main>
       </div>
     </div>

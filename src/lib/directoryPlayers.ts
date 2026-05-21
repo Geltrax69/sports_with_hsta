@@ -73,6 +73,7 @@ export function toDisplayPlayer(p: DirectoryPlayer): Player {
     biography: p.biography,
     goldMedals: p.goldMedals,
     silverMedals: p.silverMedals,
+    lastActive: '',
     tournaments: p.tournaments?.map((t) => ({
       eventName: t.eventName,
       year: t.year,

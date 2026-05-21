@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { apiRequest } from '../../lib/api'
+import { RouteErrorBoundary } from '../RouteErrorBoundary'
 
 export function CoachLayout() {
   const { user, logout } = useAuth()
@@ -65,7 +66,11 @@ export function CoachLayout() {
   }
 
   if (isStatusPage) {
-    return <Outlet />
+    return (
+      <RouteErrorBoundary title="Coach page error" homeTo="/coach/status">
+        <Outlet />
+      </RouteErrorBoundary>
+    )
   }
 
   return (
@@ -213,7 +218,9 @@ export function CoachLayout() {
 
         {/* Content */}
         <main className="p-6">
-          <Outlet />
+          <RouteErrorBoundary title="Coach page error" homeTo="/coach/dashboard">
+            <Outlet />
+          </RouteErrorBoundary>
         </main>
       </div>
     </div>

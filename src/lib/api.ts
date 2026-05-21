@@ -52,15 +52,28 @@ export const setAuthToken = (token: string | null) => {
   console.log('[setAuthToken] Token saved to localStorage')
 }
 
+const API_TIMEOUT_MS = 45000
+const API_MAX_RETRIES = 2
+
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = API_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+}
+
 export async function apiRequest<T>(
   path: string,
-  options: RequestInit & { auth?: boolean } = {},
+  options: RequestInit & { auth?: boolean; retries?: number } = {},
 ): Promise<T> {
   const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`
+  const maxAttempts = (options.retries ?? API_MAX_RETRIES) + 1
 
   const headers = new Headers(options.headers || undefined)
 
-  // Don't set Content-Type for FormData - browser will set it with boundary
   if (!(options.body instanceof FormData)) {
     if (!headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json')
@@ -69,34 +82,51 @@ export async function apiRequest<T>(
 
   if (options.auth) {
     const token = getAuthToken()
-    console.log('[API] Auth requested. Token exists:', !!token)
     if (token) {
       headers.set('Authorization', `Bearer ${token}`)
-      console.log('[API] Authorization header set')
-    } else {
-      console.warn('[API] Auth requested but no token found!')
     }
   }
 
-  const res = await fetch(url, {
-    ...options,
-    headers,
-  })
+  let lastError: Error | null = null
 
-  const text = await res.text()
-  let data: any = null
-  try {
-    data = text ? JSON.parse(text) : null
-  } catch {
-    data = text
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const res = await fetchWithTimeout(url, { ...options, headers })
+
+      const text = await res.text()
+      let data: unknown = null
+      try {
+        data = text ? JSON.parse(text) : null
+      } catch {
+        data = text
+      }
+
+      if (!res.ok) {
+        const raw =
+          data && typeof data === 'object'
+            ? (data as { error?: string; message?: string }).error || (data as { message?: string }).message
+            : undefined
+        const message = typeof raw === 'string' && raw.trim() ? raw : `Request failed (${res.status})`
+        throw new Error(message)
+      }
+
+      return data as T
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error('Request failed')
+      const isAbort = lastError.name === 'AbortError'
+      const isNetwork = lastError.message.includes('Failed to fetch') || lastError.message.includes('NetworkError')
+      if (attempt < maxAttempts - 1 && (isAbort || isNetwork)) {
+        await new Promise((r) => window.setTimeout(r, 800 * (attempt + 1)))
+        continue
+      }
+      if (isAbort) {
+        throw new Error('Request timed out. Please check your connection and try again.')
+      }
+      throw lastError
+    }
   }
 
-  if (!res.ok) {
-    const message = (data && (data.error || data.message)) || `Request failed (${res.status})`
-    throw new Error(message)
-  }
-
-  return data as T
+  throw lastError || new Error('Request failed')
 }
 
 // ============================================

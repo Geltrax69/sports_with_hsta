@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { apiRequest } from '../../lib/api'
+import { RouteErrorBoundary } from '../RouteErrorBoundary'
 
 export function PlayerLayout() {
   const { user, logout } = useAuth()
@@ -68,7 +69,11 @@ export function PlayerLayout() {
 
   // For status page, render content without dashboard chrome.
   if (isStatusPage) {
-    return <Outlet />
+    return (
+      <RouteErrorBoundary title="Player page error" homeTo="/player/status">
+        <Outlet />
+      </RouteErrorBoundary>
+    )
   }
 
   return (
@@ -214,7 +219,9 @@ export function PlayerLayout() {
 
         {/* Content */}
         <main className="p-6">
-          <Outlet />
+          <RouteErrorBoundary title="Player page error" homeTo="/player/dashboard">
+            <Outlet />
+          </RouteErrorBoundary>
         </main>
       </div>
     </div>

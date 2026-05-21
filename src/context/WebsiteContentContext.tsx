@@ -10,6 +10,15 @@ export type GalleryImage = {
   createdAt: string
 }
 
+export type MediaVideo = {
+  id: string
+  title: string
+  youtubeUrl: string
+  order: number
+  createdAt?: string
+  updatedAt?: string
+}
+
 export type JourneyItem = {
   id: string
   year: string
@@ -178,6 +187,7 @@ export type HomepageSettings = {
   featuredNewsIds: string[] // IDs of news items to show on homepage
   featuredTournamentIds: string[] // IDs of tournaments to show on homepage
   galleryImages: GalleryImage[]
+  mediaVideos: MediaVideo[]
   heroTitle?: string
   heroDescription?: string
   heroImageUrl?: string
@@ -232,6 +242,9 @@ export type WebsiteContent = {
 
 type WebsiteContentContextType = {
   content: WebsiteContent
+  contentLoading: boolean
+  contentError: string | null
+  refreshContent: () => Promise<void>
   updateHomepage: (updates: Partial<HomepageSettings>) => void
   updateAboutPage: (updates: Partial<AboutPageSettings>) => void
   updateEventsPage: (updates: Partial<EventsPageSettings>) => void
@@ -243,6 +256,9 @@ type WebsiteContentContextType = {
   addGalleryImage: (image: Omit<GalleryImage, 'id' | 'createdAt' | 'order'>) => void
   removeGalleryImage: (id: string) => void
   updateGalleryImageOrder: (id: string, newOrder: number) => void
+  addMediaVideo: (video: { title: string; youtubeUrl: string }) => Promise<void>
+  updateMediaVideo: (id: string, updates: Partial<Pick<MediaVideo, 'title' | 'youtubeUrl' | 'order'>>) => Promise<void>
+  removeMediaVideo: (id: string) => Promise<void>
   addJourneyItem: (item: Omit<JourneyItem, 'id' | 'order'>) => void
   updateJourneyItem: (id: string, updates: Partial<JourneyItem>) => void
   removeJourneyItem: (id: string) => void
@@ -260,6 +276,7 @@ const DEFAULT_WEBSITE_CONTENT: WebsiteContent = {
     featuredNewsIds: [],
     featuredTournamentIds: [],
     galleryImages: [],
+    mediaVideos: [],
   },
   aboutPage: {
     journeyItems: [],
@@ -284,14 +301,24 @@ const DEFAULT_WEBSITE_CONTENT: WebsiteContent = {
 }
 
 async function fetchWebsiteContent(): Promise<WebsiteContent> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/website-content`)
-    if (!response.ok) {
-      throw new Error('Failed to fetch website content')
-    }
-    const data = await response.json()
-    return {
-      homepage: { ...DEFAULT_WEBSITE_CONTENT.homepage, ...data.homepage },
+  let lastError: Error | null = null
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const controller = new AbortController()
+      const timeoutId = window.setTimeout(() => controller.abort(), 45000)
+      const response = await fetch(`${API_BASE_URL}/website-content`, { signal: controller.signal })
+      window.clearTimeout(timeoutId)
+      if (!response.ok) {
+        throw new Error('Failed to fetch website content')
+      }
+      const data = await response.json()
+      return {
+      homepage: {
+        ...DEFAULT_WEBSITE_CONTENT.homepage,
+        ...data.homepage,
+        galleryImages: data.homepage?.galleryImages || [],
+        mediaVideos: data.homepage?.mediaVideos || [],
+      },
       aboutPage: { ...DEFAULT_WEBSITE_CONTENT.aboutPage, ...data.aboutPage },
       eventsPage: { ...DEFAULT_WEBSITE_CONTENT.eventsPage, ...data.eventsPage },
       nationalTeamPage: {
@@ -331,10 +358,15 @@ async function fetchWebsiteContent(): Promise<WebsiteContent> {
         }),
       },
     }
-  } catch (error) {
-    console.error('Error fetching website content:', error)
-    return DEFAULT_WEBSITE_CONTENT
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Failed to fetch website content')
+      if (attempt < 2) {
+        await new Promise((r) => window.setTimeout(r, 800 * (attempt + 1)))
+      }
+    }
   }
+  console.error('Error fetching website content:', lastError)
+  throw lastError || new Error('Failed to fetch website content')
 }
 
 async function updateContentOnServer(endpoint: string, data: unknown, method: 'POST' | 'PATCH' | 'PUT' = 'PATCH'): Promise<void> {
@@ -359,11 +391,25 @@ async function updateContentOnServer(endpoint: string, data: unknown, method: 'P
 
 export function WebsiteContentProvider({ children }: { children: ReactNode }) {
   const [content, setContent] = useState<WebsiteContent>(DEFAULT_WEBSITE_CONTENT)
+  const [contentLoading, setContentLoading] = useState(true)
+  const [contentError, setContentError] = useState<string | null>(null)
+
+  const refreshContent = async () => {
+    setContentLoading(true)
+    setContentError(null)
+    try {
+      const data = await fetchWebsiteContent()
+      setContent(data)
+    } catch (error) {
+      setContentError(error instanceof Error ? error.message : 'Failed to load website content')
+      setContent(DEFAULT_WEBSITE_CONTENT)
+    } finally {
+      setContentLoading(false)
+    }
+  }
 
   useEffect(() => {
-    fetchWebsiteContent().then((data) => {
-      setContent(data)
-    })
+    void refreshContent()
   }, [])
 
   const updateHomepage = async (updates: Partial<HomepageSettings>) => {
@@ -550,6 +596,65 @@ export function WebsiteContentProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const addMediaVideo = async (video: { title: string; youtubeUrl: string }) => {
+    const token = getAuthToken()
+    const response = await fetch(`${API_BASE_URL}/website-content/videos`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(video),
+    })
+    if (!response.ok) throw new Error('Failed to add video')
+    const updatedContent = await fetchWebsiteContent()
+    setContent(updatedContent)
+  }
+
+  const updateMediaVideo = async (
+    id: string,
+    updates: Partial<Pick<MediaVideo, 'title' | 'youtubeUrl' | 'order'>>,
+  ) => {
+    const token = getAuthToken()
+    const response = await fetch(`${API_BASE_URL}/website-content/videos/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(updates),
+    })
+    if (!response.ok) throw new Error('Failed to update video')
+    const updatedContent = await fetchWebsiteContent()
+    setContent(updatedContent)
+  }
+
+  const removeMediaVideo = async (id: string) => {
+    const oldContent = content
+    setContent({
+      ...content,
+      homepage: {
+        ...content.homepage,
+        mediaVideos: content.homepage.mediaVideos.filter((v) => v.id !== id),
+      },
+    })
+    try {
+      const token = getAuthToken()
+      const response = await fetch(`${API_BASE_URL}/website-content/videos/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      })
+      if (!response.ok) throw new Error('Failed to delete video')
+    } catch (error) {
+      console.error('Failed to delete video:', error)
+      setContent(oldContent)
+      throw error
+    }
+  }
+
   const addJourneyItem = async (item: Omit<JourneyItem, 'id' | 'order'>) => {
     try {
       await updateContentOnServer('/journey', item, 'POST')
@@ -700,6 +805,9 @@ export function WebsiteContentProvider({ children }: { children: ReactNode }) {
     <WebsiteContentContext.Provider
       value={{
         content,
+        contentLoading,
+        contentError,
+        refreshContent,
         updateHomepage,
         updateAboutPage,
         updateEventsPage,
@@ -711,6 +819,9 @@ export function WebsiteContentProvider({ children }: { children: ReactNode }) {
         addGalleryImage,
         removeGalleryImage,
         updateGalleryImageOrder,
+        addMediaVideo,
+        updateMediaVideo,
+        removeMediaVideo,
         addJourneyItem,
         updateJourneyItem,
         removeJourneyItem,

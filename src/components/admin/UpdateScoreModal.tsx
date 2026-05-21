@@ -17,6 +17,8 @@ type Match = {
     description?: string
     bracket?: 'winner' | 'loser'
     scorecard?: {
+        matchNo?: string
+        round?: string
         startTime?: string
         endTime?: string
         remarks?: string

@@ -23,6 +23,7 @@
     "@fontsource/inter": "^5.2.8",
     "@mui/material": "^7.3.7",
     "@mui/x-date-pickers": "^8.25.0",
+    "boneyard-js": "^1.8.1",
     "dayjs": "^1.11.19",
     "dom-to-image-more": "^2.16.0",
     "html-to-image": "^1.11.11",

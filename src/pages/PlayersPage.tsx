@@ -4,6 +4,7 @@ import { fetchDirectoryPlayers, toDisplayPlayer } from '../lib/directoryPlayers'
 import { MaintenanceNotice } from '../components/MaintenanceNotice'
 import type { DirectoryPlayer, PlayerType } from '../types/directoryPlayer'
 import type { Player } from '../data/playersData'
+import { Skeleton } from 'boneyard-js/react'
 
 export function PlayersPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -97,7 +98,8 @@ export function PlayersPage() {
   }, [currentMode])
 
   return (
-    <main id="page-content" className="flex-grow w-full">
+    <Skeleton name="players-page" loading={loading}>
+      <main id="page-content" className="flex-grow w-full">
       <section className="relative w-full overflow-hidden bg-gray-900">
         <div
           className="absolute inset-0 z-0 bg-cover bg-center opacity-40"
@@ -192,15 +194,11 @@ export function PlayersPage() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 lg:py-12 bg-white">
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm text-gray-600">
-            {loading ? (
-              'Loading players...'
-            ) : (
               <>
                 Showing <span className="font-bold text-gray-900">{sortedData.length === 0 ? 0 : startIdx + 1}-{Math.min(endIdx, sortedData.length)}</span> of{' '}
                 <span className="font-bold text-gray-900">{sortedData.length}</span>{' '}
                 {currentMode === 'national' ? 'national' : 'international'} players
               </>
-            )}
           </p>
           <select
             value={sortBy}
@@ -214,9 +212,7 @@ export function PlayersPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
-          {loading ? (
-            <div className="col-span-full py-12 text-center text-gray-500">Loading player directory...</div>
-          ) : paginatedData.length > 0 ? (
+          {paginatedData.length > 0 ? (
             paginatedData.map((player) => (
               <Link
                 key={player.id}
@@ -343,5 +339,6 @@ export function PlayersPage() {
         )}
       </div>
     </main>
+    </Skeleton>
   )
 }

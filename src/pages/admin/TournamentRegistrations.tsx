@@ -1,9 +1,12 @@
 import { Link, useParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { apiRequest } from '../../lib/api'
+import { formatPersonListId, formatRegistrationDisplayId } from '../../lib/memberId'
+import { resolveDistrictName } from '../../lib/districtDisplay'
 import { UpdateScoreModal } from '../../components/admin/UpdateScoreModal'
 import { ScorecardRemarksModal } from '../../components/admin/ScorecardRemarksModal'
 import { useDistricts } from '../../context/DistrictsContext'
+import { fieldClass, selectClass } from '../../lib/formStyles'
 
 type EventType = 'regu' | 'double' | 'quad'
 
@@ -15,6 +18,19 @@ const squadLimitsForEvent = (eventType: EventType) => {
 
 const eventTypeLabel = (eventType: EventType) =>
   ({ regu: 'Regu', double: 'Double', quad: 'Quad' }[eventType] ?? 'Regu')
+
+const formatMatchMetaLine = (match: Match) => {
+  const parts: string[] = []
+  if (match.date) parts.push(match.date)
+  if (match.time) parts.push(match.time)
+  parts.push(match.status || 'scheduled')
+  if (match.scorecard?.round?.trim()) parts.push(`Round ${match.scorecard.round.trim()}`)
+  if (match.scorecard?.matchNo?.trim()) parts.push(`Match #${match.scorecard.matchNo.trim()}`)
+  if (match.score && (match.status === 'completed' || match.winner)) {
+    parts.push(`Score ${match.score.team1}–${match.score.team2}`)
+  }
+  return parts.join(' · ')
+}
 
 const countSquad = (players: { isSubstitute?: boolean }[]) => ({
   starters: players.filter((p) => !p.isSubstitute).length,
@@ -42,6 +58,8 @@ type Applicant = {
   _id: string
   fullName: string
   playerId?: string
+  coachId?: string
+  refereeId?: string
   email: string
   district?: string
   profilePhoto?: string
@@ -72,6 +90,8 @@ type WinnerEntry = {
   refId?: string
   fullName: string
   district: string
+  memberId?: string
+  source?: 'registration' | 'match'
 }
 
 const toWinnerEntry = (item: {
@@ -94,15 +114,35 @@ const toWinnerEntry = (item: {
   }
 }
 
-/** Players who were on a match lineup for the selected district */
-const buildMatchPlayers = (matchList: Match[], districtId: string): WinnerEntry[] => {
+/** Approved registrants + match lineups for winner selection */
+const buildWinnerPlayerOptions = (
+  matchList: Match[],
+  registrationList: TournamentRegistration[],
+  districtId: string,
+  districtMatches: (stored?: string) => boolean,
+): WinnerEntry[] => {
   if (!districtId) return []
   const map = new Map<string, WinnerEntry>()
   const add = (entry: WinnerEntry) => {
     if (entry.fullName.trim() && !map.has(entry.key)) map.set(entry.key, entry)
   }
 
-  const addFromLineup = (lineup: Match['team1Players'], district: string) => {
+  for (const r of registrationList) {
+    if (r.registerAs !== 'player' || r.status !== 'approved' || !r.applicant?.fullName?.trim()) continue
+    if (!districtMatches(r.applicant.district)) continue
+    const refId = r.applicant._id
+    add({
+      key: `player:${refId}`,
+      role: 'player',
+      refId,
+      fullName: r.applicant.fullName.trim(),
+      district: districtId,
+      memberId: r.applicant.playerId?.trim() || undefined,
+      source: 'registration',
+    })
+  }
+
+  const addFromLineup = (lineup: Match['team1Players']) => {
     for (const tp of lineup || []) {
       const p = tp.player
       if (typeof p === 'object' && p) {
@@ -112,26 +152,56 @@ const buildMatchPlayers = (matchList: Match[], districtId: string): WinnerEntry[
             role: 'player',
             refId: p._id,
             fullName: p.fullName || p.name || 'Player',
-            district,
+            district: districtId,
+            source: 'match',
           })
         } else if ((p.fullName || p.name)?.trim()) {
           const name = (p.fullName || p.name)!.trim()
-          add({ key: `player:name:${name}`, role: 'player', fullName: name, district })
+          add({ key: `player:name:${name}`, role: 'player', fullName: name, district: districtId, source: 'match' })
         }
       } else if (typeof p === 'string' && p.trim() && !/^[0-9a-fA-F]{24}$/.test(p)) {
-        add({ key: `player:name:${p.trim()}`, role: 'player', fullName: p.trim(), district })
+        add({ key: `player:name:${p.trim()}`, role: 'player', fullName: p.trim(), district: districtId, source: 'match' })
       }
     }
   }
 
   for (const m of matchList) {
-    if (m.team1District !== districtId && m.team2District !== districtId) continue
-    if (m.team1District === districtId) addFromLineup(m.team1Players, districtId)
-    if (m.team2District === districtId) addFromLineup(m.team2Players, districtId)
+    const team1Ok = districtMatches(m.team1District)
+    const team2Ok = districtMatches(m.team2District)
+    if (!team1Ok && !team2Ok) continue
+    if (team1Ok) addFromLineup(m.team1Players)
+    if (team2Ok) addFromLineup(m.team2Players)
   }
 
   return Array.from(map.values()).sort((a, b) => a.fullName.localeCompare(b.fullName))
 }
+
+const WINNER_PLACE_STYLES = {
+  first: {
+    title: '1st Place',
+    medal: '🥇',
+    card: 'relative overflow-hidden rounded-2xl border-2 border-amber-300/80 bg-gradient-to-br from-amber-50 via-yellow-50 to-white shadow-lg shadow-amber-100/60',
+    header: 'bg-gradient-to-r from-amber-500 to-yellow-500',
+    badge: 'bg-amber-100 text-amber-900 border-amber-200',
+    ring: 'ring-amber-300/40',
+  },
+  second: {
+    title: '2nd Place',
+    medal: '🥈',
+    card: 'relative overflow-hidden rounded-2xl border-2 border-slate-300 bg-gradient-to-br from-slate-50 via-gray-50 to-white shadow-lg shadow-slate-200/50',
+    header: 'bg-gradient-to-r from-slate-500 to-gray-400',
+    badge: 'bg-slate-100 text-slate-800 border-slate-200',
+    ring: 'ring-slate-300/40',
+  },
+  third: {
+    title: '3rd Place',
+    medal: '🥉',
+    card: 'relative overflow-hidden rounded-2xl border-2 border-orange-300/80 bg-gradient-to-br from-orange-50 via-amber-50/50 to-white shadow-lg shadow-orange-100/50',
+    header: 'bg-gradient-to-r from-orange-600 to-amber-600',
+    badge: 'bg-orange-100 text-orange-900 border-orange-200',
+    ring: 'ring-orange-300/40',
+  },
+} as const
 
 type Team = {
   _id: string
@@ -179,7 +249,13 @@ type Match = {
   referee?: { _id?: string; fullName?: string; district?: string } | string
   assistantReferee?: { _id?: string; fullName?: string; district?: string } | string
   officialReferee?: { _id?: string; fullName?: string; district?: string } | string
-  scorecard?: Record<string, unknown>
+  scorecard?: {
+    matchNo?: string
+    round?: string
+    startTime?: string
+    endTime?: string
+    remarks?: string
+  }
   team1Players?: {
     player?: {
       _id?: string
@@ -280,6 +356,7 @@ export function TournamentRegistrations() {
   const { districts, getDistrictById } = useDistricts()
 
   const [tournament, setTournament] = useState<AdminTournament | null>(null)
+  const [tournamentLoading, setTournamentLoading] = useState(true)
   const [registrations, setRegistrations] = useState<TournamentRegistration[]>([])
   const [, setTeams] = useState<Team[]>([])
   const [matches, setMatches] = useState<Match[]>([])
@@ -309,15 +386,6 @@ export function TournamentRegistrations() {
 
   type WinnerPlace = 'first' | 'second' | 'third'
 
-  const winnerPlayersForPlace = useMemo(
-    () => ({
-      first: buildMatchPlayers(matches, winnerDistricts.first),
-      second: buildMatchPlayers(matches, winnerDistricts.second),
-      third: buildMatchPlayers(matches, winnerDistricts.third),
-    }),
-    [matches, winnerDistricts],
-  )
-
   const toggleWinnerPick = (place: WinnerPlace, entry: WinnerEntry) => {
     setWinners((prev) => {
       const list = prev[place]
@@ -332,94 +400,125 @@ export function TournamentRegistrations() {
     })
   }
 
-  const renderWinnerPlace = (
-    place: WinnerPlace,
-    title: string,
-    cardClass: string,
-    avatarSelectedClass: string,
-  ) => {
+  const renderWinnerPlace = (place: WinnerPlace) => {
+    const styles = WINNER_PLACE_STYLES[place]
     const districtId = winnerDistricts[place]
     const districtName = getDistrictById(districtId)?.name
-    const matchPlayers = winnerPlayersForPlace[place]
+    const playerOptions = winnerPlayersForPlace[place]
     const selected = winners[place]
+    const registeredCount = playerOptions.filter((p) => p.source === 'registration').length
 
     return (
-      <div className={cardClass}>
-        <div className="flex items-center gap-3 mb-4">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-sm ${avatarSelectedClass}`}>
-            <span className="material-symbols-outlined text-white">emoji_events</span>
+      <div className={styles.card}>
+        <div className={`${styles.header} px-5 py-4 text-white flex items-center justify-between`}>
+          <div className="flex items-center gap-3">
+            <span className="text-2xl" aria-hidden>{styles.medal}</span>
+            <div>
+              <h3 className="text-lg font-black tracking-tight">{styles.title}</h3>
+              <p className="text-white/80 text-xs">Pick winning players for this district</p>
+            </div>
           </div>
-          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+          {selected.length > 0 && (
+            <span className="bg-white/20 backdrop-blur px-3 py-1 rounded-full text-xs font-bold">
+              {selected.length} selected
+            </span>
+          )}
         </div>
-        <label className="block text-sm font-semibold text-gray-700 mb-2">District</label>
-        <select
-          value={districtId}
-          onChange={(e) => {
-            const nextDistrict = e.target.value
-            setWinnerDistricts((prev) => ({ ...prev, [place]: nextDistrict }))
-            const options = buildMatchPlayers(matches, nextDistrict)
-            setWinners((prev) => ({
-              ...prev,
-              [place]: prev[place].filter((w) => options.some((o) => o.key === w.key)),
-            }))
-          }}
-          className="w-full mb-4 rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900"
-        >
-          <option value="">Select district</option>
-          {districts.map((d) => (
-            <option key={d.id} value={d.id}>{d.name}</option>
-          ))}
-        </select>
 
-        {districtId && (
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm font-semibold text-gray-800 mb-3">
-              Players from matches{districtName ? ` — ${districtName}` : ''}
-              <span className="text-gray-500 font-normal"> ({matchPlayers.length})</span>
-            </p>
-            {matchPlayers.length === 0 ? (
-              <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg p-3">
-                No players found for this district. Add matches with teams from this district first.
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {matchPlayers.map((player) => {
-                  const isSelected = selected.some((w) => w.key === player.key)
-                  return (
-                    <button
-                      key={player.key}
-                      type="button"
-                      onClick={() => toggleWinnerPick(place, player)}
-                      className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
-                        isSelected
-                          ? 'border-[#5a0a8f] bg-purple-50 ring-2 ring-[#5a0a8f]/25'
-                          : 'border-gray-200 bg-gray-50 hover:border-purple-200 hover:bg-white'
-                      }`}
-                    >
-                      <div
-                        className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 ${
-                          isSelected ? 'bg-[#5a0a8f]' : 'bg-gradient-to-br from-gray-400 to-gray-600'
+        <div className="p-5">
+          <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">District</label>
+          <select
+            value={districtId}
+            onChange={(e) => {
+              const nextDistrict = e.target.value
+              setWinnerDistricts((prev) => ({ ...prev, [place]: nextDistrict }))
+              const districtMatches = (stored?: string) => applicantMatchesDistrict(stored, nextDistrict)
+              const options = buildWinnerPlayerOptions(matches, registrations, nextDistrict, districtMatches)
+              setWinners((prev) => ({
+                ...prev,
+                [place]: prev[place].filter((w) => options.some((o) => o.key === w.key)),
+              }))
+            }}
+            className="w-full mb-4 rounded-xl border-2 border-gray-200 bg-white px-4 py-3 text-gray-900 font-medium focus:border-[#5a0a8f] focus:ring-2 focus:ring-[#5a0a8f]/20 outline-none"
+          >
+            <option value="">Choose district…</option>
+            {districts.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+
+          {districtId ? (
+            <div className={`rounded-xl border bg-white/80 p-4 ${styles.ring} ring-4`}>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <p className="text-sm font-bold text-gray-900">
+                  {districtName || 'District'}
+                </p>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${styles.badge}`}>
+                  {playerOptions.length} player{playerOptions.length !== 1 ? 's' : ''}
+                  {registeredCount > 0 ? ` · ${registeredCount} registered` : ''}
+                </span>
+              </div>
+
+              {playerOptions.length === 0 ? (
+                <div className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                  <p className="font-semibold mb-1">No players for this district yet</p>
+                  <p className="text-amber-800/90 text-xs">
+                    Approve player registrations for this district, or add them to a match lineup.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-2 max-h-[280px] overflow-y-auto pr-1">
+                  {playerOptions.map((player) => {
+                    const isSelected = selected.some((w) => w.key === player.key)
+                    return (
+                      <button
+                        key={player.key}
+                        type="button"
+                        onClick={() => toggleWinnerPick(place, player)}
+                        className={`flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all duration-200 ${
+                          isSelected
+                            ? 'border-[#5a0a8f] bg-gradient-to-r from-purple-50 to-violet-50 shadow-md scale-[1.01]'
+                            : 'border-gray-100 bg-gray-50/80 hover:border-purple-200 hover:bg-white hover:shadow-sm'
                         }`}
                       >
-                        {isSelected ? (
-                          <span className="material-symbols-outlined text-lg">check</span>
-                        ) : (
-                          player.fullName.charAt(0).toUpperCase()
-                        )}
-                      </div>
-                      <span className="font-semibold text-gray-900 text-sm truncate">{player.fullName}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-            {selected.length > 0 && (
-              <p className="mt-3 text-xs font-medium text-[#5a0a8f]">
-                {selected.length} player{selected.length !== 1 ? 's' : ''} selected — click again to remove
-              </p>
-            )}
-          </div>
-        )}
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-sm shrink-0 shadow-inner ${
+                            isSelected ? 'bg-[#5a0a8f]' : 'bg-gradient-to-br from-[#5a0a8f]/70 to-[#400466]'
+                          }`}
+                        >
+                          {isSelected ? (
+                            <span className="material-symbols-outlined text-xl">done</span>
+                          ) : (
+                            player.fullName.charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-gray-900 text-sm truncate">{player.fullName}</p>
+                          <div className="flex flex-wrap gap-1.5 mt-0.5">
+                            {player.memberId && (
+                              <span className="text-[10px] font-mono font-bold text-[#5a0a8f] bg-purple-50 px-1.5 py-0.5 rounded">
+                                {player.memberId}
+                              </span>
+                            )}
+                            {player.source === 'registration' && (
+                              <span className="text-[10px] font-semibold text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
+                                Registered
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 text-center py-6 border-2 border-dashed border-gray-200 rounded-xl">
+              Select a district to load players
+            </p>
+          )}
+        </div>
       </div>
     )
   }
@@ -548,6 +647,7 @@ export function TournamentRegistrations() {
   useEffect(() => {
     if (!tournamentId) return
     const fetchTournament = async () => {
+      setTournamentLoading(true)
       try {
         const res = await apiRequest<{ tournament: AdminTournament }>(
           `/admin/tournaments/${tournamentId}`,
@@ -567,6 +667,9 @@ export function TournamentRegistrations() {
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to fetch tournament')
+        setTournament(null)
+      } finally {
+        setTournamentLoading(false)
       }
     }
     fetchTournament()
@@ -659,8 +762,8 @@ export function TournamentRegistrations() {
 
       const contentDisposition = response.headers.get('Content-Disposition')
       const filename = contentDisposition
-        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-        : `tournament_${tournamentId}_schedule.pdf`
+        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '').trim()
+        : `${(tournament?.title || 'Tournament').replace(/[/\\?%*:|"<>]/g, '').replace(/\s+/g, '_')}_Schedule.pdf`
 
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
@@ -695,6 +798,19 @@ export function TournamentRegistrations() {
     if (meta?.name && applicantDistrict.trim().toLowerCase() === meta.name.trim().toLowerCase()) return true
     return false
   }
+
+  const winnerPlayersForPlace = useMemo(() => {
+    const forDistrict = (districtId: string) => {
+      if (!districtId) return []
+      const districtMatches = (stored?: string) => applicantMatchesDistrict(stored, districtId)
+      return buildWinnerPlayerOptions(matches, registrations, districtId, districtMatches)
+    }
+    return {
+      first: forDistrict(winnerDistricts.first),
+      second: forDistrict(winnerDistricts.second),
+      third: forDistrict(winnerDistricts.third),
+    }
+  }, [matches, registrations, winnerDistricts, districts])
 
   const getTournamentPlayersForDistrict = (districtId: string, query = '') => {
     const q = query.trim().toLowerCase()
@@ -1443,23 +1559,40 @@ export function TournamentRegistrations() {
     }
   }, [registrations])
 
+  const resolveDistrict = (value?: string) => resolveDistrictName(value, districts)
+
   // Filter registrations
   const filteredRegistrations = useMemo(() => {
-    return registrations.filter(r => {
+    const q = searchQuery.trim().toLowerCase()
+    return registrations.filter((r) => {
+      const districtLabel = resolveDistrictName(r.applicant?.district, districts).toLowerCase()
+      const displayId = formatRegistrationDisplayId(r).toLowerCase()
       const matchesSearch =
-        !searchQuery ||
-        r.applicant?.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.applicant?.email?.toLowerCase().includes(searchQuery.toLowerCase())
+        !q ||
+        r.applicant?.fullName?.toLowerCase().includes(q) ||
+        r.applicant?.email?.toLowerCase().includes(q) ||
+        displayId.includes(q) ||
+        districtLabel.includes(q) ||
+        (r.applicant?.district || '').toLowerCase().includes(q)
       const matchesStatus = statusFilter === 'all' || r.status === statusFilter
       const matchesType = typeFilter === 'all' || r.registerAs === typeFilter
       return matchesSearch && matchesStatus && matchesType
     })
-  }, [registrations, searchQuery, statusFilter, typeFilter])
+  }, [registrations, searchQuery, statusFilter, typeFilter, districts])
 
-  if (!tournament) {
+  if (tournamentLoading || !tournament) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        {loading ? <div>Loading...</div> : <div>Tournament not found</div>}
+      <div className="flex items-center justify-center min-h-[50vh]">
+        {tournamentLoading ? (
+          <p className="text-gray-500">Loading tournament…</p>
+        ) : (
+          <div className="text-center space-y-2">
+            <p className="text-gray-700 font-semibold">Tournament not found</p>
+            <Link to="/admin/tournaments" className="text-[#5a0a8f] font-bold hover:underline">
+              Back to Tournaments
+            </Link>
+          </div>
+        )}
       </div>
     )
   }
@@ -2188,25 +2321,31 @@ export function TournamentRegistrations() {
   const isRegistered = (userId: string, type: string) =>
     registrations.some((r) => r.userId === userId && r.registerAs === type)
 
+  const roleBadgeClass = (role: string) => {
+    if (role === 'coach') return 'bg-blue-100 text-blue-800'
+    if (role === 'referee') return 'bg-violet-100 text-violet-800'
+    return 'bg-emerald-100 text-emerald-800'
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
-          <Link to="/admin/tournaments" className="text-[#5a0a8f] hover:underline text-sm font-medium flex items-center gap-1 mb-2">
+    <div className="max-w-7xl mx-auto w-full space-y-6">
+        <div className="rounded-2xl bg-gradient-to-r from-[#5a0a8f] via-[#6d1ba8] to-[#400466] p-6 text-white shadow-lg">
+          <Link to="/admin/tournaments" className="text-purple-200 hover:text-white text-sm font-semibold flex items-center gap-1 mb-3">
             <span className="material-symbols-outlined text-lg">arrow_back</span> Back to Tournaments
           </Link>
-          <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-black text-gray-900">{tournament.title}</h1>
-              <p className="text-gray-600 mt-1">
+              <p className="text-purple-200 text-xs font-bold uppercase tracking-widest mb-1">Tournament Manager</p>
+              <h1 className="text-2xl md:text-3xl font-black">{tournament.title}</h1>
+              <p className="text-purple-100/90 mt-2 text-sm">
                 {tournament.venueName && `${tournament.venueName} · `}
                 {eventTypeLabel(matchEventType)} · {tournament.status}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setIsQuickRegModalOpen(true)} className="px-4 py-2 bg-white border-2 border-[#5a0a8f] text-[#5a0a8f] rounded-lg font-bold hover:bg-purple-50">Quick Registration</button>
-              <button type="button" onClick={startCreateMatch} className="px-4 py-2 bg-[#5a0a8f] text-white rounded-lg font-bold hover:bg-[#4a087a]">Create Match</button>
-              <button type="button" onClick={handleDownloadSchedulePdf} className="px-4 py-2 bg-gray-800 text-white rounded-lg font-bold hover:bg-gray-900">Download Schedule PDF</button>
+              <button type="button" onClick={() => setIsQuickRegModalOpen(true)} className="px-4 py-2 bg-white/10 border-2 border-white/40 text-white rounded-lg font-bold hover:bg-white/20 backdrop-blur">Quick Registration</button>
+              <button type="button" onClick={startCreateMatch} className="px-4 py-2 bg-white text-[#5a0a8f] rounded-lg font-bold hover:bg-purple-50 shadow">Create Match</button>
+              <button type="button" onClick={handleDownloadSchedulePdf} className="px-4 py-2 bg-gray-900/80 text-white rounded-lg font-bold hover:bg-gray-900 border border-white/20">Download Schedule PDF</button>
             </div>
           </div>
         </div>
@@ -2245,14 +2384,14 @@ export function TournamentRegistrations() {
         {activeTab === 'registrations' && (
           <div className="space-y-4">
             <div className="flex flex-wrap gap-3">
-              <input type="text" placeholder="Search by name or email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="flex-1 min-w-[200px] px-4 py-2 border border-gray-300 rounded-lg" />
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-4 py-2 border rounded-lg">
+              <input type="text" placeholder="Search by name, ID, or district..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="flex-1 min-w-[200px] px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white" />
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white">
                 <option value="all">All statuses</option>
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
               </select>
-              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-4 py-2 border rounded-lg">
+              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white">
                 <option value="all">All types</option>
                 <option value="player">Players</option>
                 <option value="coach">Coaches</option>
@@ -2260,38 +2399,46 @@ export function TournamentRegistrations() {
               </select>
             </div>
             {loading ? (
-              <p className="text-gray-500">Loading registrations...</p>
+              <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500">
+                Loading registrations…
+              </div>
             ) : (
-              <div className="bg-white rounded-xl shadow overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+                <table className="w-full text-sm min-w-[720px]">
+                  <thead className="bg-gray-200 border-b border-gray-300">
                     <tr>
-                      <th className="text-left px-4 py-3 font-bold">Name</th>
-                      <th className="text-left px-4 py-3 font-bold">ID</th>
-                      <th className="text-left px-4 py-3 font-bold">Type</th>
-                      <th className="text-left px-4 py-3 font-bold">District</th>
-                      <th className="text-left px-4 py-3 font-bold">Status</th>
-                      <th className="text-right px-4 py-3 font-bold">Actions</th>
+                      <th className="text-center px-3 py-3 text-xs font-black uppercase tracking-wide text-gray-900 w-14">S.No</th>
+                      <th className="text-left px-4 py-3 text-xs font-black uppercase tracking-wide text-gray-900">Name</th>
+                      <th className="text-left px-4 py-3 text-xs font-black uppercase tracking-wide text-gray-900">ID</th>
+                      <th className="text-left px-4 py-3 text-xs font-black uppercase tracking-wide text-gray-900">Type</th>
+                      <th className="text-left px-4 py-3 text-xs font-black uppercase tracking-wide text-gray-900">District</th>
+                      <th className="text-left px-4 py-3 text-xs font-black uppercase tracking-wide text-gray-900">Status</th>
+                      <th className="text-right px-4 py-3 text-xs font-black uppercase tracking-wide text-gray-900">Actions</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {filteredRegistrations.map((r) => (
-                      <tr key={r._id} className="border-b hover:bg-gray-50">
-                        <td className="px-4 py-3 font-medium">{r.applicant?.fullName || '—'}</td>
-                        <td className="px-4 py-3 text-gray-600">{r.applicant?.playerId || r.userId}</td>
-                        <td className="px-4 py-3 capitalize">{r.registerAs}</td>
-                        <td className="px-4 py-3">{r.applicant?.district || '—'}</td>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredRegistrations.map((r, index) => (
+                      <tr key={r._id} className="hover:bg-gray-50/80">
+                        <td className="px-3 py-3 text-center font-bold text-gray-800">{index + 1}</td>
+                        <td className="px-4 py-3 font-semibold text-gray-900">{r.applicant?.fullName?.trim() || 'Unknown participant'}</td>
+                        <td className="px-4 py-3 text-gray-700 font-mono text-xs">{formatRegistrationDisplayId(r)}</td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${r.status === 'approved' ? 'bg-green-100 text-green-800' : r.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>{r.status}</span>
+                          <span className={`capitalize text-xs font-bold px-2.5 py-1 rounded-full ${roleBadgeClass(r.registerAs)}`}>
+                            {r.registerAs}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-gray-800">{resolveDistrict(r.applicant?.district)}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold capitalize ${r.status === 'approved' ? 'bg-green-600 text-white' : r.status === 'rejected' ? 'bg-red-600 text-white' : 'bg-amber-500 text-white'}`}>{r.status}</span>
                         </td>
                         <td className="px-4 py-3 text-right space-x-2">
                           {r.status === 'pending' && (
                             <>
-                              <button type="button" onClick={() => handleApprove(r._id)} className="text-green-600 font-bold hover:underline">Approve</button>
-                              <button type="button" onClick={() => handleReject(r._id)} className="text-red-600 font-bold hover:underline">Reject</button>
+                              <button type="button" onClick={() => handleApprove(r._id)} className="text-green-700 font-bold hover:underline">Approve</button>
+                              <button type="button" onClick={() => handleReject(r._id)} className="text-red-700 font-bold hover:underline">Reject</button>
                             </>
                           )}
-                          <button type="button" onClick={() => handleDeleteRegistration(r._id)} className="text-gray-500 hover:text-red-600 font-bold">Remove</button>
+                          <button type="button" onClick={() => handleDeleteRegistration(r._id)} className="text-gray-700 hover:text-red-700 font-bold">Remove</button>
                         </td>
                       </tr>
                     ))}
@@ -2308,11 +2455,18 @@ export function TournamentRegistrations() {
             {matches.length === 0 ? (
               <p className="text-gray-500">No matches yet. Create a match to get started.</p>
             ) : (
-              matches.map((match) => (
-                <div key={match._id} className="bg-white rounded-xl border p-4 flex flex-wrap justify-between gap-3">
-                  <div>
-                    <p className="font-bold text-lg">{match.team1} vs {match.team2}</p>
-                    <p className="text-sm text-gray-600">{match.date} {match.time} · {match.status || 'scheduled'}{match.description && ` · ${match.description}`}</p>
+              matches.map((match) => {
+                const label = match.description?.trim()
+                const teamsLine = `${match.team1} vs ${match.team2}`
+                const showLabel = Boolean(label && label.toLowerCase() !== teamsLine.toLowerCase())
+                return (
+                <div key={match._id} className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap justify-between gap-3 shadow-sm">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-lg text-gray-900">{teamsLine}</p>
+                    <p className="text-sm text-gray-600 mt-0.5">{formatMatchMetaLine(match)}</p>
+                    {showLabel && (
+                      <p className="text-xs text-[#5a0a8f] font-semibold mt-1">Match label: {label}</p>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button type="button" onClick={() => { setSelectedMatchForScore(match); setIsScoreModalOpen(true) }} className="px-3 py-1.5 bg-[#5a0a8f] text-white rounded-lg text-sm font-bold">Update Score</button>
@@ -2320,20 +2474,44 @@ export function TournamentRegistrations() {
                     <button type="button" onClick={() => handleDeleteMatch(match._id, match.team1, match.team2)} className="px-3 py-1.5 border border-red-300 text-red-600 rounded-lg text-sm font-bold">Delete</button>
                   </div>
                 </div>
-              ))
+              )})
             )}
           </div>
         )}
 
         {activeTab === 'winners' && (
-          <div className="space-y-6">
-            {renderWinnerPlace('first', '1st Place', 'p-6 rounded-xl border-2 border-yellow-200 bg-yellow-50/40', 'bg-yellow-500')}
-            {renderWinnerPlace('second', '2nd Place', 'p-6 rounded-xl border-2 border-gray-200 bg-gray-50', 'bg-gray-500')}
-            {renderWinnerPlace('third', '3rd Place', 'p-6 rounded-xl border-2 border-orange-200 bg-orange-50/40', 'bg-orange-600')}
-            <button type="button" onClick={handleSaveWinners} disabled={savingWinners} className="px-6 py-3 bg-[#5a0a8f] text-white rounded-xl font-bold disabled:opacity-60">{savingWinners ? 'Saving…' : 'Save Winners'}</button>
+          <div className="space-y-8">
+            <div className="rounded-2xl bg-gradient-to-r from-[#5a0a8f] via-[#6d1ba8] to-[#400466] p-6 md:p-8 text-white shadow-xl">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-purple-200 text-xs font-bold uppercase tracking-widest mb-1">Podium</p>
+                  <h2 className="text-2xl md:text-3xl font-black">Tournament Winners</h2>
+                  <p className="text-purple-100/90 mt-2 max-w-xl text-sm">
+                    Choose a district for each medal place, then select registered players. Approved registrations appear automatically.
+                  </p>
+                </div>
+                <span className="material-symbols-outlined text-5xl text-white/30">emoji_events</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              {renderWinnerPlace('first')}
+              {renderWinnerPlace('second')}
+              {renderWinnerPlace('third')}
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleSaveWinners}
+                disabled={savingWinners}
+                className="px-8 py-3.5 bg-gradient-to-r from-[#5a0a8f] to-[#400466] text-white rounded-xl font-black shadow-lg shadow-purple-300/40 hover:shadow-xl disabled:opacity-60 transition-all"
+              >
+                {savingWinners ? 'Saving winners…' : 'Save all winners'}
+              </button>
+            </div>
           </div>
         )}
-      </div>
 
       <UpdateScoreModal isOpen={isScoreModalOpen} onClose={() => { setIsScoreModalOpen(false); setSelectedMatchForScore(null); if (tournamentId) fetchMatches(tournamentId) }} preSelectedTournamentId={tournamentId} preSelectedMatch={selectedMatchForScore || undefined} />
       <ScorecardRemarksModal isOpen={scorecardRemarksOpen} matchLabel={scorecardRemarksMatch ? `${scorecardRemarksMatch.team1} vs ${scorecardRemarksMatch.team2}` : undefined} remarks={scorecardRemarksText} downloading={downloadingScorecard} onRemarksChange={setScorecardRemarksText} onDownload={() => downloadScorecardPdf(scorecardRemarksText)} onClose={() => { if (!downloadingScorecard) { setScorecardRemarksOpen(false); setScorecardRemarksMatch(null) } }} />
@@ -2348,7 +2526,7 @@ export function TournamentRegistrations() {
             <div className="p-5 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">District</label>
-                <select value={quickRegDistrict} onChange={(e) => handleQuickRegDistrictChange(e.target.value)} className="w-full px-3 py-2 border rounded-lg">
+                <select value={quickRegDistrict} onChange={(e) => handleQuickRegDistrictChange(e.target.value)} className={selectClass}>
                   <option value="">Select district</option>
                   {districts.map((d) => (<option key={d.id} value={d.id}>{d.name}</option>))}
                 </select>
@@ -2358,17 +2536,18 @@ export function TournamentRegistrations() {
                   <button key={t} type="button" onClick={() => { setQuickRegType(t); if (quickRegDistrict) handleQuickRegDistrictChange(quickRegDistrict) }} className={`px-3 py-1.5 rounded-lg text-sm font-bold capitalize ${quickRegType === t ? 'bg-[#5a0a8f] text-white' : 'bg-gray-100 text-gray-700'}`}>{t}</button>
                 ))}
               </div>
-              <input type="text" placeholder="Filter by name (optional)..." value={quickRegSearch} onChange={(e) => handleQuickRegSearch(e.target.value)} disabled={!quickRegDistrict} className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-100" />
+              <input type="text" placeholder="Filter by name (optional)..." value={quickRegSearch} onChange={(e) => handleQuickRegSearch(e.target.value)} disabled={!quickRegDistrict} className={`${fieldClass} disabled:bg-gray-100 disabled:text-gray-500`} />
               {quickRegSuccessMsg && <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">{quickRegSuccessMsg}</div>}
               {quickRegLoading ? <p className="text-gray-500 text-sm">Loading...</p> : !quickRegDistrict ? <p className="text-gray-500 text-sm">Select a district to see people.</p> : quickRegResults.length === 0 ? <p className="text-gray-500 text-sm">No {quickRegType}s found for this district.</p> : (
                 <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {quickRegResults.map((person: { _id: string; fullName: string; playerId?: string }) => {
+                  {quickRegResults.map((person: { _id: string; fullName: string; playerId?: string; coachId?: string; refereeId?: string }) => {
                     const already = isRegistered(person._id, quickRegType)
+                    const displayId = formatPersonListId(quickRegType, person)
                     return (
                       <div key={person._id} className="flex justify-between items-center border rounded-lg p-3">
                         <div>
                           <p className="font-bold text-gray-900">{person.fullName}</p>
-                          <p className="text-xs text-gray-500">{person.playerId || person._id}</p>
+                          {displayId !== '—' && <p className="text-xs text-gray-500">{displayId}</p>}
                         </div>
                         {already ? <span className="text-green-600 text-sm font-bold">Registered</span> : (
                           <button type="button" onClick={() => handleQuickRegister(person._id, person.fullName)} className="px-3 py-1 bg-[#5a0a8f] text-white rounded-lg text-sm font-bold">Register</button>

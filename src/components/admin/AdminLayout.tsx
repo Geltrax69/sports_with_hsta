@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useWebsiteContent } from '../../context/WebsiteContentContext'
+import { RouteErrorBoundary } from '../RouteErrorBoundary'
 
 export function AdminLayout() {
   const { user, logout } = useAuth()
@@ -300,6 +301,38 @@ export function AdminLayout() {
 
           {sidebarOpen && (
             <div className="px-4 pt-4 pb-2">
+              <div className="text-xs font-bold text-white/50 uppercase tracking-wider">MEDIA</div>
+            </div>
+          )}
+
+          <NavLink
+            to="/admin/media/gallery"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <span className="material-symbols-outlined text-xl">photo_library</span>
+            {sidebarOpen && <span>Gallery Images</span>}
+          </NavLink>
+
+          <NavLink
+            to="/admin/media/videos"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <span className="material-symbols-outlined text-xl">play_circle</span>
+            {sidebarOpen && <span>Videos</span>}
+          </NavLink>
+
+          {sidebarOpen && (
+            <div className="px-4 pt-4 pb-2">
               <div className="text-xs font-bold text-white/50 uppercase tracking-wider">WEBSITE</div>
             </div>
           )}
@@ -463,8 +496,10 @@ export function AdminLayout() {
         </header>
 
         {/* Page Content */}
-        <main className="p-4 sm:p-6">
-          <Outlet />
+        <main className="admin-main p-4 sm:p-6">
+          <RouteErrorBoundary title="Admin page error" homeTo="/admin/dashboard">
+            <Outlet />
+          </RouteErrorBoundary>
         </main>
       </div>
     </div>

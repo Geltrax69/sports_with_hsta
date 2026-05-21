@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useDocuments } from '../context/DocumentsContext'
 import { formatDate } from '../lib/dateUtils'
+import { Skeleton } from 'boneyard-js/react'
 
 export function DocumentsPage() {
   const { documents, loading, error, incrementDownload } = useDocuments()
@@ -65,10 +66,15 @@ export function DocumentsPage() {
   const handleDownload = async (doc: typeof documents[0]) => {
     try {
       await incrementDownload(doc.id)
-      // Open document in new tab
-      window.open(doc.fileUrl, '_blank')
+      const apiBase = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api').replace(/\/api$/, '')
+      const url =
+        doc.fileUrl.startsWith('http://') || doc.fileUrl.startsWith('https://')
+          ? doc.fileUrl
+          : `${apiBase}/api/documents/${doc.id}/download-file`
+      window.open(url, '_blank', 'noopener,noreferrer')
     } catch (err) {
       console.error('Error downloading document:', err)
+      alert('Could not download this file. Try again or re-generate the PDF from the admin tournament page.')
     }
   }
 
@@ -106,8 +112,9 @@ export function DocumentsPage() {
   }
 
   return (
-    <main id="page-content" className="w-full overflow-x-hidden relative">
-      <section className="relative w-full min-h-[400px] flex items-center justify-center overflow-hidden">
+    <Skeleton name="documents-page" loading={loading}>
+      <main id="page-content" className="w-full overflow-x-hidden relative">
+        <section className="relative w-full min-h-[400px] flex items-center justify-center overflow-hidden">
         <div
           className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
           style={{
@@ -229,13 +236,6 @@ export function DocumentsPage() {
             Recent Documents
           </h3>
 
-          {loading && (
-            <div className="text-center py-20">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#5a0a8f]"></div>
-              <p className="mt-4 text-gray-600">Loading documents...</p>
-            </div>
-          )}
-
           {error && (
             <div className="text-center py-20 text-red-600">
               <span className="material-symbols-outlined text-4xl mb-2">error</span>
@@ -344,5 +344,6 @@ export function DocumentsPage() {
         </section>
       </div>
     </main>
+    </Skeleton>
   )
 }

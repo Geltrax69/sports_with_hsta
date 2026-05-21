@@ -6,11 +6,16 @@ import { FeaturedGallery } from '../components/FeaturedGallery'
 import { apiRequest } from '../lib/api'
 import { resolveImageUrl } from '../lib/images'
 import { getRelativeDate } from '../lib/dateUtils'
+import { Skeleton } from 'boneyard-js/react'
+import { LiveScoresCard } from '../components/LiveScoresCard'
+import { fetchLiveMatches, type LiveMatch } from '../lib/liveScores'
+import { isTournamentUpcoming } from '../lib/tournamentDates'
 
 export function HomePage() {
   const { content } = useSiteContent()
-  const { content: websiteContent } = useWebsiteContent()
+  const { content: websiteContent, contentLoading } = useWebsiteContent()
   const [apiTournaments, setApiTournaments] = useState<any[]>([])
+  const [liveMatches, setLiveMatches] = useState<LiveMatch[]>([])
   const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({})
   const [resolvedNewsImages, setResolvedNewsImages] = useState<Record<string, string>>({})
 
@@ -28,6 +33,20 @@ export function HomePage() {
       }
     }
     void run()
+  }, [])
+
+  useEffect(() => {
+    const loadLive = async () => {
+      try {
+        const data = await fetchLiveMatches()
+        setLiveMatches(data)
+      } catch {
+        setLiveMatches([])
+      }
+    }
+    void loadLive()
+    const id = window.setInterval(() => void loadLive(), 15000)
+    return () => window.clearInterval(id)
   }, [])
 
   // Get featured news from website content settings, or fallback to featured/pinned news
@@ -65,7 +84,7 @@ export function HomePage() {
   // Get featured tournaments from API, fallback to website content settings
   const tournaments = useMemo(() => {
     if (apiTournaments.length > 0) {
-      return apiTournaments.filter((t) => t.status !== 'TENTATIVE')
+      return apiTournaments.filter((t) => isTournamentUpcoming(t))
     }
     if (websiteContent.homepage.featuredTournamentIds.length > 0) {
       return websiteContent.homepage.featuredTournamentIds
@@ -76,8 +95,9 @@ export function HomePage() {
   }, [apiTournaments, content.tournaments, websiteContent.homepage.featuredTournamentIds])
 
   return (
-    <main id="page-content" className="w-full overflow-x-hidden relative bg-white">
-      {/* Hero Section */}
+    <Skeleton name="home-page" loading={contentLoading}>
+      <main id="page-content" className="w-full overflow-x-hidden relative bg-white">
+        {/* Hero Section */}
       <section className="relative w-full min-h-[600px] flex items-center justify-center overflow-hidden">
         <div
           className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
@@ -225,17 +245,44 @@ export function HomePage() {
           </div>
         </div>
 
-        {/* Upcoming Tournaments Column */}
-        <div className="w-full lg:w-1/3 flex flex-col">
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden h-full flex flex-col">
-            {/* Purple Header */}
-            <div className="bg-[#5a0a8f] text-white px-6 py-5">
-              <h3 className="text-xl font-bold mb-1">Event Calendar</h3>
-              <p className="text-sm text-white/80">Don't miss the action</p>
+        {/* Sidebar: Live Scores + Event Calendar */}
+        <div className="w-full lg:w-1/3 flex flex-col gap-5">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-red-600 to-[#5a0a8f] text-white px-5 py-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-black">Live Scores</h3>
+                <p className="text-xs text-white/80">Matches in progress</p>
+              </div>
+              <span className="material-symbols-outlined text-3xl text-white/40">sports_score</span>
+            </div>
+            <div className="p-4 space-y-3 max-h-[320px] overflow-y-auto">
+              {liveMatches.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-6">No live matches right now.</p>
+              ) : (
+                liveMatches.slice(0, 2).map((m) => <LiveScoresCard key={m.id} match={m} compact />)
+              )}
+            </div>
+            {liveMatches.length > 0 && (
+              <div className="px-4 pb-4">
+                <Link
+                  to="/live-scores"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full text-center py-2.5 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors"
+                >
+                  {liveMatches.length > 2 ? `View all ${liveMatches.length} live matches` : 'View live scores'}
+                </Link>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden flex flex-col">
+            <div className="bg-[#5a0a8f] text-white px-5 py-4">
+              <h3 className="text-lg font-bold mb-0.5">Event Calendar</h3>
+              <p className="text-xs text-white/80">Upcoming tournaments</p>
             </div>
 
-            {/* Calendar Items */}
-            <div className="flex-1 space-y-4 p-6">
+            <div className="space-y-3 p-4 max-h-[240px] overflow-y-auto">
               {tournaments
                 .filter((t) => t.status !== 'TENTATIVE')
                 .slice(0, 3)
@@ -255,8 +302,8 @@ export function HomePage() {
                   }
 
                   return (
-                    <div key={tournament._id || tournament.id} className="pb-4 border-b border-gray-200 last:border-b-0">
-                      <h4 className="font-bold text-gray-900 mb-2 line-clamp-2 text-sm">
+                    <div key={tournament._id || tournament.id} className="pb-3 border-b border-gray-100 last:border-b-0 last:pb-0">
+                      <h4 className="font-bold text-gray-900 mb-1 line-clamp-2 text-sm">
                         {tournament.title}
                       </h4>
                       <div className="flex items-center gap-1 text-xs text-gray-600 mb-2">
@@ -276,9 +323,8 @@ export function HomePage() {
                 })}
             </div>
 
-            {/* Download Button */}
-            <div className="px-6 pb-6 mt-auto">
-              <button className="w-full py-3 border-2 border-[#5a0a8f] text-[#5a0a8f] font-bold rounded-lg hover:bg-purple-50 transition-colors">
+            <div className="px-4 pb-4">
+              <button type="button" className="w-full py-2 text-sm border-2 border-[#5a0a8f] text-[#5a0a8f] font-bold rounded-lg hover:bg-purple-50 transition-colors">
                 Download Calendar PDF
               </button>
             </div>
@@ -286,15 +332,22 @@ export function HomePage() {
         </div>
       </div>
 
-      <FeaturedGallery items={websiteContent.homepage.galleryImages.length > 0
-        ? websiteContent.homepage.galleryImages
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-          .map((img) => ({
-            title: img.title || 'Gallery Image',
-            alt: img.description || img.title || 'Gallery image',
-            imageUrl: img.imageUrl,
-          }))
-        : undefined} />
-    </main>
+      <FeaturedGallery
+        viewAllHref="/media"
+        maxPreview={9}
+        items={
+          websiteContent.homepage.galleryImages.length > 0
+            ? websiteContent.homepage.galleryImages
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                .map((img) => ({
+                  title: img.title || 'Gallery Image',
+                  alt: img.description || img.title || 'Gallery image',
+                  imageUrl: img.imageUrl,
+                }))
+            : undefined
+        }
+      />
+      </main>
+    </Skeleton>
   )
 }

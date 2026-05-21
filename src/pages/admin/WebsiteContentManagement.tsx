@@ -3,25 +3,15 @@ import { useState, useMemo } from 'react'
 import { useWebsiteContent } from '../../context/WebsiteContentContext'
 import { getSignedUrlForImage } from '../../lib/images'
 import { useSiteContent } from '../../content/SiteContentContext'
-import { apiRequest } from '../../lib/api'
 import { processImageFile } from '../../lib/imageCompression'
 import type { NewsItem, TournamentItem } from '../../content/types'
 
 type TabType = 'homepage' | 'about' | 'events'
 
 export function WebsiteContentManagement() {
-  const { content, updateHomepage, updateAboutPage, updateEventsPage, addGalleryImage, removeGalleryImage, addJourneyItem, updateJourneyItem, removeJourneyItem } = useWebsiteContent()
+  const { content, updateHomepage, updateAboutPage, updateEventsPage, addJourneyItem, updateJourneyItem, removeJourneyItem } = useWebsiteContent()
   const { content: siteContent } = useSiteContent()
   const [activeTab, setActiveTab] = useState<TabType>('homepage')
-  const [galleryUploadError, setGalleryUploadError] = useState<string>('')
-  const [galleryUploading, setGalleryUploading] = useState(false)
-
-  // Homepage State
-  const [galleryImage, setGalleryImage] = useState<{ imageFile: File | null; imageUrl: string }>({
-    imageFile: null,
-    imageUrl: '',
-  })
-  const [galleryImageUrlInput, setGalleryImageUrlInput] = useState<string>('')
 
   // About Page State
   const [journeyItem, setJourneyItem] = useState<{ year: string; title: string; description: string; imageFile: File | null; imageUrl: string }>({
@@ -47,20 +37,6 @@ export function WebsiteContentManagement() {
       .filter((t): t is TournamentItem => t !== undefined)
   }, [content.homepage.featuredTournamentIds, siteContent.tournaments])
 
-  const handleGalleryImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      try {
-        // Compress and validate image
-        const processedFile = await processImageFile(file)
-        setGalleryImage({ imageFile: processedFile, imageUrl: '' })
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Invalid image file'
-        alert(message)
-      }
-    }
-  }
-
   const handleJourneyImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -77,92 +53,6 @@ export function WebsiteContentManagement() {
         alert(message)
       }
     }
-  }
-
-  const handleAddGalleryImage = async () => {
-    setGalleryUploadError('')
-    
-    // Check if URL is provided
-    if (galleryImageUrlInput) {
-      addGalleryImage({
-        imageUrl: galleryImageUrlInput,
-        title: 'Gallery Image',
-        description: '',
-      })
-      setGalleryImage({ imageFile: null, imageUrl: '' })
-      setGalleryImageUrlInput('')
-      const fileInput = document.getElementById('gallery-image-upload') as HTMLInputElement
-      if (fileInput) fileInput.value = ''
-      return
-    }
-
-    // Check if file is provided
-    if (!galleryImage.imageFile) {
-      setGalleryUploadError('Please upload an image or enter an image URL')
-      return
-    }
-
-    try {
-      setGalleryUploading(true)
-      
-      // Upload to AWS
-      const formData = new FormData()
-      formData.append('image', galleryImage.imageFile)
-      formData.append('name', 'gallery-image')
-
-      const response = await apiRequest<{ key: string; url: string }>('/uploads/gallery', {
-        method: 'POST',
-        body: formData,
-        auth: true,
-      })
-
-      if (!response.url) {
-        throw new Error('No URL returned from upload')
-      }
-
-      // Add to gallery with the AWS URL
-      addGalleryImage({
-        imageUrl: response.url,
-        title: 'Gallery Image',
-        description: '',
-      })
-
-      setGalleryImage({ imageFile: null, imageUrl: '' })
-      setGalleryImageUrlInput('')
-      
-      // Reset file input
-      const fileInput = document.getElementById('gallery-image-upload') as HTMLInputElement
-      if (fileInput) fileInput.value = ''
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to upload image to AWS'
-      setGalleryUploadError(message)
-      console.error('Gallery upload error:', error)
-    } finally {
-      setGalleryUploading(false)
-    }
-  }
-
-  const handleDeleteGalleryImage = async (id: string, imageUrl: string) => {
-    if (!window.confirm('Delete this gallery image?')) {
-      return
-    }
-
-    // Delete from AWS if it's an S3 URL
-    if (imageUrl && imageUrl.includes('amazonaws.com')) {
-      try {
-        await apiRequest('/uploads/images', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: imageUrl }),
-          auth: true,
-        })
-      } catch (err) {
-        console.warn('Failed to delete image from AWS:', err)
-        // Continue with deletion even if AWS delete fails
-      }
-    }
-
-    removeGalleryImage(id)
   }
 
   const handleAddJourneyItem = () => {
@@ -522,143 +412,18 @@ export function WebsiteContentManagement() {
             </div>
           </div>
 
-          {/* Gallery Images */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
-              Featured Gallery Images ({content.homepage.galleryImages.length} images)
-            </h2>
-
-            {/* Current Gallery Images - Visual Display */}
-            {content.homepage.galleryImages.length > 0 ? (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Current Gallery Images</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {content.homepage.galleryImages.map((img) => (
-                    <div key={img.id} className="relative group border-2 border-gray-200 rounded-lg overflow-hidden">
-                      <img
-                        src={img.imageUrl}
-                        alt={img.title || 'Gallery image'}
-                        className="w-full h-32 object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement
-                          void getSignedUrlForImage(img.imageUrl, true)
-                            .then((signed) => {
-                              if (signed) {
-                                target.src = signed
-                              } else {
-                                target.src = '/assets/images/placeholder.svg'
-                              }
-                            })
-                            .catch(() => {
-                              target.src = '/assets/images/placeholder.svg'
-                            })
-                        }}
-                      />
-                      <button
-                        onClick={() => handleDeleteGalleryImage(img.id, img.imageUrl)}
-                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Delete"
-                      >
-                        <span className="material-symbols-outlined text-sm">delete</span>
-                      </button>
-                      {(img.title || img.description) && (
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-2">
-                          {img.title && <div className="font-semibold">{img.title}</div>}
-                          {img.description && (
-                            <div className="text-white/80 line-clamp-1">{img.description}</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="mb-6 p-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 text-center">
-                <span className="material-symbols-outlined text-6xl text-gray-300 mb-3">image</span>
-                <p className="text-gray-500">No gallery images yet. Add your first image below.</p>
-              </div>
-            )}
-
-            {/* Add New Gallery Image */}
-            <div className="bg-gray-50 rounded-lg p-4 border-2 border-dashed border-gray-300">
-              <h3 className="font-semibold text-gray-900 mb-3">Add New Gallery Image</h3>
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Upload Image <span className="text-red-500">*</span>
-                </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                  <input
-                    type="file"
-                    id="gallery-image-upload"
-                    accept="image/*"
-                    onChange={handleGalleryImageFileChange}
-                    className="hidden"
-                  />
-                  <label
-                    htmlFor="gallery-image-upload"
-                    className="cursor-pointer flex flex-col items-center gap-2"
-                  >
-                    <span className="material-symbols-outlined text-4xl text-gray-400">upload_file</span>
-                    <span className="text-sm text-gray-600">
-                      {galleryImage.imageFile ? galleryImage.imageFile.name : 'Click to upload image'}
-                    </span>
-                    {galleryImage.imageFile && (
-                      <span className="text-xs text-gray-500">
-                        Size: {(galleryImage.imageFile.size / 1024 / 1024).toFixed(2)} MB
-                      </span>
-                    )}
-                    <span className="text-xs text-gray-400">Max size: 5MB</span>
-                  </label>
-                </div>
-                <div className="mt-4">
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">Or enter Image URL</label>
-                  <input
-                    type="url"
-                    value={galleryImageUrlInput}
-                    onChange={(e) => setGalleryImageUrlInput(e.target.value)}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900"
-                    placeholder="https://example.com/image.jpg"
-                  />
-                </div>
-                {(galleryImageUrlInput || galleryImage.imageFile) && (
-                  <img
-                    src={galleryImageUrlInput || (galleryImage.imageFile ? URL.createObjectURL(galleryImage.imageFile) : '')}
-                    alt="Preview"
-                    className="mt-4 w-full h-48 object-cover rounded-lg border-2 border-gray-200"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement
-                      target.style.display = 'none'
-                    }}
-                  />
-                )}
-              </div>
-              {galleryUploadError && (
-                <div className="mb-4 p-4 bg-red-50 border-2 border-red-200 rounded-lg">
-                  <p className="text-sm text-red-700 font-medium flex items-center gap-2">
-                    <span className="material-symbols-outlined text-lg">error</span>
-                    {galleryUploadError}
-                  </p>
-                </div>
-              )}
-              <button
-                onClick={handleAddGalleryImage}
-                disabled={galleryUploading}
-                className="px-4 py-2 bg-[#5a0a8f] hover:bg-[#400466] disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-              >
-                {galleryUploading ? (
-                  <>
-                    <span className="material-symbols-outlined animate-spin">loading</span>
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined">add</span>
-                    Add Image to Gallery
-                  </>
-                )}
-              </button>
-            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Media Gallery & Videos</h2>
+            <p className="text-gray-600 mb-4">
+              Gallery images and YouTube videos are managed in the Media section ({content.homepage.galleryImages.length} images, {content.homepage.mediaVideos.length} videos).
+            </p>
+            <a
+              href="/admin/media"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#5a0a8f] text-white rounded-lg font-bold hover:bg-[#400466]"
+            >
+              <span className="material-symbols-outlined">perm_media</span>
+              Open Media Management
+            </a>
           </div>
         </div>
       )}
