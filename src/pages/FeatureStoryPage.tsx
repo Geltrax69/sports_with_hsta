@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 export function FeatureStoryPage() {
   return (
     <main id="page-content" className="flex-1 py-6 sm:py-10">
@@ -14,23 +16,23 @@ export function FeatureStoryPage() {
         <nav aria-label="Breadcrumb" className="flex mb-6">
           <ol className="inline-flex items-center space-x-1 md:space-x-3">
             <li className="inline-flex items-center">
-              <a
+              <Link
                 className="inline-flex items-center text-sm font-medium text-gray-700 hover:text-primary dark:text-gray-300 dark:hover:text-white"
-                href={import.meta.env.BASE_URL}
+                to="/"
               >
                 <span className="material-symbols-outlined mr-2 text-base">home</span>
                 Home
-              </a>
+              </Link>
             </li>
             <li>
               <div className="flex items-center">
                 <span className="material-symbols-outlined text-gray-400 mx-1">chevron_right</span>
-                <a
+                <Link
                   className="text-sm font-medium text-gray-700 hover:text-primary dark:text-gray-300 dark:hover:text-white"
-                  href={`${import.meta.env.BASE_URL}news`}
+                  to="/news"
                 >
                   News &amp; Media
-                </a>
+                </Link>
               </div>
             </li>
             <li aria-current="page">

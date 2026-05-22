@@ -213,25 +213,25 @@ export function DistrictsProvider({ children }: { children: ReactNode }) {
   const [districts, setDistricts] = useState<District[]>([])
 
   useEffect(() => {
-    let cancelled = false
+    // Real AbortController so the HTTP request is actually cancelled on unmount/role change,
+    // preventing stale connections from piling up in the browser connection pool.
+    const controller = new AbortController()
 
     const load = async () => {
       try {
         // Admin panel needs all districts (incl. pending/inactive) with contact/secretary fields.
         if (user?.role === 'admin') {
-          const data = await apiRequest<{ districts: ApiDistrict[] }>('/admin/districts', { auth: true })
-          const mapped = data.districts.map(mapApiDistrict)
-          if (!cancelled) setDistricts(mapped)
+          const data = await apiRequest<{ districts: ApiDistrict[] }>('/admin/districts', { auth: true, signal: controller.signal })
+          if (!controller.signal.aborted) setDistricts(data.districts.map(mapApiDistrict))
           return
         }
 
         // Public pages (registration) only need active districts.
-        const data = await apiRequest<{ districts: ApiDistrict[] }>('/districts')
-        const mapped = data.districts.map(mapApiDistrict)
-        if (!cancelled) setDistricts(mapped)
+        const data = await apiRequest<{ districts: ApiDistrict[] }>('/districts', { signal: controller.signal })
+        if (!controller.signal.aborted) setDistricts(data.districts.map(mapApiDistrict))
       } catch {
         // Keep local cached/mock data as fallback for non-admin flows only.
-        if (cancelled) return
+        if (controller.signal.aborted) return
         if (user?.role === 'admin') {
           setDistricts([])
         } else {
@@ -243,7 +243,7 @@ export function DistrictsProvider({ children }: { children: ReactNode }) {
     void load()
 
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [user?.role])
 

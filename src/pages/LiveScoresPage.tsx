@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { LiveScoresCard } from '../components/LiveScoresCard'
 import { fetchLiveMatches, type LiveMatch } from '../lib/liveScores'
 
@@ -6,26 +7,36 @@ export function LiveScoresPage() {
   const [matches, setMatches] = useState<LiveMatch[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const homeHref = import.meta.env.BASE_URL
-
-  const load = async () => {
-    try {
-      setError(null)
-      const data = await fetchLiveMatches()
-      setMatches(data)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load live scores')
-      setMatches([])
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Incrementing this triggers the effect to re-run with a fresh AbortController (Retry button)
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
+    const controller = new AbortController()
+
+    const load = async () => {
+      try {
+        setError(null)
+        const data = await fetchLiveMatches(controller.signal)
+        if (!controller.signal.aborted) {
+          setMatches(data)
+          setLoading(false)
+        }
+      } catch (e) {
+        if (!controller.signal.aborted) {
+          setError(e instanceof Error ? e.message : 'Failed to load live scores')
+          setMatches([])
+          setLoading(false)
+        }
+      }
+    }
+
     void load()
-    const id = window.setInterval(() => void load(), 12000)
-    return () => window.clearInterval(id)
-  }, [])
+    const id = window.setInterval(() => void load(), 30000)
+    return () => {
+      controller.abort()
+      window.clearInterval(id)
+    }
+  }, [retryKey])
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -47,7 +58,7 @@ export function LiveScoresPage() {
             <p className="text-red-600">{error}</p>
             <button
               type="button"
-              onClick={() => void load()}
+              onClick={() => { setLoading(true); setRetryKey((k) => k + 1) }}
               className="px-4 py-2 bg-[#5a0a8f] text-white rounded-lg font-bold"
             >
               Retry
@@ -60,9 +71,9 @@ export function LiveScoresPage() {
             <span className="material-symbols-outlined text-5xl text-gray-300 mb-3">sports</span>
             <p className="text-gray-600 font-semibold">No live matches right now</p>
             <p className="text-sm text-gray-500 mt-1">Check back when a match is in progress.</p>
-            <a href={homeHref} className="inline-block mt-4 text-[#5a0a8f] font-bold hover:underline">
+            <Link to="/" className="inline-block mt-4 text-[#5a0a8f] font-bold hover:underline">
               Back to home
-            </a>
+            </Link>
           </div>
         )}
 

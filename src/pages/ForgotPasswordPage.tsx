@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import { apiRequest } from '../lib/api'
 
 type Role = 'coach' | 'player' | 'referee'
@@ -14,6 +15,7 @@ type VerifyResponse = {
 }
 
 export function ForgotPasswordPage() {
+  const navigate = useNavigate()
   const [role, setRole] = useState<Role>('coach')
   const [phone, setPhone] = useState('')
   const [aadhaarNumber, setAadhaarNumber] = useState('')
@@ -25,7 +27,6 @@ export function ForgotPasswordPage() {
   const [verifying, setVerifying] = useState(false)
   const [saving, setSaving] = useState(false)
   const [photoLoadFailed, setPhotoLoadFailed] = useState(false)
-  const loginHref = `${import.meta.env.BASE_URL}login`
 
   const roleLabel = useMemo(() => {
     if (role === 'coach') return 'Coach'
@@ -90,7 +91,7 @@ export function ForgotPasswordPage() {
         }),
       })
       setSuccess('Password updated successfully. You can now log in.')
-      setTimeout(() => window.location.assign(loginHref), 900)
+      setTimeout(() => navigate('/login'), 900)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Password reset failed.')
     } finally {
@@ -219,7 +220,7 @@ export function ForgotPasswordPage() {
         {success && <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{success}</div>}
 
         <div className="mt-5 text-center">
-          <a href={loginHref} className="text-sm font-medium text-[#5a0a8f] hover:underline">Back to Login</a>
+          <Link to="/login" className="text-sm font-medium text-[#5a0a8f] hover:underline">Back to Login</Link>
         </div>
       </div>
     </main>

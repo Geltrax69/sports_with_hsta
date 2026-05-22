@@ -9,9 +9,6 @@ export function AboutPage() {
   const withBase = (url: string) => (url.startsWith('/') ? `${import.meta.env.BASE_URL}${url.slice(1)}` : url)
   
   const getPlaceholder = () => `${import.meta.env.BASE_URL}assets/images/placeholder.svg`
-  const officials = [...(websiteContent.aboutPage.officials || [])].sort(
-    (a, b) => (a.order ?? 0) - (b.order ?? 0),
-  )
 
   useEffect(() => {
     // Trigger entry animations on mount
@@ -234,71 +231,7 @@ export function AboutPage() {
         </div>
       </div>
 
-      <section className="py-16 md:py-24 bg-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-4">
-            <div>
-              <h2 className="text-sm font-bold uppercase tracking-wider text-gray-600">LEADERSHIP</h2>
-              <h3 className="mt-2 text-3xl font-black text-gray-900 sm:text-4xl">Officials Directory</h3>
-              <p className="mt-2 text-gray-600 max-w-2xl">
-                Meet the dedicated officials guiding the federation across the country.
-              </p>
-            </div>
-            <div className="text-sm text-gray-500"></div>
-          </div>
-          {officials.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-gray-600">
-              Officials will appear here once added by the admin.
-            </div>
-          ) : (
-            <div className="grid justify-center grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {officials.map((official) => (
-                <div
-                  key={official.id}
-                  className="group relative flex w-full max-w-xs flex-col overflow-hidden rounded-xl shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl"
-                >
-                  <div className="aspect-[4/5] w-full overflow-hidden bg-[#f5f3f0]">
-                    <img
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      src={official.photoUrl ? withBase(official.photoUrl) : getPlaceholder()}
-                      alt={official.name}
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement
-                        target.src = getPlaceholder()
-                      }}
-                    />
-                  </div>
-                  <div className="flex flex-1 flex-col p-5 bg-[#2c3e50]">
-                    <h4 className="text-lg font-bold text-white mb-1">{official.name}</h4>
-                    <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
-                      <span className="material-symbols-outlined text-base">badge</span>
-                      {official.role || official.region || 'National'}
-                    </div>
-                    <p className="text-sm font-semibold text-white uppercase tracking-wide mb-2">
-                      {official.title || 'Official'}
-                    </p>
-                    <div className="mt-auto space-y-2 pt-3 border-t border-white/20 text-white/80 text-sm">
-                      {official.email && (
-                        <a className="hover:text-white transition-colors flex items-center gap-2" href={`mailto:${official.email}`}>
-                          <span className="material-symbols-outlined text-lg">mail</span>
-                          <span className="break-all">{official.email}</span>
-                        </a>
-                      )}
-                      {official.phone && (
-                        <a className="hover:text-white transition-colors flex items-center gap-2" href={`tel:${official.phone}`}>
-                          <span className="material-symbols-outlined text-lg">call</span>
-                          <span>{official.phone}</span>
-                        </a>
-                      )}
-                      {!official.email && !official.phone && <span>No contact provided</span>}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
+
     </main>
   )
 }

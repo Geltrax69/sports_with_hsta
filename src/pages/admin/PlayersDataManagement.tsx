@@ -3,20 +3,20 @@ import { Link } from 'react-router-dom'
 import { apiRequest } from '../../lib/api'
 import { DatePickerField } from '../../components/DatePickerField'
 import {
-  createDirectoryPlayer,
-  deleteDirectoryPlayer,
-  emptyDirectoryPlayerForm,
-  fetchDirectoryPlayers,
-  formFromPlayer,
-  updateDirectoryPlayer,
-} from '../../lib/directoryPlayers'
-import type { DirectoryPlayer, DirectoryPlayerForm, DirectoryPlayerTournament, PlayerType } from '../../types/directoryPlayer'
+  createPlayer,
+  deletePlayer,
+  emptyPlayerForm,
+  fetchPlayers,
+  playerToForm,
+  updatePlayer,
+} from '../../lib/playersApi'
+import type { Player, PlayerForm, PlayerTournament, PlayerType } from '../../types/player'
 
 export function PlayersDataManagement() {
-  const [players, setPlayers] = useState<DirectoryPlayer[]>([])
+  const [players, setPlayers] = useState<Player[]>([])
   const [loading, setLoading] = useState(true)
   const [filterType, setFilterType] = useState<PlayerType | 'all'>('all')
-  const [form, setForm] = useState<DirectoryPlayerForm>(emptyDirectoryPlayerForm())
+  const [form, setForm] = useState<PlayerForm>(emptyPlayerForm())
   const [editingId, setEditingId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -28,7 +28,7 @@ export function PlayersDataManagement() {
   const loadPlayers = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await fetchDirectoryPlayers(undefined, false)
+      const data = await fetchPlayers(undefined, false)
       setPlayers(data)
     } catch {
       setMessage('Failed to load players. Check that the backend is running.')
@@ -45,7 +45,7 @@ export function PlayersDataManagement() {
     ? players
     : players.filter((p) => p.playerType === filterType)
 
-  const handleChange = (field: keyof DirectoryPlayerForm) => (
+  const handleChange = (field: keyof PlayerForm) => (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => {
     const value = e.target.type === 'number' ? Number(e.target.value) : e.target.value
@@ -87,7 +87,7 @@ export function PlayersDataManagement() {
   }
 
   const addTournament = () => {
-    const entry: DirectoryPlayerTournament = {
+    const entry: PlayerTournament = {
       eventName: '',
       year: new Date().getFullYear(),
       category: '',
@@ -97,7 +97,7 @@ export function PlayersDataManagement() {
     setForm({ ...form, tournaments: [...(form.tournaments || []), entry] })
   }
 
-  const updateTournament = (index: number, field: keyof DirectoryPlayerTournament, value: string | number) => {
+  const updateTournament = (index: number, field: keyof PlayerTournament, value: string | number) => {
     const tournaments = [...(form.tournaments || [])]
     tournaments[index] = { ...tournaments[index], [field]: value }
     setForm({ ...form, tournaments })
@@ -108,7 +108,7 @@ export function PlayersDataManagement() {
   }
 
   const resetForm = () => {
-    setForm(emptyDirectoryPlayerForm())
+    setForm(emptyPlayerForm())
     setEditingId(null)
     setImagePreview(null)
     setUploadError(null)
@@ -121,10 +121,10 @@ export function PlayersDataManagement() {
     setMessage('')
     try {
       if (editingId) {
-        await updateDirectoryPlayer(editingId, form)
+        await updatePlayer(editingId, form)
         setMessage('Player updated successfully.')
       } else {
-        await createDirectoryPlayer(form)
+        await createPlayer(form)
         setMessage('Player added successfully.')
       }
       resetForm()
@@ -136,8 +136,8 @@ export function PlayersDataManagement() {
     }
   }
 
-  const startEdit = (player: DirectoryPlayer) => {
-    setForm(formFromPlayer(player))
+  const startEdit = (player: Player) => {
+    setForm(playerToForm(player))
     setEditingId(player._id || player.id)
     setImagePreview(player.image || null)
     setUploadError(null)
@@ -147,7 +147,7 @@ export function PlayersDataManagement() {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Delete this player profile?')) return
     try {
-      await deleteDirectoryPlayer(id)
+      await deletePlayer(id)
       if (editingId === id) resetForm()
       await loadPlayers()
       setMessage('Player deleted.')

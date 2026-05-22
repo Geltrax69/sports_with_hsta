@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { useSiteContent } from '../content/SiteContentContext'
 import { useWebsiteContent } from '../context/WebsiteContentContext'
 import { resolveImageUrl } from '../lib/images'
@@ -11,6 +12,7 @@ export function NewsPage() {
   const galleryRef = useRef<HTMLDivElement | null>(null)
   const [loadedGalleryImages, setLoadedGalleryImages] = useState<Record<string, boolean>>({})
   const [resolvedGalleryUrls, setResolvedGalleryUrls] = useState<Record<string, string>>({})
+  // newsItems is memoized below
   const newsItems = useMemo(() => {
     const items = [...content.news]
     items.sort((a, b) => {
@@ -28,7 +30,6 @@ export function NewsPage() {
 
   const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({})
   const [resolvedImages, setResolvedImages] = useState<Record<string, string>>({})
-  const publicHref = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`
 
   // Gallery items
   const galleryItems = useMemo(() => {
@@ -44,32 +45,38 @@ export function NewsPage() {
     return []
   }, [websiteContent.homepage.galleryImages])
 
-  // Resolve all news image URLs (for S3 images that need signed URLs)
+  // Resolve all news image URLs — bail out early if unmounted mid-loop
   useEffect(() => {
+    let cancelled = false
     const resolveUrls = async () => {
       const resolved: Record<string, string> = {}
       for (const newsItem of newsItems) {
+        if (cancelled) break
         if (newsItem?.imageUrl) {
           const url = await resolveImageUrl(newsItem.imageUrl, false)
-          resolved[newsItem.id] = url
+          if (!cancelled) resolved[newsItem.id] = url
         }
       }
-      setResolvedImages(resolved)
+      if (!cancelled) setResolvedImages(resolved)
     }
     void resolveUrls()
+    return () => { cancelled = true }
   }, [newsItems])
 
   // Resolve gallery image URLs
   useEffect(() => {
+    let cancelled = false
     const resolveUrls = async () => {
       const resolved: Record<string, string> = {}
       for (const item of galleryItems) {
+        if (cancelled) break
         const url = await resolveImageUrl(item.imageUrl, false)
-        resolved[item.imageUrl] = url
+        if (!cancelled) resolved[item.imageUrl] = url
       }
-      setResolvedGalleryUrls(resolved)
+      if (!cancelled) setResolvedGalleryUrls(resolved)
     }
     void resolveUrls()
+    return () => { cancelled = true }
   }, [galleryItems])
 
   const scrollGallery = useCallback((direction: 'next' | 'prev') => {
@@ -112,6 +119,7 @@ export function NewsPage() {
                     <img
                       src={resolvedImages[item.id] || item.imageUrl}
                       alt={item.title}
+                      loading="lazy"
                       className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 group-hover:scale-110 ${loadedImages[item.id] ? 'blur-0 opacity-100' : 'blur-md opacity-70'
                         }`}
                       onLoad={() => setLoadedImages(prev => ({ ...prev, [item.id]: true }))}
@@ -136,12 +144,12 @@ export function NewsPage() {
                     {item.excerpt && (
                       <p className="mb-6 flex-1 text-sm leading-relaxed text-gray-600">{item.excerpt}</p>
                     )}
-                    <a
-                      href={publicHref(`/news/${item.id}`)}
+                    <Link
+                      to={`/news/${item.id}`}
                       className="inline-flex items-center text-sm font-bold text-[#5a0a8f] hover:text-[#400466] transition-colors"
                     >
                       Read Article →
-                    </a>
+                    </Link>
                   </div>
                 </article>
               ))}
@@ -160,14 +168,12 @@ export function NewsPage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <a
-                href="/media"
-                target="_blank"
-                rel="noopener noreferrer"
+              <Link
+                to="/media"
                 className="px-5 py-2 rounded-lg border-2 border-[#5a0a8f] text-[#5a0a8f] font-bold hover:bg-purple-50 transition-colors"
               >
                 View All
-              </a>
+              </Link>
               <button
                 type="button"
                 aria-label="Scroll gallery left"

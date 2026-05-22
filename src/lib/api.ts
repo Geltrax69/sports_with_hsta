@@ -52,16 +52,41 @@ export const setAuthToken = (token: string | null) => {
   console.log('[setAuthToken] Token saved to localStorage')
 }
 
-const API_TIMEOUT_MS = 45000
-const API_MAX_RETRIES = 2
+// Reduced from 45 s → 10 s so a cold-start backend fails fast instead of freezing the browser.
+const API_TIMEOUT_MS = 10000
+// Reduced from 2 → 1 so a single bad request costs at most 20 s, not 135 s.
+const API_MAX_RETRIES = 1
 
-async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = API_TIMEOUT_MS): Promise<Response> {
+/**
+ * Wraps `fetch` with a per-request timeout AND honours an optional external AbortSignal.
+ * When the caller's signal fires (e.g. component unmount), the HTTP request is actually
+ * cancelled — not just ignored — so it cannot pile up in the browser connection pool.
+ */
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs = API_TIMEOUT_MS,
+  externalSignal?: AbortSignal,
+): Promise<Response> {
   const controller = new AbortController()
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
+
+  // Forward external abort to our internal controller so fetch() truly stops
+  const onExternalAbort = () => controller.abort()
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      window.clearTimeout(timeoutId)
+      controller.abort()
+    } else {
+      externalSignal.addEventListener('abort', onExternalAbort, { once: true })
+    }
+  }
+
   try {
     return await fetch(url, { ...options, signal: controller.signal })
   } finally {
     window.clearTimeout(timeoutId)
+    externalSignal?.removeEventListener('abort', onExternalAbort)
   }
 }
 
@@ -71,6 +96,9 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`
   const maxAttempts = (options.retries ?? API_MAX_RETRIES) + 1
+
+  // `signal` is part of RequestInit — callers can pass it to cancel the request on unmount.
+  const externalSignal = options.signal ?? undefined
 
   const headers = new Headers(options.headers || undefined)
 
@@ -90,8 +118,12 @@ export async function apiRequest<T>(
   let lastError: Error | null = null
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    // Bail out immediately if the caller has already cancelled
+    if (externalSignal?.aborted) {
+      throw new Error('Request was cancelled.')
+    }
     try {
-      const res = await fetchWithTimeout(url, { ...options, headers })
+      const res = await fetchWithTimeout(url, { ...options, headers }, API_TIMEOUT_MS, externalSignal)
 
       const text = await res.text()
       let data: unknown = null
@@ -113,6 +145,10 @@ export async function apiRequest<T>(
       return data as T
     } catch (err) {
       lastError = err instanceof Error ? err : new Error('Request failed')
+      // If cancelled by caller, stop immediately — do not retry
+      if (externalSignal?.aborted) {
+        throw new Error('Request was cancelled.')
+      }
       const isAbort = lastError.name === 'AbortError'
       const isNetwork = lastError.message.includes('Failed to fetch') || lastError.message.includes('NetworkError')
       if (attempt < maxAttempts - 1 && (isAbort || isNetwork)) {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useWebsiteContent } from '../context/WebsiteContentContext'
 import { useSiteContent } from '../content/SiteContentContext'
 import { useAuth } from '../context/AuthContext'
@@ -63,8 +64,6 @@ export function EventsPage() {
     }>
   >([])
   const [loadingTournaments, setLoadingTournaments] = useState(true)
-  const publicHref = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`
-
   const upcomingTournaments = useMemo(() => {
     if (tournaments.length > 0) {
       return tournaments.filter((t) => isTournamentUpcoming(t))
@@ -116,26 +115,20 @@ export function EventsPage() {
   }, [upcomingTournaments, websiteContent.eventsPage.featuredEventIds, siteContent.tournaments])
 
   useEffect(() => {
-    let cancelled = false
-
-    const run = async () => {
-      setLoadingTournaments(true)
-      try {
-        const r = await apiRequest<{ tournaments: any[] }>('/tournaments')
-        if (cancelled) return
-        setTournaments(Array.isArray(r.tournaments) ? r.tournaments : [])
-      } catch {
-        if (cancelled) return
-        setTournaments([])
-      } finally {
-        if (!cancelled) setLoadingTournaments(false)
-      }
-    }
-
-    void run()
-    return () => {
-      cancelled = true
-    }
+    const controller = new AbortController()
+    setLoadingTournaments(true)
+    apiRequest<{ tournaments: any[] }>('/tournaments', { signal: controller.signal })
+      .then((r) => {
+        if (!controller.signal.aborted)
+          setTournaments(Array.isArray(r.tournaments) ? r.tournaments : [])
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setTournaments([])
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingTournaments(false)
+      })
+    return () => { controller.abort() }
   }, [])
 
   const formatDateRange = (start?: string, end?: string, month?: string, day?: string) => {
@@ -202,9 +195,9 @@ export function EventsPage() {
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
               <div className="flex items-center gap-2 text-sm text-white/80 mb-4">
-                <a className="hover:text-white transition-colors" href={import.meta.env.BASE_URL}>
+                <Link className="hover:text-white transition-colors" to="/">
                   Home
-                </a>
+                </Link>
                 <span className="material-symbols-outlined text-xs">chevron_right</span>
                 <span className="text-white font-medium">Events</span>
               </div>
@@ -349,29 +342,29 @@ export function EventsPage() {
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
                               <p className="text-xs text-blue-800 font-semibold mb-2">Login to apply</p>
                             </div>
-                            <a
-                              href={publicHref('/login')}
+                            <Link
+                              to="/login"
                               className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2"
                             >
                               <span className="material-symbols-outlined text-sm">login</span>
                               Login to Apply
-                            </a>
-                            <a
-                              href={publicHref('/register')}
+                            </Link>
+                            <Link
+                              to="/register"
                               className="w-full py-2.5 bg-white border-2 border-[#5a0a8f] hover:bg-purple-50 text-[#5a0a8f] rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2"
                             >
                               <span className="material-symbols-outlined text-sm">person_add</span>
                               Create Account
-                            </a>
+                            </Link>
                           </div>
                         ) : (
-                          <a
-                            href={publicHref(`/tournaments/${tournament._id}/apply`)}
+                          <Link
+                            to={`/tournaments/${tournament._id}/apply`}
                             className="w-full mt-auto py-2.5 bg-[#5a0a8f] hover:bg-[#400466] text-white rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2"
                           >
                             Apply for Tournament
                             <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                          </a>
+                          </Link>
                         )
                       ) : (
                         <button

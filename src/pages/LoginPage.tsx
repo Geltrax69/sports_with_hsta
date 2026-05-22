@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export function LoginPage() {
@@ -12,8 +12,6 @@ export function LoginPage() {
   const [selectedRole, setSelectedRole] = useState<string>('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const publicHref = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -171,12 +169,12 @@ export function LoginPage() {
                 />
                 <span className="text-sm text-gray-700">Remember me</span>
               </label>
-              <a
-                href={publicHref('/forgot-password')}
+              <Link
+                to="/forgot-password"
                 className="text-sm text-[#5a0a8f] hover:underline font-medium"
               >
                 Forgot Password?
-              </a>
+              </Link>
             </div>
 
             {/* Access for Authorized Personnel */}
@@ -227,9 +225,9 @@ export function LoginPage() {
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-600">
               Don't have an account?{' '}
-              <a href={publicHref('/contact')} className="text-[#5a0a8f] hover:underline font-semibold">
+              <Link to="/contact" className="text-[#5a0a8f] hover:underline font-semibold">
                 Contact Federation Official
-              </a>
+              </Link>
             </p>
           </div>
         </div>

@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState, useEffect } from 'react'
+import { useCallback, useRef, useState, useEffect, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { resolveImageUrl } from '../lib/images'
 
 type FeaturedGalleryItem = {
@@ -55,25 +56,29 @@ export function FeaturedGallery({
   maxPreview = 9,
   showSerial = false,
 }: FeaturedGalleryProps) {
-  const previewItems = items.slice(0, maxPreview)
+  // Stable slice — new array every render would re-trigger the effect on every render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const previewItems = useMemo(() => items.slice(0, maxPreview), [items, maxPreview])
   const galleryRef = useRef<HTMLDivElement | null>(null)
   const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({})
   const [resolvedUrls, setResolvedUrls] = useState<Record<string, string>>({})
-  const publicHref = (path: string) =>
-    path.startsWith('/') ? `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}` : path
 
-  // Resolve image URLs on mount and when items change
+  // Resolve image URLs on mount and when items change.
+  // `cancelled` flag stops the async loop if the component unmounts mid-loop.
   useEffect(() => {
-    const resolveUrls = async () => {
+    let cancelled = false
+    const resolve = async () => {
       const resolved: Record<string, string> = {}
       for (const item of previewItems) {
+        if (cancelled) break
         // Pass false for requireAuth since this is public homepage
         const url = await resolveImageUrl(item.imageUrl, false)
-        resolved[item.imageUrl] = url
+        if (!cancelled) resolved[item.imageUrl] = url
       }
-      setResolvedUrls(resolved)
+      if (!cancelled) setResolvedUrls(resolved)
     }
-    void resolveUrls()
+    void resolve()
+    return () => { cancelled = true }
   }, [previewItems])
 
   const handleImageLoad = useCallback((imageUrl: string) => {
@@ -201,12 +206,12 @@ export function FeaturedGallery({
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {viewAllHref && (
-              <a
-                href={publicHref(viewAllHref)}
+              <Link
+                to={viewAllHref}
                 className="px-5 py-2.5 rounded-lg border-2 border-[#5a0a8f] text-[#5a0a8f] font-bold hover:bg-purple-50 transition-colors bg-white"
               >
                 View All
-              </a>
+              </Link>
             )}
             {galleryControls}
           </div>

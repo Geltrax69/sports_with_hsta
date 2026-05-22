@@ -300,14 +300,24 @@ const DEFAULT_WEBSITE_CONTENT: WebsiteContent = {
   },
 }
 
-async function fetchWebsiteContent(): Promise<WebsiteContent> {
+async function fetchWebsiteContent(externalSignal?: AbortSignal): Promise<WebsiteContent> {
   let lastError: Error | null = null
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    // Stop immediately if the caller has cancelled (e.g. component unmounted)
+    if (externalSignal?.aborted) throw new Error('Request was cancelled.')
     try {
       const controller = new AbortController()
-      const timeoutId = window.setTimeout(() => controller.abort(), 45000)
-      const response = await fetch(`${API_BASE_URL}/website-content`, { signal: controller.signal })
-      window.clearTimeout(timeoutId)
+      // Reduced from 45 s → 10 s to match the rest of the API layer
+      const timeoutId = window.setTimeout(() => controller.abort(), 10000)
+      const onExternalAbort = () => controller.abort()
+      externalSignal?.addEventListener('abort', onExternalAbort, { once: true })
+      let response: Response
+      try {
+        response = await fetch(`${API_BASE_URL}/website-content`, { signal: controller.signal })
+      } finally {
+        window.clearTimeout(timeoutId)
+        externalSignal?.removeEventListener('abort', onExternalAbort)
+      }
       if (!response.ok) {
         throw new Error('Failed to fetch website content')
       }
@@ -359,9 +369,10 @@ async function fetchWebsiteContent(): Promise<WebsiteContent> {
       },
     }
     } catch (error) {
+      if (externalSignal?.aborted) throw new Error('Request was cancelled.')
       lastError = error instanceof Error ? error : new Error('Failed to fetch website content')
-      if (attempt < 2) {
-        await new Promise((r) => window.setTimeout(r, 800 * (attempt + 1)))
+      if (attempt < 1) {
+        await new Promise((r) => window.setTimeout(r, 1000))
       }
     }
   }
@@ -409,7 +420,24 @@ export function WebsiteContentProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    void refreshContent()
+    const controller = new AbortController()
+    const load = async () => {
+      setContentLoading(true)
+      setContentError(null)
+      try {
+        const data = await fetchWebsiteContent(controller.signal)
+        if (!controller.signal.aborted) setContent(data)
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setContentError(error instanceof Error ? error.message : 'Failed to load website content')
+          setContent(DEFAULT_WEBSITE_CONTENT)
+        }
+      } finally {
+        if (!controller.signal.aborted) setContentLoading(false)
+      }
+    }
+    void load()
+    return () => { controller.abort() }
   }, [])
 
   const updateHomepage = async (updates: Partial<HomepageSettings>) => {

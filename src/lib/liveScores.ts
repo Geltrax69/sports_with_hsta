@@ -22,7 +22,7 @@ export type LiveMatch = {
   updatedAt?: string
 }
 
-export async function fetchLiveMatches(): Promise<LiveMatch[]> {
-  const res = await apiRequest<{ matches: LiveMatch[] }>('/tournaments/live-matches')
+export async function fetchLiveMatches(signal?: AbortSignal): Promise<LiveMatch[]> {
+  const res = await apiRequest<{ matches: LiveMatch[] }>('/tournaments/live-matches', { signal })
   return Array.isArray(res.matches) ? res.matches : []
 }

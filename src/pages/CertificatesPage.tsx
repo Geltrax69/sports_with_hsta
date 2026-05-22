@@ -10,17 +10,12 @@ export function CertificatesPage() {
     const [searched, setSearched] = useState(false)
 
     useEffect(() => {
-        fetchTournaments()
+        const controller = new AbortController()
+        apiRequest<{ tournaments: any[] }>('/tournaments', { signal: controller.signal })
+            .then((r) => { if (!controller.signal.aborted) setTournaments(r.tournaments || []) })
+            .catch(() => { /* silently ignore — tournaments list is optional */ })
+        return () => { controller.abort() }
     }, [])
-
-    const fetchTournaments = async () => {
-        try {
-            const response = await apiRequest<{ tournaments: any[] }>('/tournaments')
-            setTournaments(response.tournaments || [])
-        } catch (error) {
-            console.error('Error fetching tournaments:', error)
-        }
-    }
 
     const handleSearch = async (e?: React.FormEvent) => {
         if (e) e.preventDefault()

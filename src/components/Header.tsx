@@ -241,10 +241,17 @@ export function Header() {
           </div>
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile Menu — always in DOM so tapping the hamburger only toggles a CSS
+            class (no React re-render / DOM mount required). Invisible when closed. */}
         <div
           id="mobile-menu"
-          className={`${mobileOpen ? '' : 'hidden '}lg:hidden bg-white border-b border-gray-100 absolute w-full left-0 top-full shadow-lg animate-fade-in-down`}
+          aria-hidden={!mobileOpen}
+          className={`lg:hidden bg-white border-b border-gray-100 absolute w-full left-0 top-full shadow-lg
+            transition-all duration-200 origin-top
+            ${mobileOpen
+              ? 'visible opacity-100 translate-y-0 pointer-events-auto'
+              : 'invisible opacity-0 -translate-y-1 pointer-events-none'
+            }`}
         >
           <div className="px-4 py-6 space-y-4">
             <div className="space-y-1">

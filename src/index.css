@@ -56,6 +56,18 @@ html:not(.ms-icons-ready) .material-symbols-outlined {
   overflow: hidden;
 }
 
+/* Additionally hide the literal icon text (fallback glyph names) until
+   the Material Symbols font has loaded. When `html.ms-icons-ready` is set
+   the icons will become visible with their intended color. */
+.material-symbols-outlined {
+  color: transparent;
+}
+
+html.ms-icons-ready .material-symbols-outlined {
+  color: inherit;
+  visibility: visible;
+}
+
 .material-symbols-outlined.filled {
   font-variation-settings: "FILL" 1;
 }

@@ -12,7 +12,7 @@ export default function App() {
 
   return (
     <AppProviders>
-      <RouterProvider router={appRouter} unstable_useTransitions={false} />
+      <RouterProvider router={appRouter} unstable_useTransitions />
     </AppProviders>
   )
 }

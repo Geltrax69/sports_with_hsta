@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useSiteContent } from '../content/SiteContentContext'
 import { useWebsiteContent } from '../context/WebsiteContentContext'
 import { FeaturedGallery } from '../components/FeaturedGallery'
@@ -18,34 +19,37 @@ export function HomePage() {
   const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({})
   const [resolvedNewsImages, setResolvedNewsImages] = useState<Record<string, string>>({})
 
-  // Fetch tournaments from API
+  // Fetch tournaments — AbortController cancels the request if user navigates away
   useEffect(() => {
-    const run = async () => {
-      try {
-        console.log('[HomePage] Fetching tournaments from API...')
-        const r = await apiRequest<{ tournaments: any[] }>('/tournaments')
-        console.log('[HomePage] API Response received:', r)
-        setApiTournaments(Array.isArray(r.tournaments) ? r.tournaments : [])
-      } catch (e) {
-        console.error('[HomePage] Error fetching tournaments:', e)
-        setApiTournaments([])
-      }
-    }
-    void run()
+    const controller = new AbortController()
+    apiRequest<{ tournaments: any[] }>('/tournaments', { signal: controller.signal })
+      .then((r) => {
+        if (!controller.signal.aborted)
+          setApiTournaments(Array.isArray(r.tournaments) ? r.tournaments : [])
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setApiTournaments([])
+      })
+    return () => { controller.abort() }
   }, [])
 
+  // Live scores polling — same controller used for every poll cycle
   useEffect(() => {
+    const controller = new AbortController()
     const loadLive = async () => {
       try {
-        const data = await fetchLiveMatches()
-        setLiveMatches(data)
+        const data = await fetchLiveMatches(controller.signal)
+        if (!controller.signal.aborted) setLiveMatches(data)
       } catch {
-        setLiveMatches([])
+        if (!controller.signal.aborted) setLiveMatches([])
       }
     }
     void loadLive()
-    const id = window.setInterval(() => void loadLive(), 15000)
-    return () => window.clearInterval(id)
+    const id = window.setInterval(() => void loadLive(), 30000)
+    return () => {
+      controller.abort()
+      window.clearInterval(id)
+    }
   }, [])
 
   // Get featured news from website content settings, or fallback to featured/pinned news
@@ -64,21 +68,36 @@ export function HomePage() {
 
   const featured = featuredNews[0]
   const cards = featuredNews.slice(1, 3)
-  const publicHref = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`
 
-  // Resolve news image URLs (for S3 images that need signed URLs)
+  // Memoize gallery items so the sort is NOT re-run on every render
+  const galleryItems = useMemo(() => {
+    if (websiteContent.homepage.galleryImages.length === 0) return undefined
+    return websiteContent.homepage.galleryImages
+      .slice()
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .map((img) => ({
+        title: img.title || 'Gallery Image',
+        alt: img.description || img.title || 'Gallery image',
+        imageUrl: img.imageUrl,
+      }))
+  }, [websiteContent.homepage.galleryImages])
+
+  // Resolve news image URLs — bail out early if the component unmounts mid-loop
   useEffect(() => {
+    let cancelled = false
     const resolveUrls = async () => {
       const resolved: Record<string, string> = {}
       for (const newsItem of featuredNews) {
+        if (cancelled) break
         if (newsItem?.imageUrl) {
           const url = await resolveImageUrl(newsItem.imageUrl, false)
-          resolved[newsItem.id] = url
+          if (!cancelled) resolved[newsItem.id] = url
         }
       }
-      setResolvedNewsImages(resolved)
+      if (!cancelled) setResolvedNewsImages(resolved)
     }
     void resolveUrls()
+    return () => { cancelled = true }
   }, [featuredNews])
 
   // Get featured tournaments from API, fallback to website content settings
@@ -167,12 +186,12 @@ export function HomePage() {
               <span className="w-1 h-12 bg-[#5a0a8f]"></span>
               LATEST NEWS
             </h2>
-            <a
+            <Link
               className="text-[#5a0a8f] hover:text-[#5a0a8f]/80 text-sm font-bold flex items-center gap-1"
-              href={publicHref('/news')}
+              to="/news"
             >
               View All News →
-            </a>
+            </Link>
           </div>
 
           <div className="flex flex-col gap-6">
@@ -264,14 +283,12 @@ export function HomePage() {
             </div>
             {liveMatches.length > 0 && (
               <div className="px-4 pb-4">
-                <a
-                  href={publicHref('/live-scores')}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  to="/live-scores"
                   className="block w-full text-center py-2.5 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors"
                 >
                   {liveMatches.length > 2 ? `View all ${liveMatches.length} live matches` : 'View live scores'}
-                </a>
+                </Link>
               </div>
             )}
           </div>
@@ -335,17 +352,7 @@ export function HomePage() {
       <FeaturedGallery
         viewAllHref="/media"
         maxPreview={9}
-        items={
-          websiteContent.homepage.galleryImages.length > 0
-            ? websiteContent.homepage.galleryImages
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                .map((img) => ({
-                  title: img.title || 'Gallery Image',
-                  alt: img.description || img.title || 'Gallery image',
-                  imageUrl: img.imageUrl,
-                }))
-            : undefined
-        }
+        items={galleryItems}
       />
       </main>
     </Skeleton>
