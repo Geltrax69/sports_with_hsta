@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useWebsiteContent } from '../context/WebsiteContentContext'
 import { useSiteContent } from '../content/SiteContentContext'
 import { useAuth } from '../context/AuthContext'
@@ -64,6 +63,7 @@ export function EventsPage() {
     }>
   >([])
   const [loadingTournaments, setLoadingTournaments] = useState(true)
+  const publicHref = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`
 
   const upcomingTournaments = useMemo(() => {
     if (tournaments.length > 0) {
@@ -349,29 +349,29 @@ export function EventsPage() {
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
                               <p className="text-xs text-blue-800 font-semibold mb-2">Login to apply</p>
                             </div>
-                            <Link
-                              to="/login"
+                            <a
+                              href={publicHref('/login')}
                               className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2"
                             >
                               <span className="material-symbols-outlined text-sm">login</span>
                               Login to Apply
-                            </Link>
-                            <Link
-                              to="/register"
+                            </a>
+                            <a
+                              href={publicHref('/register')}
                               className="w-full py-2.5 bg-white border-2 border-[#5a0a8f] hover:bg-purple-50 text-[#5a0a8f] rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2"
                             >
                               <span className="material-symbols-outlined text-sm">person_add</span>
                               Create Account
-                            </Link>
+                            </a>
                           </div>
                         ) : (
-                          <Link
-                            to={`/tournaments/${tournament._id}/apply`}
+                          <a
+                            href={publicHref(`/tournaments/${tournament._id}/apply`)}
                             className="w-full mt-auto py-2.5 bg-[#5a0a8f] hover:bg-[#400466] text-white rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2"
                           >
                             Apply for Tournament
                             <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                          </Link>
+                          </a>
                         )
                       ) : (
                         <button

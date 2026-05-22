@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { LiveScoresCard } from '../components/LiveScoresCard'
 import { fetchLiveMatches, type LiveMatch } from '../lib/liveScores'
 
@@ -7,6 +6,7 @@ export function LiveScoresPage() {
   const [matches, setMatches] = useState<LiveMatch[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const homeHref = import.meta.env.BASE_URL
 
   const load = async () => {
     try {
@@ -60,9 +60,9 @@ export function LiveScoresPage() {
             <span className="material-symbols-outlined text-5xl text-gray-300 mb-3">sports</span>
             <p className="text-gray-600 font-semibold">No live matches right now</p>
             <p className="text-sm text-gray-500 mt-1">Check back when a match is in progress.</p>
-            <Link to="/" className="inline-block mt-4 text-[#5a0a8f] font-bold hover:underline">
+            <a href={homeHref} className="inline-block mt-4 text-[#5a0a8f] font-bold hover:underline">
               Back to home
-            </Link>
+            </a>
           </div>
         )}
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import type { Player } from '../data/playersData'
 import { fetchDirectoryPlayer, toDisplayPlayer } from '../lib/directoryPlayers'
 
@@ -42,9 +42,9 @@ export function PlayerDetailPage() {
       <main className="flex-grow w-full flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Player Not Found</h1>
-          <Link to="/players" className="text-[#5a0a8f] hover:underline">
+          <a href={`${import.meta.env.BASE_URL}players`} className="text-[#5a0a8f] hover:underline">
             Back to Players
-          </Link>
+          </a>
         </div>
       </main>
     )
@@ -63,13 +63,13 @@ export function PlayerDetailPage() {
         <div className="absolute inset-0 bg-gradient-to-r from-gray-900/90 to-gray-900/70 z-10"></div>
         <div className="relative z-20 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center gap-2 text-xs font-medium text-white/70 mb-6">
-            <Link to="/" className="hover:text-white transition-colors">
+            <a href={import.meta.env.BASE_URL} className="hover:text-white transition-colors">
               Home
-            </Link>
+            </a>
             <span className="opacity-50">›</span>
-            <Link to="/players" className="hover:text-white transition-colors">
+            <a href={`${import.meta.env.BASE_URL}players`} className="hover:text-white transition-colors">
               Players
-            </Link>
+            </a>
             <span className="opacity-50">›</span>
             <span className="text-white">{player.name}</span>
           </div>

@@ -63,7 +63,7 @@ export function CertificatesPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <main id="page-content" className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-7xl mx-auto space-y-8">
                 {/* Header */}
                 <div className="text-center">
@@ -204,6 +204,6 @@ export function CertificatesPage() {
                     </div>
                 )}
             </div>
-        </div>
+        </main>
     )
 }

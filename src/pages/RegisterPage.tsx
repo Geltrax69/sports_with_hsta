@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useDistricts } from '../context/DistrictsContext'
 import { apiRequest } from '../lib/api'
 import { DatePickerField } from '../components/DatePickerField'
@@ -8,6 +7,7 @@ export function RegisterPage() {
   // const navigate = useNavigate()
   const { districts } = useDistricts()
   const [registrationType, setRegistrationType] = useState<'player' | 'coach' | 'referee'>('player')
+  const loginHref = `${import.meta.env.BASE_URL}login`
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitResult, setSubmitResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
@@ -1197,9 +1197,9 @@ export function RegisterPage() {
         <div className="text-center mt-6">
           <p className="text-gray-600">
             Already registered?{' '}
-            <Link to="/login" className="text-[#5a0a8f] font-bold hover:underline">
+            <a href={loginHref} className="text-[#5a0a8f] font-bold hover:underline">
               Log in here
-            </Link>
+            </a>
           </p>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { fetchDirectoryPlayers, toDisplayPlayer } from '../lib/directoryPlayers'
 import { MaintenanceNotice } from '../components/MaintenanceNotice'
 import type { DirectoryPlayer, PlayerType } from '../types/directoryPlayer'
@@ -111,9 +111,9 @@ export function PlayersPage() {
         <div className="absolute inset-0 bg-gradient-to-t from-gray-900/90 to-transparent z-10"></div>
         <div className="relative z-20 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14 sm:py-16">
           <div className="flex items-center gap-2 text-xs font-medium text-white/70 mb-3">
-            <Link to="/" className="hover:text-white transition-colors">
+            <a href={import.meta.env.BASE_URL} className="hover:text-white transition-colors">
               Home
-            </Link>
+            </a>
             <span className="opacity-50">›</span>
             <span className="opacity-80">Federation</span>
             <span className="opacity-50">›</span>
@@ -214,9 +214,9 @@ export function PlayersPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
           {paginatedData.length > 0 ? (
             paginatedData.map((player) => (
-              <Link
+              <a
                 key={player.id}
-                to={`/players/${encodeURIComponent(player.id)}`}
+                href={`${import.meta.env.BASE_URL}players/${encodeURIComponent(player.id)}`}
                 className="group block overflow-hidden rounded-xl bg-white border border-gray-200 shadow-sm hover:shadow-lg hover:border-[#5a0a8f]/30 transition-all"
               >
                 <div className="relative h-48 bg-gray-100 flex items-center justify-center p-4">
@@ -269,7 +269,7 @@ export function PlayersPage() {
                     </span>
                   </div>
                 </div>
-              </Link>
+              </a>
             ))
           ) : (
             <div className="col-span-full">

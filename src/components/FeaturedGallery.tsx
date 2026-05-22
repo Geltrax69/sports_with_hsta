@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
 import { resolveImageUrl } from '../lib/images'
 
 type FeaturedGalleryItem = {
@@ -60,6 +59,8 @@ export function FeaturedGallery({
   const galleryRef = useRef<HTMLDivElement | null>(null)
   const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({})
   const [resolvedUrls, setResolvedUrls] = useState<Record<string, string>>({})
+  const publicHref = (path: string) =>
+    path.startsWith('/') ? `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}` : path
 
   // Resolve image URLs on mount and when items change
   useEffect(() => {
@@ -200,12 +201,12 @@ export function FeaturedGallery({
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {viewAllHref && (
-              <Link
-                to={viewAllHref}
+              <a
+                href={publicHref(viewAllHref)}
                 className="px-5 py-2.5 rounded-lg border-2 border-[#5a0a8f] text-[#5a0a8f] font-bold hover:bg-purple-50 transition-colors bg-white"
               >
                 View All
-              </Link>
+              </a>
             )}
             {galleryControls}
           </div>

@@ -1,9 +1,15 @@
 import { useParams } from 'react-router-dom'
+import { CommitteePeopleSection } from '../components/CommitteePeopleSection'
 import { useWebsiteContent, type AboutPageSettings } from '../context/WebsiteContentContext'
 
 export function SubAboutPage({ title: propTitle }: { title?: string }) {
   const { slug } = useParams<{ slug: string }>()
   const { content } = useWebsiteContent()
+  const knownSlugTitles: Record<string, string> = {
+    accounts: 'Accounts and Expenditures',
+    'agm-meetings': 'AGM Meetings',
+    committees: 'Committees',
+  }
 
   const fieldMapping: Record<string, keyof AboutPageSettings> = {
     'Executive Board': 'executiveBoardText',
@@ -20,7 +26,7 @@ export function SubAboutPage({ title: propTitle }: { title?: string }) {
   
   const customPage = (!isAccounts && !isAgm && !isElectionReport && slug) ? content.aboutPage?.customPages?.find(p => p.slug === slug) : null;
   
-  let title = propTitle || customPage?.title || 'Unknown Page'
+  let title = propTitle || customPage?.title || (slug ? knownSlugTitles[slug] : undefined) || 'Unknown Page'
   if (isAccounts) title = 'Accounts and Expenditures'
   if (isAgm) title = 'AGM Meetings'
   if (isElectionReport) title = 'Election Report'
@@ -38,11 +44,11 @@ export function SubAboutPage({ title: propTitle }: { title?: string }) {
   return (
     <main id="page-content" className="w-full overflow-x-hidden relative">
       <section className="relative w-full overflow-hidden bg-[#5a0a8f] py-20 md:py-32">
-        <div className="relative mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
+        <div className="relative mx-auto max-w-7xl px-4 text-left sm:px-6 lg:px-8">
           <h1 className="mb-6 text-5xl font-black tracking-tight text-white sm:text-6xl md:text-7xl animate-entry">
             {title}
           </h1>
-          <p className="mx-auto max-w-2xl text-lg text-white md:text-xl animate-entry delay-100">
+          <p className="max-w-2xl text-lg text-white md:text-xl animate-entry delay-100">
             Information regarding {title}
           </p>
         </div>
@@ -130,56 +136,14 @@ export function SubAboutPage({ title: propTitle }: { title?: string }) {
                 </tbody>
               </table>
             </div>
-          ) : customPage && customPage.pageType === 'people' && customPage.peopleSections ? (
-            <div className="space-y-24">
+          ) : customPage?.peopleSections && customPage.peopleSections.length > 0 ? (
+            <div className="space-y-3">
               {customPage.peopleSections.map((section, si) => (
-                <div key={si} className="mb-16">
-                  {section.heading && (
-                    <div className="relative mb-20 flex justify-center w-full max-w-7xl mx-auto">
-                      <div className="bg-[#241b71] px-10 py-4 relative shadow-xl backdrop-blur-md">
-                        <h2 className="text-xl md:text-2xl font-black text-white uppercase tracking-widest text-center">
-                          {section.heading}
-                        </h2>
-                        {/* Red angled accent */}
-                        <div className="absolute right-[-20px] top-0 bottom-0 w-[40px] bg-[#f50057] transform skew-x-[-20deg] z-[-1] shadow-lg"></div>
-                        {/* Blue angled start */}
-                        <div className="absolute left-[-20px] top-0 bottom-0 w-[40px] bg-[#241b71] transform skew-x-[-20deg] z-[-1] shadow-lg"></div>
-                      </div>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-y-28 gap-x-8 max-w-6xl mx-auto px-4 mt-16">
-                    {section.people.map((person, pi) => (
-                      <div key={pi} className="flex flex-col items-center group pt-16">
-                        <div className="relative bg-white/70 backdrop-blur-md rounded-[2.5rem] p-6 pt-24 w-full shadow-[0_10px_40px_-10px_rgba(36,27,113,0.15)] border border-white hover:shadow-[0_20px_50px_-10px_rgba(36,27,113,0.25)] transition-all duration-500 hover:-translate-y-2 flex flex-col items-center">
-                          {/* Image Popping Out */}
-                          <div className="absolute -top-20 w-44 h-44 rounded-full border-[6px] border-white shadow-[0_20px_40px_rgba(36,27,113,0.2)] bg-white group-hover:scale-105 transition-transform duration-500 z-10">
-                            <div className="w-full h-full rounded-full overflow-hidden bg-gray-50 relative">
-                              {person.imageUrl ? (
-                                <img 
-                                  src={person.imageUrl} 
-                                  alt={person.name} 
-                                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    const fallback = e.currentTarget.nextElementSibling;
-                                    if (fallback) fallback.classList.remove('hidden');
-                                  }}
-                                />
-                              ) : null}
-                              <div className={`w-full h-full flex items-center justify-center text-gray-300 bg-gray-50 ${person.imageUrl ? 'hidden' : ''}`}>
-                                <span className="material-symbols-outlined text-7xl">person</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <h3 className="text-xl font-black text-[#241b71] text-center px-2 tracking-tight">{person.name}</h3>
-                          <div className="w-10 h-[3px] rounded-full bg-gradient-to-r from-[#f50057] to-[#ff4081] my-4 group-hover:w-16 transition-all duration-300"></div>
-                          <p className="text-gray-500 font-semibold text-center text-[15px] px-4 leading-snug">{person.post}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <CommitteePeopleSection
+                  key={`${section.heading}-${si}`}
+                  heading={section.heading?.trim() || 'Members'}
+                  people={section.people ?? []}
+                />
               ))}
             </div>
           ) : pageContent && title !== 'RTI' ? (

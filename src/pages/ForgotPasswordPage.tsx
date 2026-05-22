@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
 import { apiRequest } from '../lib/api'
 
 type Role = 'coach' | 'player' | 'referee'
@@ -15,7 +14,6 @@ type VerifyResponse = {
 }
 
 export function ForgotPasswordPage() {
-  const navigate = useNavigate()
   const [role, setRole] = useState<Role>('coach')
   const [phone, setPhone] = useState('')
   const [aadhaarNumber, setAadhaarNumber] = useState('')
@@ -27,6 +25,7 @@ export function ForgotPasswordPage() {
   const [verifying, setVerifying] = useState(false)
   const [saving, setSaving] = useState(false)
   const [photoLoadFailed, setPhotoLoadFailed] = useState(false)
+  const loginHref = `${import.meta.env.BASE_URL}login`
 
   const roleLabel = useMemo(() => {
     if (role === 'coach') return 'Coach'
@@ -91,7 +90,7 @@ export function ForgotPasswordPage() {
         }),
       })
       setSuccess('Password updated successfully. You can now log in.')
-      setTimeout(() => navigate('/login'), 900)
+      setTimeout(() => window.location.assign(loginHref), 900)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Password reset failed.')
     } finally {
@@ -100,7 +99,7 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 py-10 px-4">
+    <main id="page-content" className="min-h-screen bg-gray-100 py-10 px-4">
       <div className="mx-auto w-full max-w-xl rounded-xl bg-white p-6 shadow-md">
         <h1 className="text-2xl font-black text-gray-900">Forgot Password</h1>
         <p className="mt-1 text-sm text-gray-600">Verify with phone number and Aadhaar number.</p>
@@ -220,9 +219,9 @@ export function ForgotPasswordPage() {
         {success && <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{success}</div>}
 
         <div className="mt-5 text-center">
-          <Link to="/login" className="text-sm font-medium text-[#5a0a8f] hover:underline">Back to Login</Link>
+          <a href={loginHref} className="text-sm font-medium text-[#5a0a8f] hover:underline">Back to Login</a>
         </div>
       </div>
-    </div>
+    </main>
   )
 }

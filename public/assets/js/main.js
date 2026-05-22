@@ -328,6 +328,11 @@ function injectFooter() {
 // UI Logic
 // UI Logic & SPA Router
 document.addEventListener('DOMContentLoaded', () => {
+    // React SPA mounts into #root — never replace injected header/footer (breaks react-router).
+    if (document.getElementById('root')?.childElementCount) {
+        return;
+    }
+
     // Initial Load Animation
     setTimeout(() => document.body.classList.add('loaded'), 50);
 
@@ -694,6 +699,10 @@ function initPlayersPage() {
 // UI Logic
 // UI Logic & SPA Router
 document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('root')?.childElementCount) {
+        return;
+    }
+
     // Initial Load Animation
     setTimeout(() => document.body.classList.add('loaded'), 50);
 

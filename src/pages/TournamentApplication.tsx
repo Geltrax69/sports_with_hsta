@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { apiRequest } from '../lib/api'
 
@@ -43,6 +43,7 @@ export function TournamentApplication() {
   const { tournamentId } = useParams<{ tournamentId: string }>()
   const navigate = useNavigate()
   const { user, isAuthenticated } = useAuth()
+  const publicHref = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`
 
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [myRegs, setMyRegs] = useState<MyTournamentRegistration[]>([])
@@ -156,7 +157,7 @@ export function TournamentApplication() {
     if (!tournamentId) return
 
     if (!user) {
-      navigate('/login')
+      window.location.assign(publicHref('/login'))
       return
     }
 
@@ -202,9 +203,9 @@ export function TournamentApplication() {
         <div className="max-w-3xl mx-auto text-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">Tournament Not Found</h1>
           {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
-          <Link to="/events" className="text-[#5a0a8f] hover:underline">
+          <a href={publicHref('/events')} className="text-[#5a0a8f] hover:underline">
             Back to Events
-          </Link>
+          </a>
         </div>
       </main>
     )
@@ -249,20 +250,20 @@ export function TournamentApplication() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link
-                to="/register"
+              <a
+                href={publicHref('/register')}
                 className="px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg transition-colors inline-flex items-center justify-center gap-2"
               >
                 <span className="material-symbols-outlined">person_add</span>
                 Register Now
-              </Link>
-              <Link
-                to="/login"
+              </a>
+              <a
+                href={publicHref('/login')}
                 className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors inline-flex items-center justify-center gap-2"
               >
                 <span className="material-symbols-outlined">login</span>
                 Login
-              </Link>
+              </a>
             </div>
           </div>
         </div>
@@ -318,13 +319,13 @@ export function TournamentApplication() {
                 <span className="material-symbols-outlined">arrow_forward</span>
                 Continue to Application
               </button>
-              <Link
-                to="/events"
+              <a
+                href={publicHref('/events')}
                 className="px-8 py-3 bg-white border-2 border-gray-300 hover:bg-gray-50 text-gray-700 font-bold rounded-lg transition-colors inline-flex items-center justify-center gap-2"
               >
                 <span className="material-symbols-outlined">arrow_back</span>
                 Back to Tournaments
-              </Link>
+              </a>
             </div>
           </div>
         )}
@@ -470,12 +471,12 @@ export function TournamentApplication() {
             )}
 
             <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200">
-              <Link
-                to="/events"
+              <a
+                href={publicHref('/events')}
                 className="px-5 py-2.5 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium"
               >
                 Cancel
-              </Link>
+              </a>
               <button
                 type="submit"
                 disabled={

@@ -1,4 +1,4 @@
-import { useParams, Link, Navigate } from 'react-router-dom'
+import { useParams, Navigate } from 'react-router-dom'
 import { useSiteContent } from '../content/SiteContentContext'
 import { useState, useEffect } from 'react'
 import { resolveImageUrl } from '../lib/images'
@@ -10,6 +10,7 @@ export function NewsDetailPage() {
   const [resolvedImageUrl, setResolvedImageUrl] = useState<string>('')
 
   const newsItem = content.news.find((news) => news.id === id)
+  const publicHref = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`
 
   useEffect(() => {
     if (newsItem?.imageUrl) {
@@ -22,18 +23,18 @@ export function NewsDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <main id="page-content" className="min-h-screen bg-gray-50">
         {/* Breadcrumb */}
         <div className="bg-white border-b border-gray-200">
           <div className="max-w-6xl mx-auto px-4 py-4">
             <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Link to="/" className="hover:text-[#5a0a8f]">
+              <a href={publicHref('/')} className="hover:text-[#5a0a8f]">
                 Home
-              </Link>
+              </a>
               <span>›</span>
-              <Link to="/news" className="hover:text-[#5a0a8f]">
+              <a href={publicHref('/news')} className="hover:text-[#5a0a8f]">
                 News & Media
-              </Link>
+              </a>
               <span>›</span>
               <span className="text-gray-900 font-medium line-clamp-1">{newsItem.title}</span>
             </div>
@@ -44,13 +45,13 @@ export function NewsDetailPage() {
         <article className="max-w-4xl mx-auto px-4 py-12">
           {/* Back Button - Top */}
           <div className="mb-8">
-            <Link
-              to="/news"
+            <a
+              href={publicHref('/news')}
               className="inline-flex items-center gap-2 text-[#5a0a8f] hover:text-[#400466] font-semibold transition-colors"
             >
               <span className="material-symbols-outlined">arrow_back</span>
               Back to News & Media
-            </Link>
+            </a>
           </div>
           {/* Badge & Date */}
           <div className="flex items-center gap-3 mb-6">
@@ -94,6 +95,6 @@ export function NewsDetailPage() {
             </div>
           )}
         </article>
-      </div>
+      </main>
   )
 }

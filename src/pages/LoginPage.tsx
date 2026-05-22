@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export function LoginPage() {
@@ -12,6 +12,7 @@ export function LoginPage() {
   const [selectedRole, setSelectedRole] = useState<string>('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const publicHref = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,7 +54,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <main id="page-content" className="min-h-screen flex">
       {/* Left Section - Dark Background with Image */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-gray-900 overflow-hidden">
         {/* Background Image */}
@@ -170,12 +171,12 @@ export function LoginPage() {
                 />
                 <span className="text-sm text-gray-700">Remember me</span>
               </label>
-              <Link
-                to="/forgot-password"
+              <a
+                href={publicHref('/forgot-password')}
                 className="text-sm text-[#5a0a8f] hover:underline font-medium"
               >
                 Forgot Password?
-              </Link>
+              </a>
             </div>
 
             {/* Access for Authorized Personnel */}
@@ -226,13 +227,13 @@ export function LoginPage() {
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-600">
               Don't have an account?{' '}
-              <Link to="/contact" className="text-[#5a0a8f] hover:underline font-semibold">
+              <a href={publicHref('/contact')} className="text-[#5a0a8f] hover:underline font-semibold">
                 Contact Federation Official
-              </Link>
+              </a>
             </p>
           </div>
         </div>
       </div>
-    </div>
+    </main>
   )
 }

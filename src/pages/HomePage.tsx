@@ -1,5 +1,4 @@
 import { useMemo, useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
 import { useSiteContent } from '../content/SiteContentContext'
 import { useWebsiteContent } from '../context/WebsiteContentContext'
 import { FeaturedGallery } from '../components/FeaturedGallery'
@@ -65,6 +64,7 @@ export function HomePage() {
 
   const featured = featuredNews[0]
   const cards = featuredNews.slice(1, 3)
+  const publicHref = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`
 
   // Resolve news image URLs (for S3 images that need signed URLs)
   useEffect(() => {
@@ -167,12 +167,12 @@ export function HomePage() {
               <span className="w-1 h-12 bg-[#5a0a8f]"></span>
               LATEST NEWS
             </h2>
-            <Link
+            <a
               className="text-[#5a0a8f] hover:text-[#5a0a8f]/80 text-sm font-bold flex items-center gap-1"
-              to="/news"
+              href={publicHref('/news')}
             >
               View All News →
-            </Link>
+            </a>
           </div>
 
           <div className="flex flex-col gap-6">
@@ -264,14 +264,14 @@ export function HomePage() {
             </div>
             {liveMatches.length > 0 && (
               <div className="px-4 pb-4">
-                <Link
-                  to="/live-scores"
+                <a
+                  href={publicHref('/live-scores')}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block w-full text-center py-2.5 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors"
                 >
                   {liveMatches.length > 2 ? `View all ${liveMatches.length} live matches` : 'View live scores'}
-                </Link>
+                </a>
               </div>
             )}
           </div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useWebsiteContent } from '../context/WebsiteContentContext'
 
 type DropdownItem = { name: string; to?: string; subDropdown?: { name: string; to: string }[] }
@@ -10,7 +10,6 @@ type RouteItem = {
 }
 
 export function Header() {
-  const navigate = useNavigate()
   const { pathname } = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -28,11 +27,19 @@ export function Header() {
         { name: 'Annual Report', to: '/about/annual-report' },
         { name: 'Election Report', to: '/about/election-report' },
         { name: 'Documents', to: '/documents' },
+        { name: 'Committees', to: '/about/committees' },
+        { name: 'Constitution, Rules And Policies', to: '/about/constitution-rules-policies' },
+        { name: 'Anti Doping', to: '/about/anti-doping' },
+        { name: 'Affiliated District', to: '/about/affiliated-district' },
       ]
 
       if (content.aboutPage?.customPages) {
+        const existingPaths = new Set(aboutDropdown.map((d) => d.to))
         content.aboutPage.customPages.forEach((p) => {
-          aboutDropdown.push({ name: p.title, to: `/about/${p.slug}` })
+          const to = `/about/${p.slug}`
+          if (!existingPaths.has(to)) {
+            aboutDropdown.push({ name: p.title, to })
+          }
         })
       }
 
@@ -68,6 +75,9 @@ export function Header() {
     'block px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-colors'
   const mobileActive = 'text-[#5a0a8f] bg-primary/5'
   const mobileInactive = 'text-gray-700 hover:bg-primary/5 hover:text-primary'
+  const isActiveRoute = (to: string) => (
+    to === '/' ? pathname === '/' : pathname === to || pathname.startsWith(`${to}/`)
+  )
 
   return (
     <>
@@ -112,9 +122,9 @@ export function Header() {
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20 md:h-24 transition-all duration-300">
             {/* Logo & Brand Area */}
-            <div
+            <Link
+              to="/"
               className="flex items-center gap-4 group cursor-pointer"
-              onClick={() => navigate('/')}
             >
               <div className="relative">
                 <div className="absolute inset-0 bg-[#5a0a8f]/20 blur-xl rounded-full group-hover:bg-[#5a0a8f]/30 transition-all"></div>
@@ -130,7 +140,7 @@ export function Header() {
                   <span className="text-[#D0001A]">Association</span>
                 </h1>
               </div>
-            </div>
+            </Link>
 
             {/* Desktop Navigation */}
             <nav
@@ -140,16 +150,13 @@ export function Header() {
               {routes.map((r) => (
                 r.dropdown ? (
                   <div key={r.name} className="relative group">
-                    <NavLink
+                    <Link
                       to={r.to}
-                      end={r.to === '/'}
-                      className={({ isActive }) =>
-                        `${desktopBase} flex items-center gap-1 ${isActive ? desktopActive : desktopInactive}`
-                      }
+                      className={`${desktopBase} flex items-center gap-1 ${isActiveRoute(r.to) ? desktopActive : desktopInactive}`}
                     >
                       {r.name}
                       <span className="material-symbols-outlined text-[16px] transition-transform group-hover:rotate-180">expand_more</span>
-                    </NavLink>
+                    </Link>
                     <div className="absolute left-0 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                       <div className="bg-white rounded-xl shadow-xl border border-gray-100 py-2 w-56 flex flex-col">
                         {r.dropdown.map((drop, idx) => (
@@ -157,7 +164,6 @@ export function Header() {
                             {drop.to ? (
                               <Link
                                 to={drop.to}
-                                onClick={() => setMobileOpen(false)}
                                 className={`px-4 py-2 text-sm font-semibold transition-colors flex justify-between items-center ${pathname === drop.to.split('#')[0] ? 'text-[#5a0a8f] bg-purple-50' : 'text-gray-700 hover:text-[#5a0a8f] hover:bg-gray-50'}`}
                               >
                                 {drop.name}
@@ -175,7 +181,6 @@ export function Header() {
                                     <Link
                                       key={sub.to}
                                       to={sub.to}
-                                      onClick={() => setMobileOpen(false)}
                                       className={`px-4 py-2 text-sm font-semibold transition-colors ${pathname === sub.to.split('#')[0] ? 'text-[#5a0a8f] bg-purple-50' : 'text-gray-700 hover:text-[#5a0a8f] hover:bg-gray-50'}`}
                                     >
                                       {sub.name}
@@ -190,16 +195,13 @@ export function Header() {
                     </div>
                   </div>
                 ) : (
-                  <NavLink
+                  <Link
                     key={r.to}
                     to={r.to}
-                    end={r.to === '/'}
-                    className={({ isActive }) =>
-                      `${desktopBase} ${isActive ? desktopActive : desktopInactive}`
-                    }
+                    className={`${desktopBase} ${isActiveRoute(r.to) ? desktopActive : desktopInactive}`}
                   >
                     {r.name}
-                  </NavLink>
+                  </Link>
                 )
               ))}
             </nav>
@@ -248,15 +250,12 @@ export function Header() {
             <div className="space-y-1">
               {routes.map((r) => (
                 <div key={r.name}>
-                  <NavLink
+                  <Link
                     to={r.to}
-                    end={r.to === '/'}
-                    className={({ isActive }) =>
-                      `${mobileBase} ${isActive ? mobileActive : mobileInactive}`
-                    }
+                    className={`${mobileBase} ${isActiveRoute(r.to) ? mobileActive : mobileInactive}`}
                   >
                     {r.name}
-                  </NavLink>
+                  </Link>
                   {r.dropdown && (
                     <div className="pl-4 mt-1 space-y-1 border-l-2 border-gray-100 ml-4 mb-2">
                       {r.dropdown.map((drop, idx) => (
@@ -303,12 +302,14 @@ export function Header() {
               <div className="grid grid-cols-2 gap-3">
                 <Link
                   to="/login"
+                  onClick={() => setMobileOpen(false)}
                   className="w-full text-center text-[#5a0a8f] border border-[#5a0a8f]/30 bg-[#5a0a8f]/5 hover:bg-[#5a0a8f]/10 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors"
                 >
                   Login
                 </Link>
                 <Link
                   to="/register"
+                  onClick={() => setMobileOpen(false)}
                   className="w-full bg-[#5a0a8f] hover:bg-[#400466] text-white px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider shadow-md shadow-purple-900/20 transition-all flex items-center justify-center gap-2"
                 >
                   Register

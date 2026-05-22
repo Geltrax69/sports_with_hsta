@@ -1,5 +1,4 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
-import { Link } from 'react-router-dom'
 import { useSiteContent } from '../content/SiteContentContext'
 import { useWebsiteContent } from '../context/WebsiteContentContext'
 import { resolveImageUrl } from '../lib/images'
@@ -29,6 +28,7 @@ export function NewsPage() {
 
   const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({})
   const [resolvedImages, setResolvedImages] = useState<Record<string, string>>({})
+  const publicHref = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`
 
   // Gallery items
   const galleryItems = useMemo(() => {
@@ -136,12 +136,12 @@ export function NewsPage() {
                     {item.excerpt && (
                       <p className="mb-6 flex-1 text-sm leading-relaxed text-gray-600">{item.excerpt}</p>
                     )}
-                    <Link
-                      to={`/news/${item.id}`}
+                    <a
+                      href={publicHref(`/news/${item.id}`)}
                       className="inline-flex items-center text-sm font-bold text-[#5a0a8f] hover:text-[#400466] transition-colors"
                     >
                       Read Article →
-                    </Link>
+                    </a>
                   </div>
                 </article>
               ))}

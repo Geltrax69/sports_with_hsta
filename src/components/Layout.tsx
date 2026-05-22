@@ -59,7 +59,9 @@ export function Layout() {
         <Header />
       </div>
 
-      <Outlet />
+      <div>
+        <Outlet />
+      </div>
 
       <div id="global-sponsors">
         <Sponsors />
