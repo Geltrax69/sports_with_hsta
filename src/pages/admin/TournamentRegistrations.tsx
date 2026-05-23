@@ -668,18 +668,6 @@ export function TournamentRegistrations() {
   const [quickRegLoading, setQuickRegLoading] = useState(false)
   const [quickRegSuccessMsg, setQuickRegSuccessMsg] = useState('')
 
-  const calculateTimePlayed = (entryTime?: string, exitTime?: string) => {
-    if (!entryTime || !exitTime) return '—'
-    const start = new Date(`1970-01-01T${entryTime}`)
-    const end = new Date(`1970-01-01T${exitTime}`)
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return '—'
-
-    const minutes = Math.floor((end.getTime() - start.getTime()) / 60000)
-    const hours = Math.floor(minutes / 60)
-    const remainingMinutes = minutes % 60
-    return hours > 0 ? `${hours}h ${remainingMinutes}m` : `${remainingMinutes} min`
-  }
-
   // Fetch tournament details
   useEffect(() => {
     if (!tournamentId) return
@@ -867,6 +855,11 @@ export function TournamentRegistrations() {
           String(p.playerId || '').toLowerCase().includes(q)
         )
       })
+  }
+
+  const isPlayerSelected = (side: 1 | 2, playerId: string) => {
+    const squad = side === 1 ? wizard.simpleMatch.team1Players : wizard.simpleMatch.team2Players
+    return squad.some((player) => player._id === playerId)
   }
 
   const loadMatchPlayersForSide = (side: 1 | 2, districtId: string, query = '') => {
@@ -1074,28 +1067,8 @@ export function TournamentRegistrations() {
         simpleMatch: {
           ...prev.simpleMatch,
           [key]: prev.simpleMatch[key].map((p) =>
-            p._id === playerId
-              ? {
-                  ...p,
-                  isSubstitute: willBeSub,
-                  entryTime: willBeSub ? p.entryTime || '' : '',
-                  exitTime: willBeSub ? p.exitTime || '' : '',
-                }
-              : p,
+            p._id === playerId ? { ...p, isSubstitute: willBeSub } : p,
           ),
-        },
-      }
-    })
-  }
-
-  const updatePlayerSubstitutionTime = (side: 1 | 2, playerId: string, field: 'entryTime' | 'exitTime', value: string) => {
-    setWizard(prev => {
-      const key = side === 1 ? 'team1Players' : 'team2Players'
-      return {
-        ...prev,
-        simpleMatch: {
-          ...prev.simpleMatch,
-          [key]: prev.simpleMatch[key].map((player) => (player._id === playerId ? { ...player, [field]: value } : player)),
         },
       }
     })
@@ -1827,19 +1800,31 @@ export function TournamentRegistrations() {
                             No approved players registered for this district in this tournament.
                           </p>
                         ) : (
-                          available.map((pl) => (
+                          available.map((pl) => {
+                            const selected = isPlayerSelected(1, pl._id)
+                            return (
                             <div
                               key={pl._id}
-                              onClick={() => addPlayerToTeam(1, pl)}
-                              className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
+                              onClick={() => {
+                                if (!selected) addPlayerToTeam(1, pl)
+                              }}
+                              className={`px-3 py-2 border-b last:border-0 flex justify-between items-center ${selected ? 'bg-green-50/70 cursor-default' : 'hover:bg-gray-50 cursor-pointer'}`}
                             >
                               <div>
                                 <div className="font-semibold text-sm text-gray-900">{pl.fullName}</div>
                                 <div className="text-xs text-gray-500">{pl.playerId}</div>
                               </div>
-                              <span className="text-blue-600 font-bold">+</span>
+                              {selected ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">
+                                  <span className="material-symbols-outlined text-sm">check</span>
+                                  Added
+                                </span>
+                              ) : (
+                                <span className="text-blue-600 font-bold">+</span>
+                              )}
                             </div>
-                          ))
+                            )
+                          })
                         )}
                       </div>
                     )
@@ -1899,34 +1884,6 @@ export function TournamentRegistrations() {
                             <span className="text-blue-700">Sub</span>
                           </label>
                         </div>
-                        {p.isSubstitute && (
-                          <div className="grid grid-cols-1 gap-2 rounded-lg border border-dashed border-blue-200 bg-blue-50/60 p-3 md:grid-cols-3">
-                            <div>
-                              <label className="mb-1 block text-xs font-semibold text-blue-700">Entry Time</label>
-                              <input
-                                type="time"
-                                value={p.entryTime || ''}
-                                onChange={(e) => updatePlayerSubstitutionTime(1, p._id, 'entryTime', e.target.value)}
-                                className="w-full rounded-lg border-2 border-blue-200 px-3 py-2 text-sm font-medium text-blue-900 focus:outline-none focus:border-blue-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="mb-1 block text-xs font-semibold text-blue-700">Exit Time</label>
-                              <input
-                                type="time"
-                                value={p.exitTime || ''}
-                                onChange={(e) => updatePlayerSubstitutionTime(1, p._id, 'exitTime', e.target.value)}
-                                className="w-full rounded-lg border-2 border-blue-200 px-3 py-2 text-sm font-medium text-blue-900 focus:outline-none focus:border-blue-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="mb-1 block text-xs font-semibold text-blue-700">Time Played</label>
-                              <div className="rounded-lg border-2 border-blue-100 bg-white px-3 py-2 text-sm font-bold text-blue-900">
-                                {calculateTimePlayed(p.entryTime, p.exitTime)}
-                              </div>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -2064,19 +2021,31 @@ export function TournamentRegistrations() {
                             No approved players registered for this district in this tournament.
                           </p>
                         ) : (
-                          available.map((pl) => (
+                          available.map((pl) => {
+                            const selected = isPlayerSelected(2, pl._id)
+                            return (
                             <div
                               key={pl._id}
-                              onClick={() => addPlayerToTeam(2, pl)}
-                              className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
+                              onClick={() => {
+                                if (!selected) addPlayerToTeam(2, pl)
+                              }}
+                              className={`px-3 py-2 border-b last:border-0 flex justify-between items-center ${selected ? 'bg-green-50/70 cursor-default' : 'hover:bg-gray-50 cursor-pointer'}`}
                             >
                               <div>
                                 <div className="font-semibold text-sm text-gray-900">{pl.fullName}</div>
                                 <div className="text-xs text-gray-500">{pl.playerId}</div>
                               </div>
-                              <span className="text-orange-600 font-bold">+</span>
+                              {selected ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">
+                                  <span className="material-symbols-outlined text-sm">check</span>
+                                  Added
+                                </span>
+                              ) : (
+                                <span className="text-orange-600 font-bold">+</span>
+                              )}
                             </div>
-                          ))
+                            )
+                          })
                         )}
                       </div>
                     )
@@ -2136,34 +2105,6 @@ export function TournamentRegistrations() {
                             <span className="text-orange-700">Sub</span>
                           </label>
                         </div>
-                        {p.isSubstitute && (
-                          <div className="grid grid-cols-1 gap-2 rounded-lg border border-dashed border-orange-200 bg-orange-50/60 p-3 md:grid-cols-3">
-                            <div>
-                              <label className="mb-1 block text-xs font-semibold text-orange-700">Entry Time</label>
-                              <input
-                                type="time"
-                                value={p.entryTime || ''}
-                                onChange={(e) => updatePlayerSubstitutionTime(2, p._id, 'entryTime', e.target.value)}
-                                className="w-full rounded-lg border-2 border-orange-200 px-3 py-2 text-sm font-medium text-orange-900 focus:outline-none focus:border-orange-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="mb-1 block text-xs font-semibold text-orange-700">Exit Time</label>
-                              <input
-                                type="time"
-                                value={p.exitTime || ''}
-                                onChange={(e) => updatePlayerSubstitutionTime(2, p._id, 'exitTime', e.target.value)}
-                                className="w-full rounded-lg border-2 border-orange-200 px-3 py-2 text-sm font-medium text-orange-900 focus:outline-none focus:border-orange-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="mb-1 block text-xs font-semibold text-orange-700">Time Played</label>
-                              <div className="rounded-lg border-2 border-orange-100 bg-white px-3 py-2 text-sm font-bold text-orange-900">
-                                {calculateTimePlayed(p.entryTime, p.exitTime)}
-                              </div>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
                   ))}
