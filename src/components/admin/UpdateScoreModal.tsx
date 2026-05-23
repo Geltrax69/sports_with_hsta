@@ -59,6 +59,11 @@ type Match = {
         team2: number
     }
     winner?: string
+    activeTimeout?: {
+        team: 'team1' | 'team2'
+        teamName: string
+        at: string
+    } | null
 }
 
 type SubstitutionRecord = {
@@ -174,6 +179,7 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
         winner?: string,
         subsToSave?: SubstitutionRecord[],
         scorecardPatch?: Partial<NonNullable<Match['scorecard']>>,
+        extraFields?: Record<string, unknown>,
     ) => {
         if (!selectedMatch) return
         try {
@@ -195,6 +201,7 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                     score: { team1: team1Total, team2: team2Total },
                     winner: winner,
                     scorecard: mergedScorecard,
+                    ...extraFields,
                 }),
                 auth: true
             })
@@ -328,7 +335,24 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
         currentSets[activeSetIndex] = set
         newRegus[selectedReguIndex] = { ...startedRegus[selectedReguIndex], sets: currentSets }
 
-        handleUpdateScore(newRegus, 'ongoing', undefined, undefined, scorecardPatch)
+        // Mark the active timeout so live-score viewers see the banner immediately
+        const teamName = team === 'team1' ? (selectedMatch.team1 as string) : (selectedMatch.team2 as string)
+        handleUpdateScore(newRegus, 'ongoing', undefined, undefined, scorecardPatch, {
+            activeTimeout: { team, teamName, at: now },
+        })
+    }
+
+    // Clears the active timeout so the live-score banner disappears and the match resumes
+    const endTimeout = () => {
+        if (!selectedMatch) return
+        handleUpdateScore(
+            selectedMatch.regus,
+            selectedMatch.status,
+            selectedMatch.winner,
+            substitutions,
+            undefined,
+            { activeTimeout: null },
+        )
     }
 
     const declareSetWinner = (winner: 'team1' | 'team2') => {
@@ -366,8 +390,9 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
         if (subsChanged) {
             setSubstitutions(updatedSubs)
         }
-        
-        handleUpdateScore(newRegus, undefined, undefined, updatedSubs)
+
+        // Clear any active timeout when the set ends
+        handleUpdateScore(newRegus, undefined, undefined, updatedSubs, undefined, { activeTimeout: null })
     }
 
     const declareReguWinner = (winner: 'team1' | 'team2') => {
@@ -415,8 +440,9 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
         if (subsChanged) {
             setSubstitutions(updatedSubs)
         }
-        
-        handleUpdateScore(newRegus, undefined, undefined, updatedSubs)
+
+        // Clear any active timeout when the regu ends
+        handleUpdateScore(newRegus, undefined, undefined, updatedSubs, undefined, { activeTimeout: null })
     }
 
     const declareMatchWinner = (winner: 'team1' | 'team2' | 'tie') => {
@@ -452,7 +478,7 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
         const matchEndTime = formatNowHHMM()
         handleUpdateScore(selectedMatch?.regus, 'completed', winner, updatedSubs, {
             endTime: matchEndTime,
-        })
+        }, { activeTimeout: null })
     }
 
     const addSubstitution = (team: 'team1' | 'team2') => {
@@ -705,42 +731,71 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
 
                                                     <div className="mt-8 border-t border-slate-200 pt-6">
                                                         <h4 className="mb-4 text-center text-xs font-black uppercase tracking-[0.22em] text-gray-400">Timeouts</h4>
-                                                        <div className="mx-auto grid max-w-3xl grid-cols-1 gap-4 md:grid-cols-2">
-                                                            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                                                                <p className="mb-2 truncate text-sm font-bold text-gray-700">{selectedMatch.team1}</p>
+
+                                                        {/* ── Active timeout banner ── */}
+                                                        {selectedMatch.activeTimeout ? (
+                                                            <div className="mx-auto max-w-3xl rounded-2xl border-2 border-amber-400 bg-amber-50 p-5">
+                                                                <div className="flex items-center gap-3 mb-4">
+                                                                    <span className="text-2xl leading-none">⏱</span>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">Timeout In Progress</p>
+                                                                        <p className="text-base font-black text-amber-800 truncate">
+                                                                            {selectedMatch.activeTimeout.teamName}
+                                                                            <span className="ml-2 text-xs font-semibold text-amber-700">at {selectedMatch.activeTimeout.at}</span>
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => recordTimeout('team1')}
-                                                                    className="w-full rounded-xl border-2 border-amber-300 bg-white px-4 py-2.5 text-sm font-bold text-amber-900 hover:bg-amber-100 transition-colors"
+                                                                    onClick={endTimeout}
+                                                                    className="w-full rounded-xl border-2 border-green-400 bg-green-600 px-4 py-3 text-sm font-black text-white hover:bg-green-700 active:scale-95 transition-all flex items-center justify-center gap-2"
                                                                 >
-                                                                    Record Timeout
+                                                                    <span className="material-symbols-outlined text-base">play_circle</span>
+                                                                    End Timeout — Resume Match
                                                                 </button>
-                                                                {(activeSet.team1Timeouts || []).length > 0 ? (
-                                                                    <p className="mt-3 text-xs text-amber-900 font-semibold">
-                                                                        Recorded: {(activeSet.team1Timeouts || []).join(', ')}
-                                                                    </p>
-                                                                ) : (
-                                                                    <p className="mt-3 text-xs text-gray-400 italic">No timeout recorded for this set</p>
-                                                                )}
+                                                                <p className="mt-3 text-[10px] text-amber-700 text-center">
+                                                                    This will remove the timeout banner on the live score screen.
+                                                                </p>
                                                             </div>
-                                                            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                                                                <p className="mb-2 truncate text-sm font-bold text-gray-700">{selectedMatch.team2}</p>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => recordTimeout('team2')}
-                                                                    className="w-full rounded-xl border-2 border-amber-300 bg-white px-4 py-2.5 text-sm font-bold text-amber-900 hover:bg-amber-100 transition-colors"
-                                                                >
-                                                                    Record Timeout
-                                                                </button>
-                                                                {(activeSet.team2Timeouts || []).length > 0 ? (
-                                                                    <p className="mt-3 text-xs text-amber-900 font-semibold">
-                                                                        Recorded: {(activeSet.team2Timeouts || []).join(', ')}
-                                                                    </p>
-                                                                ) : (
-                                                                    <p className="mt-3 text-xs text-gray-400 italic">No timeout recorded for this set</p>
-                                                                )}
+                                                        ) : (
+                                                            /* ── No active timeout — show record buttons ── */
+                                                            <div className="mx-auto grid max-w-3xl grid-cols-1 gap-4 md:grid-cols-2">
+                                                                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                                                                    <p className="mb-2 truncate text-sm font-bold text-gray-700">{selectedMatch.team1}</p>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => recordTimeout('team1')}
+                                                                        className="w-full rounded-xl border-2 border-amber-300 bg-white px-4 py-2.5 text-sm font-bold text-amber-900 hover:bg-amber-100 transition-colors"
+                                                                    >
+                                                                        Record Timeout
+                                                                    </button>
+                                                                    {(activeSet.team1Timeouts || []).length > 0 ? (
+                                                                        <p className="mt-3 text-xs text-amber-900 font-semibold">
+                                                                            Recorded: {(activeSet.team1Timeouts || []).join(', ')}
+                                                                        </p>
+                                                                    ) : (
+                                                                        <p className="mt-3 text-xs text-gray-400 italic">No timeout recorded for this set</p>
+                                                                    )}
+                                                                </div>
+                                                                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                                                                    <p className="mb-2 truncate text-sm font-bold text-gray-700">{selectedMatch.team2}</p>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => recordTimeout('team2')}
+                                                                        className="w-full rounded-xl border-2 border-amber-300 bg-white px-4 py-2.5 text-sm font-bold text-amber-900 hover:bg-amber-100 transition-colors"
+                                                                    >
+                                                                        Record Timeout
+                                                                    </button>
+                                                                    {(activeSet.team2Timeouts || []).length > 0 ? (
+                                                                        <p className="mt-3 text-xs text-amber-900 font-semibold">
+                                                                            Recorded: {(activeSet.team2Timeouts || []).join(', ')}
+                                                                        </p>
+                                                                    ) : (
+                                                                        <p className="mt-3 text-xs text-gray-400 italic">No timeout recorded for this set</p>
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                        </div>
+                                                        )}
                                                     </div>
 
                                                     <div className="mt-10 flex flex-col justify-center gap-4 border-t border-slate-200 pt-6 md:flex-row">
