@@ -25,6 +25,103 @@ type TournamentRegistrationSummary = Record<
   { total: number; pending: number; approved: number; rejected: number }
 >
 
+type IconName =
+  | 'add'
+  | 'emoji_events'
+  | 'groups'
+  | 'calendar_today'
+  | 'search'
+  | 'view_list'
+  | 'grid_view'
+  | 'location_on'
+  | 'delete'
+
+function AdminIcon({ name, className = '' }: { name: IconName; className?: string }) {
+  const base = 'inline-block shrink-0 align-middle'
+
+  switch (name) {
+    case 'add':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" className={`${base} ${className}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <path d="M12 5v14" />
+          <path d="M5 12h14" />
+        </svg>
+      )
+    case 'emoji_events':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" className={`${base} ${className}`} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M7 4h10v3a5 5 0 0 1-10 0V4Z" />
+          <path d="M9 12a6 6 0 0 0 6 0" />
+          <path d="M9 17h6" />
+          <path d="M10 19h4" />
+          <path d="M7 5H4a2 2 0 0 0 2 4h1" />
+          <path d="M17 5h3a2 2 0 0 1-2 4h-1" />
+        </svg>
+      )
+    case 'groups':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" className={`${base} ${className}`} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 11a3 3 0 1 0-0.001-6.001A3 3 0 0 0 9 11Z" />
+          <path d="M16 12a2.5 2.5 0 1 0-.001-5.001A2.5 2.5 0 0 0 16 12Z" />
+          <path d="M3.5 20a5.5 5.5 0 0 1 11 0" />
+          <path d="M13.5 20a4.5 4.5 0 0 1 7 0" />
+        </svg>
+      )
+    case 'calendar_today':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" className={`${base} ${className}`} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="4" y="5" width="16" height="15" rx="2" />
+          <path d="M8 3v4M16 3v4M4 9h16" />
+        </svg>
+      )
+    case 'search':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" className={`${base} ${className}`} fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="M16.2 16.2 20 20" />
+        </svg>
+      )
+    case 'view_list':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" className={`${base} ${className}`} fill="currentColor">
+          <rect x="4" y="6" width="3" height="3" rx="0.6" />
+          <rect x="4" y="10.5" width="3" height="3" rx="0.6" />
+          <rect x="4" y="15" width="3" height="3" rx="0.6" />
+          <rect x="9" y="6.7" width="11" height="1.6" rx="0.8" />
+          <rect x="9" y="11.2" width="11" height="1.6" rx="0.8" />
+          <rect x="9" y="15.7" width="11" height="1.6" rx="0.8" />
+        </svg>
+      )
+    case 'grid_view':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" className={`${base} ${className}`} fill="currentColor">
+          <rect x="4" y="4" width="6" height="6" rx="1" />
+          <rect x="14" y="4" width="6" height="6" rx="1" />
+          <rect x="4" y="14" width="6" height="6" rx="1" />
+          <rect x="14" y="14" width="6" height="6" rx="1" />
+        </svg>
+      )
+    case 'location_on':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" className={`${base} ${className}`} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 21s5-4.35 5-9a5 5 0 1 0-10 0c0 4.65 5 9 5 9Z" />
+          <circle cx="12" cy="12" r="1.8" />
+        </svg>
+      )
+    case 'delete':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" className={`${base} ${className}`} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 7h16" />
+          <path d="M9 7V5h6v2" />
+          <path d="M7 7l1 12h8l1-12" />
+          <path d="M10 11v5M14 11v5" />
+        </svg>
+      )
+    default:
+      return null
+  }
+}
+
 export function TournamentManagement() {
   const [tournaments, setTournaments] = useState<AdminTournament[]>([])
   const [summary, setSummary] = useState<TournamentRegistrationSummary>({})
@@ -161,7 +258,7 @@ export function TournamentManagement() {
           to="/admin/tournaments/create"
           className="flex items-center gap-2 bg-[#5a0a8f] hover:bg-[#400466] text-white px-5 py-2.5 rounded-lg font-bold transition-colors"
         >
-          <span className="material-symbols-outlined">add</span>
+          <AdminIcon name="add" className="size-5" />
           Create New Tournament
         </Link>
       </div>
@@ -170,7 +267,7 @@ export function TournamentManagement() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-xl border-2 border-orange-100 p-6 relative overflow-hidden">
           <div className="absolute right-0 top-0 opacity-10">
-            <span className="material-symbols-outlined text-6xl text-orange-500">emoji_events</span>
+            <AdminIcon name="emoji_events" className="size-14 text-orange-500" />
           </div>
           <div className="relative">
             <div className="text-3xl font-black text-gray-900 mb-1">{stats.active}</div>
@@ -181,7 +278,7 @@ export function TournamentManagement() {
 
         <div className="bg-white rounded-xl border-2 border-blue-100 p-6 relative overflow-hidden">
           <div className="absolute right-0 top-0 opacity-10">
-            <span className="material-symbols-outlined text-6xl text-blue-500">groups</span>
+            <AdminIcon name="groups" className="size-14 text-blue-500" />
           </div>
           <div className="relative">
             <div className="text-3xl font-black text-gray-900 mb-1">{stats.totalRegistrations}</div>
@@ -194,7 +291,7 @@ export function TournamentManagement() {
 
         <div className="bg-white rounded-xl border-2 border-red-100 p-6 relative overflow-hidden">
           <div className="absolute right-0 top-0 opacity-10">
-            <span className="material-symbols-outlined text-6xl text-red-500">calendar_today</span>
+            <AdminIcon name="calendar_today" className="size-14 text-red-500" />
           </div>
           <div className="relative">
             <div className="text-3xl font-black text-gray-900 mb-1">{stats.pendingApprovals}</div>
@@ -206,23 +303,21 @@ export function TournamentManagement() {
 
       {/* Search and Filter */}
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-        <div className="flex flex-col md:flex-row gap-4 items-center">
+        <div className="flex flex-col md:flex-row gap-6 items-center">
           <div className="flex-1 relative w-full">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              search
-            </span>
+            <AdminIcon name="search" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-500" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search tournament by name or ID..."
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900"
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 placeholder-gray-500 text-sm"
             />
           </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white"
+            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white text-sm"
           >
             <option value="all">All Statuses</option>
             <option value="REGISTRATION OPEN">Registration Open</option>
@@ -230,17 +325,17 @@ export function TournamentManagement() {
             <option value="TENTATIVE">Tentative</option>
             <option value="COMPLETED">Completed</option>
           </select>
-          <select className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white">
+          <select className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white text-sm">
             <option>2023-2024</option>
             <option>2022-2023</option>
             <option>2021-2022</option>
           </select>
           <div className="flex gap-2">
             <button className="p-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors bg-gray-50">
-              <span className="material-symbols-outlined text-gray-600">view_list</span>
+              <AdminIcon name="view_list" className="size-5 text-gray-600" />
             </button>
-            <button className="p-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-              <span className="material-symbols-outlined text-gray-600">grid_view</span>
+            <button className="p-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors bg-gray-50">
+              <AdminIcon name="grid_view" className="size-5 text-gray-600" />
             </button>
           </div>
         </div>
@@ -301,11 +396,11 @@ export function TournamentManagement() {
                       <td className="px-6 py-4">
                         <div className="space-y-1 text-sm text-gray-600">
                           <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-base">calendar_today</span>
+                            <AdminIcon name="calendar_today" className="size-4 text-gray-600" />
                             {formatDateRange(tournament.startDate, tournament.endDate)}
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-base">location_on</span>
+                            <AdminIcon name="location_on" className="size-4 text-gray-600" />
                             {[tournament.venueName, tournament.city].filter(Boolean).join(', ') || '—'}
                           </div>
                         </div>
@@ -375,7 +470,7 @@ export function TournamentManagement() {
                             onClick={() => handleDeleteTournament(tournament._id, tournament.title)}
                             title="Delete Tournament"
                           >
-                            <span className="material-symbols-outlined text-lg">delete</span>
+                            <AdminIcon name="delete" className="size-5" />
                           </button>
                         </div>
                       </td>

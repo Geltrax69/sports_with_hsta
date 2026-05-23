@@ -351,6 +351,13 @@ type WizardState = {
   simpleMatch: SimpleMatchState
 }
 
+type MatchDistrict = {
+  id: string
+  code: string
+  name: string
+  zone: string
+}
+
 export function TournamentRegistrations() {
   const { tournamentId } = useParams<{ tournamentId: string }>()
   const { districts, getDistrictById } = useDistricts()
@@ -400,6 +407,36 @@ export function TournamentRegistrations() {
     })
   }
 
+  const tournamentDistrictOptions = useMemo<MatchDistrict[]>(() => {
+    const seen = new Set<string>()
+    const options: MatchDistrict[] = []
+
+    for (const registration of registrations) {
+      if (registration.registerAs !== 'player' || registration.status !== 'approved') continue
+      const raw = registration.applicant?.district?.trim()
+      if (!raw) continue
+
+      const district = getDistrictById(raw)
+      const id = (district?.id || district?.code || raw).trim()
+      const key = id.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+
+      options.push({
+        id,
+        code: district?.code || id,
+        name: district?.name || raw,
+        zone: district?.zone || '',
+      })
+    }
+
+    return options.sort((a, b) => a.name.localeCompare(b.name))
+  }, [registrations, getDistrictById])
+
+  const availableDistrictsForMatch = useMemo(() => {
+    return tournamentDistrictOptions.length > 0 ? tournamentDistrictOptions : []
+  }, [tournamentDistrictOptions])
+
   const renderWinnerPlace = (place: WinnerPlace) => {
     const styles = WINNER_PLACE_STYLES[place]
     const districtId = winnerDistricts[place]
@@ -442,7 +479,7 @@ export function TournamentRegistrations() {
             className="w-full mb-4 rounded-xl border-2 border-gray-200 bg-white px-4 py-3 text-gray-900 font-medium focus:border-[#5a0a8f] focus:ring-2 focus:ring-[#5a0a8f]/20 outline-none"
           >
             <option value="">Choose district…</option>
-            {districts.map((d) => (
+            {availableDistrictsForMatch.map((d) => (
               <option key={d.id} value={d.id}>{d.name}</option>
             ))}
           </select>
@@ -1729,7 +1766,7 @@ export function TournamentRegistrations() {
                     className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-gray-900"
                   >
                     <option value="">Select district</option>
-                    {districts.map((d) => (
+                    {availableDistrictsForMatch.map((d) => (
                       <option key={d.id} value={d.id}>
                         {d.name}
                       </option>
@@ -1966,7 +2003,7 @@ export function TournamentRegistrations() {
                     className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg focus:outline-none focus:border-orange-500 bg-white text-gray-900"
                   >
                     <option value="">Select district</option>
-                    {districts.map((d) => (
+                    {availableDistrictsForMatch.map((d) => (
                       <option key={d.id} value={d.id}>
                         {d.name}
                       </option>
