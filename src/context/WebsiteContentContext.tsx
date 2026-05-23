@@ -222,6 +222,7 @@ export type AboutPageSettings = {
   accounts?: DocumentLink[]
   agmMeetings?: DocumentLink[]
   electionReports?: DocumentLink[]
+  annualReports?: DocumentLink[]
 }
 
 export type EventsPageSettings = {

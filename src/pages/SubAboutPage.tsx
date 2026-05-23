@@ -23,17 +23,25 @@ export function SubAboutPage({ title: propTitle }: { title?: string }) {
   const isAccounts = slug === 'accounts' || propTitle === 'Accounts'
   const isAgm = slug === 'agm-meetings' || propTitle === 'AGM Meetings'
   const isElectionReport = slug === 'election-report' || propTitle === 'Election Report'
-  
-  const customPage = (!isAccounts && !isAgm && !isElectionReport && slug) ? content.aboutPage?.customPages?.find(p => p.slug === slug) : null;
-  
+  const isAnnualReport = slug === 'annual-report' || propTitle === 'Annual Report'
+
+  const customPage = (!isAccounts && !isAgm && !isElectionReport && !isAnnualReport && slug) ? content.aboutPage?.customPages?.find(p => p.slug === slug) : null;
+
   let title = propTitle || customPage?.title || (slug ? knownSlugTitles[slug] : undefined) || 'Unknown Page'
   if (isAccounts) title = 'Accounts and Expenditures'
   if (isAgm) title = 'AGM Meetings'
   if (isElectionReport) title = 'Election Report'
+  if (isAnnualReport) title = 'Annual Report'
 
-  const documentItems = isAccounts 
-    ? (content.aboutPage?.accounts || []) 
-    : (isAgm ? (content.aboutPage?.agmMeetings || []) : (isElectionReport ? (content.aboutPage?.electionReports || []) : (customPage?.pageType === 'document' ? (customPage.documents || []) : [])))
+  const documentItems = isAccounts
+    ? (content.aboutPage?.accounts || [])
+    : isAgm
+    ? (content.aboutPage?.agmMeetings || [])
+    : isElectionReport
+    ? (content.aboutPage?.electionReports || [])
+    : isAnnualReport
+    ? (content.aboutPage?.annualReports || [])
+    : (customPage?.pageType === 'document' ? (customPage.documents || []) : [])
   
   const field = fieldMapping[title]
   const pageContent = customPage 
@@ -66,7 +74,7 @@ export function SubAboutPage({ title: propTitle }: { title?: string }) {
         </div>
 
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
-          {(isAccounts || isAgm || (customPage && customPage.pageType === 'document')) ? (
+          {(isAccounts || isAgm || isElectionReport || isAnnualReport || (customPage && customPage.pageType === 'document')) ? (
             <div className="overflow-x-auto border border-gray-200 rounded-xl shadow-sm bg-white">
               <table className="w-full text-left">
                 <thead>
@@ -150,46 +158,13 @@ export function SubAboutPage({ title: propTitle }: { title?: string }) {
             <div className="prose prose-lg max-w-none text-gray-700 whitespace-pre-wrap mb-16">
               {pageContent}
             </div>
-          ) : title !== 'RTI' && !(title === 'Election Report' && content.aboutPage?.electionReports && content.aboutPage.electionReports.length > 0) ? (
+          ) : title !== 'RTI' ? (
             <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-12 text-center text-gray-600 mb-16">
               <span className="material-symbols-outlined text-4xl mb-4 text-gray-400">pending</span>
               <h2 className="text-2xl font-bold text-gray-800 mb-2">{title}</h2>
               <p>The content for {title} is currently being updated. Please check back later.</p>
             </div>
           ) : null}
-
-          {title === 'Election Report' && content.aboutPage?.electionReports && content.aboutPage.electionReports.length > 0 && (
-            <div className="overflow-x-auto border border-gray-200 rounded-xl shadow-sm bg-white mb-16">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-[#241b71] text-white">
-                    <th className="py-4 px-6 text-center w-24 font-bold border-r border-[#3a2e8c]">Sr. No</th>
-                    <th className="py-4 px-6 font-bold border-r border-[#3a2e8c]">Report Title</th>
-                    <th className="py-4 px-6 font-bold w-48 text-center">Download Links</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
-                  {content.aboutPage.electionReports.map((item, index) => (
-                    <tr key={item.id || index} className="hover:bg-gray-50 transition-colors">
-                      <td className="py-4 px-6 text-center text-gray-600 font-medium">{index + 1}</td>
-                      <td className="py-4 px-6 text-gray-900">{item.title}</td>
-                      <td className="py-4 px-6 text-center">
-                        <a
-                          href={item.fileUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-2 text-[#5a0a8f] font-semibold hover:text-purple-700 transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-[20px]">description</span>
-                          View
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
 
           {title === 'Executive Board' && (
             <div className="space-y-16">

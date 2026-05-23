@@ -76,6 +76,10 @@ export function AdminAboutPage() {
     body = <DocumentListForm title="Accounts and Expenditures" field="accounts" />
   } else if (pageId === 'agm-meetings') {
     body = <DocumentListForm title="AGM Meetings" field="agmMeetings" />
+  } else if (pageId === 'election-report') {
+    body = <DocumentListForm title="Election Report" field="electionReports" />
+  } else if (pageId === 'annual-report') {
+    body = <DocumentListForm title="Annual Report" field="annualReports" />
   } else if (customPage) {
     body = <CustomPageForm customPage={customPage} />
   } else if (!staticConfig) {
