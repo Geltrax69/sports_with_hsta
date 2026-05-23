@@ -11,17 +11,30 @@ export type User = {
   avatar?: string
 }
 
+// ── Login result discriminated union ──────────────────────────────────────────
+export type LoginResult =
+  | { status: 'success' }
+  | { status: 'otp_required'; email: string }
+  | { status: 'error' }
+
 type AuthContextType = {
   user: User | null
   authReady: boolean
-  login: (email: string, password: string, role?: UserRole) => Promise<boolean>
+  login: (email: string, password: string, role?: UserRole) => Promise<LoginResult>
+  verifyAdminOtp: (email: string, otp: string) => Promise<{ success: boolean; error?: string }>
+  resendAdminOtp: (email: string) => Promise<{ ok: boolean; waitSeconds?: number; error?: string }>
   logout: () => void
   isAuthenticated: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
+const makeAvatar = (name: string) =>
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=5a0a8f&color=fff&bold=true`
+
+// ── Provider ──────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -44,39 +57,137 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthReady(true)
   }, [])
 
-  const login = async (email: string, password: string, role?: UserRole): Promise<boolean> => {
-    if (!role) return false
+  // ── Step 1: password login ───────────────────────────────────────────────
 
+  const login = async (email: string, password: string, role?: UserRole): Promise<LoginResult> => {
+    if (!role) return { status: 'error' }
+
+    // Non-admin: use the unified /auth/login endpoint (returns JWT directly)
+    if (role !== 'admin') {
+      try {
+        const data = await apiRequest<{
+          token: string
+          user: { id: string; role: UserRole; name: string; email: string }
+        }>('/auth/login', {
+          method: 'POST',
+          body:   JSON.stringify({ email, password, role }),
+        })
+
+        setAuthToken(data.token)
+        const nextUser: User = {
+          id:     data.user.id,
+          role:   data.user.role,
+          name:   data.user.name,
+          email:  data.user.email,
+          avatar: makeAvatar(data.user.name),
+        }
+        setUser(nextUser)
+        localStorage.setItem('stfi.user', JSON.stringify(nextUser))
+        return { status: 'success' }
+      } catch {
+        return { status: 'error' }
+      }
+    }
+
+    // Admin: call /auth/admin/login — backend responds with requiresOtp
+    try {
+      const data = await apiRequest<
+        | { requiresOtp: true; email: string }
+        | { token: string; user: { id: string; role: UserRole; name: string; email: string } }
+      >('/auth/admin/login', {
+        method: 'POST',
+        body:   JSON.stringify({ email, password }),
+      })
+
+      // Type guard: check if OTP is needed
+      if ('requiresOtp' in data && data.requiresOtp) {
+        return { status: 'otp_required', email: data.email }
+      }
+
+      // Shouldn't reach here normally, but handle direct JWT just in case
+      if ('token' in data) {
+        setAuthToken(data.token)
+        const nextUser: User = {
+          id:     data.user.id,
+          role:   data.user.role,
+          name:   data.user.name,
+          email:  data.user.email,
+          avatar: makeAvatar(data.user.name),
+        }
+        setUser(nextUser)
+        localStorage.setItem('stfi.user', JSON.stringify(nextUser))
+        return { status: 'success' }
+      }
+
+      return { status: 'error' }
+    } catch {
+      return { status: 'error' }
+    }
+  }
+
+  // ── Step 2: OTP verification (admin only) ────────────────────────────────
+
+  const verifyAdminOtp = async (
+    email: string,
+    otp: string,
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
       const data = await apiRequest<{
         token: string
         user: { id: string; role: UserRole; name: string; email: string }
-      }>('/auth/login', {
+      }>('/auth/admin/verify-otp', {
         method: 'POST',
-        body: JSON.stringify({ email, password, role }),
+        body:   JSON.stringify({ email, otp }),
       })
 
-      console.log('[AuthContext] Login successful. Token received:', !!data.token)
       setAuthToken(data.token)
-      console.log('[AuthContext] Token set. Verification:', !!getAuthToken())
-
       const nextUser: User = {
-        id: data.user.id,
-        role: data.user.role,
-        name: data.user.name,
-        email: data.user.email,
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-          data.user.name || 'User',
-        )}&background=5a0a8f&color=fff&bold=true`,
+        id:     data.user.id,
+        role:   data.user.role,
+        name:   data.user.name,
+        email:  data.user.email,
+        avatar: makeAvatar(data.user.name),
       }
-
       setUser(nextUser)
       localStorage.setItem('stfi.user', JSON.stringify(nextUser))
-      return true
-    } catch {
-      return false
+      return { success: true }
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'object' && err !== null && 'error' in err
+          ? String((err as { error: unknown }).error)
+          : 'Verification failed. Please try again.'
+      return { success: false, error: msg }
     }
   }
+
+  // ── Resend OTP ────────────────────────────────────────────────────────────
+
+  const resendAdminOtp = async (
+    email: string,
+  ): Promise<{ ok: boolean; waitSeconds?: number; error?: string }> => {
+    try {
+      await apiRequest('/auth/admin/resend-otp', {
+        method: 'POST',
+        body:   JSON.stringify({ email }),
+      })
+      return { ok: true }
+    } catch (err: unknown) {
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        'waitSeconds' in err
+      ) {
+        const e = err as { waitSeconds?: number; error?: string }
+        return { ok: false, waitSeconds: e.waitSeconds, error: e.error }
+      }
+      const msg = err instanceof Error ? err.message : 'Failed to resend OTP.'
+      return { ok: false, error: msg }
+    }
+  }
+
+  // ── Logout ────────────────────────────────────────────────────────────────
 
   const logout = () => {
     setUser(null)
@@ -85,7 +196,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, authReady, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        authReady,
+        login,
+        verifyAdminOtp,
+        resendAdminOtp,
+        logout,
+        isAuthenticated: !!user,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )
