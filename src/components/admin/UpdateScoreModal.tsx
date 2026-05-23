@@ -522,12 +522,12 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
     if (!isOpen) return null
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-y-auto flex flex-col">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+            <div className="flex h-full max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/40 bg-white shadow-2xl">
                 {/* Header */}
-                <div className="px-6 py-4 bg-gradient-to-r from-[#5a0a8f] to-[#400466] text-white flex justify-between items-center rounded-t-xl sticky top-0 z-10">
+                <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 px-8 py-5 text-white shadow-sm">
                     <div>
-                        <h2 className="text-xl font-bold flex items-center gap-2">
+                        <h2 className="flex items-center gap-2 text-2xl font-black tracking-tight">
                             <span className="material-symbols-outlined">score</span>
                             Update Match Score
                         </h2>
@@ -537,14 +537,14 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                     </button>
                 </div>
 
-                <div className="p-6 flex-1 overflow-y-auto bg-gray-50">
+                <div className="flex-1 overflow-y-auto bg-gradient-to-b from-gray-50 to-white px-6 py-6 md:px-8 md:py-8">
                     {/* Selection Phase - Only show if no pre-selected match */}
                     {!preSelectedMatch && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">Select Tournament</label>
+                    <div className="mb-6 grid grid-cols-1 gap-5 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:grid-cols-2">
+                        <div className="min-w-0">
+                            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-gray-500">Select Tournament</label>
                             <select
-                                className="w-full p-2.5 border-2 border-gray-200 rounded-lg disabled:opacity-50 bg-gray-50 focus:bg-white focus:border-[#5a0a8f] focus:ring-0 transition-colors text-gray-900 font-medium outline-none"
+                                className="w-full rounded-xl border-2 border-gray-200 bg-gray-50 p-3 text-sm font-medium text-gray-900 outline-none transition-colors focus:border-[#5a0a8f] focus:bg-white focus:ring-0 disabled:opacity-50"
                                 value={selectedTournamentId}
                                 onChange={e => setSelectedTournamentId(e.target.value)}
                                 disabled={loading}
@@ -555,10 +555,10 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                                 ))}
                             </select>
                         </div>
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">Select Match</label>
+                        <div className="min-w-0">
+                            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-gray-500">Select Match</label>
                             <select
-                                className="w-full p-2.5 border-2 border-gray-200 rounded-lg disabled:opacity-50 bg-gray-50 focus:bg-white focus:border-[#5a0a8f] focus:ring-0 transition-colors text-gray-900 font-medium outline-none"
+                                className="w-full rounded-xl border-2 border-gray-200 bg-gray-50 p-3 text-sm font-medium text-gray-900 outline-none transition-colors focus:border-[#5a0a8f] focus:bg-white focus:ring-0 disabled:opacity-50"
                                 value={selectedMatch?._id || ''}
                                 onChange={e => {
                                     const m = matches.find(x => x._id === e.target.value)
@@ -581,17 +581,19 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                     {selectedMatch && (
                         <div className="space-y-6">
                             {/* Match Header */}
-                            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-                                <div className="flex justify-between items-center">
-                                    <div className="text-center w-1/3">
-                                        <div className="text-xl font-black text-gray-900 break-words">{selectedMatch.team1}</div>
-                                        <div className="text-4xl font-black text-[#5a0a8f] mt-2 tracking-tighter">
+                            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:p-7">
+                                <div className="flex flex-col items-stretch justify-between gap-6 md:flex-row md:items-center md:gap-8">
+                                    <div className="min-w-0 flex-1 px-2 text-center md:text-left">
+                                        <div className="mx-auto max-w-full break-words text-lg font-black leading-tight text-gray-900 md:mx-0 md:text-xl lg:text-2xl">
+                                            {selectedMatch.team1}
+                                        </div>
+                                        <div className="mt-2 text-4xl font-black tracking-tighter text-[#5a0a8f]">
                                             {selectedMatch.score?.team1 || 0}
                                         </div>
-                                        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Regus Won</div>
+                                        <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.22em] text-gray-400">Regus Won</div>
                                     </div>
-                                    <div className="text-center w-1/3 flex flex-col items-center">
-                                        <div className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">Match Status</div>
+                                    <div className="flex shrink-0 flex-col items-center px-2 text-center">
+                                        <div className="mb-2 text-xs font-bold uppercase tracking-[0.22em] text-gray-400">Match Status</div>
                                         <span className={`px-4 py-1.5 rounded-full text-xs font-black tracking-wider shadow-sm border ${selectedMatch.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
                                             selectedMatch.status === 'ongoing' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                                                 'bg-gray-50 text-gray-600 border-gray-200'
@@ -605,24 +607,26 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                                             </div>
                                         )}
                                     </div>
-                                    <div className="text-center w-1/3">
-                                        <div className="text-xl font-black text-gray-900 break-words">{selectedMatch.team2}</div>
-                                        <div className="text-4xl font-black text-[#5a0a8f] mt-2 tracking-tighter">
+                                    <div className="min-w-0 flex-1 px-2 text-center md:text-right">
+                                        <div className="mx-auto max-w-full break-words text-lg font-black leading-tight text-gray-900 md:ml-auto md:text-xl lg:text-2xl">
+                                            {selectedMatch.team2}
+                                        </div>
+                                        <div className="mt-2 text-4xl font-black tracking-tighter text-[#5a0a8f]">
                                             {selectedMatch.score?.team2 || 0}
                                         </div>
-                                        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Regus Won</div>
+                                        <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.22em] text-gray-400">Regus Won</div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Regu Tabs */}
-                            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                                <div className="flex border-b border-gray-200 bg-gray-50/50">
+                            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                                <div className="flex border-b border-gray-200 bg-gray-50/70">
                                     {currentRegus.map((regu, idx) => (
                                         <button
                                             key={idx}
                                             onClick={() => setSelectedReguIndex(idx)}
-                                            className={`flex-1 py-4 px-6 text-sm font-bold transition-all border-b-2 flex flex-col items-center gap-1 ${
+                                            className={`flex flex-1 flex-col items-center gap-1 border-b-2 px-4 py-4 text-sm font-bold transition-all ${
                                                 selectedReguIndex === idx 
                                                     ? 'border-[#5a0a8f] text-[#5a0a8f] bg-white' 
                                                     : 'border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-700'
@@ -639,71 +643,71 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                                     ))}
                                 </div>
 
-                                <div className="p-6">
+                                <div className="p-4 md:p-6">
                                     {activeRegu && (
                                         <div className="space-y-6">
                                             {/* Active Set Controls */}
                                             {activeSet && !activeRegu.winner ? (
-                                                <div className="bg-purple-50/50 rounded-2xl border border-purple-100 p-8 shadow-sm relative overflow-hidden">
-                                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#5a0a8f] to-[#d400ff]"></div>
+                                                <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/80 p-5 shadow-sm md:p-8">
+                                                    <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-slate-900 via-slate-700 to-amber-500"></div>
                                                     
-                                                    <div className="text-center mb-8">
-                                                        <span className="inline-flex items-center gap-2 bg-white text-[#5a0a8f] px-4 py-1.5 rounded-full text-sm font-black tracking-wide border border-purple-200 shadow-sm">
+                                                    <div className="mb-6 text-center md:mb-8">
+                                                        <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm font-black tracking-wide text-slate-700 shadow-sm">
                                                             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
                                                             SET {activeSet.setNumber} (LIVE)
                                                         </span>
                                                     </div>
 
-                                                    <div className="flex items-center justify-between gap-8 max-w-2xl mx-auto">
+                                                    <div className="mx-auto flex max-w-3xl flex-col items-stretch justify-between gap-8 md:flex-row md:items-center md:gap-8">
                                                         {/* Team 1 Controls */}
-                                                        <div className="flex flex-col items-center gap-4 flex-1">
-                                                            <div className="text-sm font-bold text-gray-600 truncate w-full text-center">{selectedMatch.team1}</div>
+                                                        <div className="flex min-w-0 flex-1 flex-col items-center gap-4">
+                                                            <div className="w-full truncate text-center text-sm font-bold text-gray-600">{selectedMatch.team1}</div>
                                                             <button
                                                                 onClick={() => updateSetPoint('team1', 1)}
-                                                                className="w-20 h-20 rounded-full bg-white border-2 border-green-200 text-green-600 flex items-center justify-center hover:bg-green-50 hover:border-green-300 hover:scale-105 active:scale-95 transition-all shadow-sm"
+                                                                className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-green-200 bg-white text-green-600 shadow-sm transition-all hover:border-green-300 hover:bg-green-50 hover:scale-105 active:scale-95"
                                                             >
                                                                 <span className="material-symbols-outlined text-4xl font-bold">add</span>
                                                             </button>
-                                                            <div className="text-6xl font-black text-gray-900 my-2 tracking-tighter tabular-nums">{activeSet.team1Score}</div>
+                                                            <div className="my-2 text-5xl font-black tabular-nums tracking-tighter text-gray-900 md:text-6xl">{activeSet.team1Score}</div>
                                                             <button
                                                                 onClick={() => updateSetPoint('team1', -1)}
-                                                                className="w-12 h-12 rounded-full bg-white border-2 border-red-100 text-red-500 flex items-center justify-center hover:bg-red-50 hover:border-red-200 hover:scale-105 active:scale-95 transition-all shadow-sm"
+                                                                className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-red-100 bg-white text-red-500 shadow-sm transition-all hover:border-red-200 hover:bg-red-50 hover:scale-105 active:scale-95"
                                                             >
                                                                 <span className="material-symbols-outlined text-xl">remove</span>
                                                             </button>
                                                         </div>
 
                                                         {/* VS */}
-                                                        <div className="flex flex-col gap-4 items-center px-4">
+                                                        <div className="flex flex-col items-center gap-4 px-4">
                                                             <div className="w-12 h-12 rounded-full bg-white shadow-sm border border-gray-100 flex items-center justify-center text-gray-400 font-black italic text-sm">
                                                                 VS
                                                             </div>
                                                         </div>
 
                                                         {/* Team 2 Controls */}
-                                                        <div className="flex flex-col items-center gap-4 flex-1">
-                                                            <div className="text-sm font-bold text-gray-600 truncate w-full text-center">{selectedMatch.team2}</div>
+                                                        <div className="flex min-w-0 flex-1 flex-col items-center gap-4">
+                                                            <div className="w-full truncate text-center text-sm font-bold text-gray-600">{selectedMatch.team2}</div>
                                                             <button
                                                                 onClick={() => updateSetPoint('team2', 1)}
-                                                                className="w-20 h-20 rounded-full bg-white border-2 border-green-200 text-green-600 flex items-center justify-center hover:bg-green-50 hover:border-green-300 hover:scale-105 active:scale-95 transition-all shadow-sm"
+                                                                className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-green-200 bg-white text-green-600 shadow-sm transition-all hover:border-green-300 hover:bg-green-50 hover:scale-105 active:scale-95"
                                                             >
                                                                 <span className="material-symbols-outlined text-4xl font-bold">add</span>
                                                             </button>
-                                                            <div className="text-6xl font-black text-gray-900 my-2 tracking-tighter tabular-nums">{activeSet.team2Score}</div>
+                                                            <div className="my-2 text-5xl font-black tabular-nums tracking-tighter text-gray-900 md:text-6xl">{activeSet.team2Score}</div>
                                                             <button
                                                                 onClick={() => updateSetPoint('team2', -1)}
-                                                                className="w-12 h-12 rounded-full bg-white border-2 border-red-100 text-red-500 flex items-center justify-center hover:bg-red-50 hover:border-red-200 hover:scale-105 active:scale-95 transition-all shadow-sm"
+                                                                className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-red-100 bg-white text-red-500 shadow-sm transition-all hover:border-red-200 hover:bg-red-50 hover:scale-105 active:scale-95"
                                                             >
                                                                 <span className="material-symbols-outlined text-xl">remove</span>
                                                             </button>
                                                         </div>
                                                     </div>
 
-                                                    <div className="mt-8 border-t border-purple-200/50 pt-6">
-                                                        <h4 className="font-black text-gray-400 text-xs uppercase tracking-widest mb-4 text-center">Time Out</h4>
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
-                                                            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                                                                <p className="text-sm font-bold text-gray-700 mb-2 truncate">{selectedMatch.team1}</p>
+                                                    <div className="mt-8 border-t border-slate-200 pt-6">
+                                                        <h4 className="mb-4 text-center text-xs font-black uppercase tracking-[0.22em] text-gray-400">Timeouts</h4>
+                                                        <div className="mx-auto grid max-w-3xl grid-cols-1 gap-4 md:grid-cols-2">
+                                                            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                                                                <p className="mb-2 truncate text-sm font-bold text-gray-700">{selectedMatch.team1}</p>
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => recordTimeout('team1')}
@@ -719,8 +723,8 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                                                                     <p className="mt-3 text-xs text-gray-400 italic">No timeout recorded for this set</p>
                                                                 )}
                                                             </div>
-                                                            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                                                                <p className="text-sm font-bold text-gray-700 mb-2 truncate">{selectedMatch.team2}</p>
+                                                            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                                                                <p className="mb-2 truncate text-sm font-bold text-gray-700">{selectedMatch.team2}</p>
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => recordTimeout('team2')}
@@ -739,39 +743,39 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                                                         </div>
                                                     </div>
 
-                                                    <div className="mt-10 flex justify-center gap-4 border-t border-purple-200/50 pt-6">
+                                                    <div className="mt-10 flex flex-col justify-center gap-4 border-t border-slate-200 pt-6 md:flex-row">
                                                         <button
                                                             type="button"
                                                             onClick={() => declareSetWinner('team1')}
-                                                            className="px-6 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm"
+                                                            className="flex max-w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 md:px-6"
                                                         >
-                                                            {selectedMatch.team1} Wins Set
+                                                            <span className="truncate">{selectedMatch.team1} Wins Set</span>
                                                         </button>
                                                         <button
                                                             type="button"
                                                             onClick={() => declareSetWinner('team2')}
-                                                            className="px-6 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm"
+                                                            className="flex max-w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 md:px-6"
                                                         >
-                                                            {selectedMatch.team2} Wins Set
+                                                            <span className="truncate">{selectedMatch.team2} Wins Set</span>
                                                         </button>
                                                     </div>
 
                                                     <div className="mt-6 border-t border-gray-200 pt-6">
-                                                        <h4 className="font-black text-gray-400 text-xs uppercase tracking-widest mb-4">Sub In / Sub Out</h4>
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <h4 className="mb-4 text-xs font-black uppercase tracking-[0.22em] text-gray-400">Sub In / Sub Out</h4>
+                                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                                             <button
                                                                 type="button"
                                                                 onClick={() => addSubstitution('team1')}
-                                                                className="rounded-xl border-2 border-green-200 bg-green-50 px-4 py-3 text-left font-bold text-green-800 hover:bg-green-100 transition-colors"
+                                                                className="rounded-2xl border-2 border-green-200 bg-green-50 px-4 py-3 text-left font-bold text-green-800 transition-colors hover:bg-green-100"
                                                             >
-                                                                {selectedMatch.team1} Sub In
+                                                                <span className="block truncate text-sm md:text-base">{selectedMatch.team1} Sub In</span>
                                                             </button>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => addSubstitution('team2')}
-                                                                className="rounded-xl border-2 border-blue-200 bg-blue-50 px-4 py-3 text-left font-bold text-blue-800 hover:bg-blue-100 transition-colors"
+                                                                className="rounded-2xl border-2 border-blue-200 bg-blue-50 px-4 py-3 text-left font-bold text-blue-800 transition-colors hover:bg-blue-100"
                                                             >
-                                                                {selectedMatch.team2} Sub In
+                                                                <span className="block truncate text-sm md:text-base">{selectedMatch.team2} Sub In</span>
                                                             </button>
                                                         </div>
 
@@ -825,19 +829,19 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                                                                     </div>
                                                                 </div>
 
-                                                                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
                                                                     <div>
-                                                                        <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">Entry Time</label>
+                                                                        <label className="mb-1 block text-xs font-bold uppercase tracking-[0.22em] text-gray-500">Entry Time</label>
                                                                         <input
                                                                             type="time"
                                                                             value={substitutionDraft.entryTime}
                                                                             onChange={(e) => setSubstitutionDraft((prev) => prev ? { ...prev, entryTime: e.target.value } : prev)}
-                                                                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900"
+                                                                            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-gray-900"
                                                                         />
                                                                     </div>
                                                                     <div>
-                                                                        <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">Played</label>
-                                                                        <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 font-bold text-gray-900">
+                                                                        <label className="mb-1 block text-xs font-bold uppercase tracking-[0.22em] text-gray-500">Played</label>
+                                                                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 font-bold text-gray-900">
                                                                             {(() => {
                                                                                 if (!substitutionDraft.entryTime || !substitutionDraft.exitTime) return '—'
                                                                                 const start = new Date(`1970-01-01T${substitutionDraft.entryTime}`)
@@ -854,14 +858,14 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => { setSubstitutionDraft(null); }}
-                                                                        className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50"
+                                                                        className="rounded-xl border border-gray-300 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-50"
                                                                     >
                                                                         Cancel
                                                                     </button>
                                                                     <button
                                                                         type="button"
                                                                         onClick={saveSubstitution}
-                                                                        className="px-4 py-2 rounded-lg bg-[#5a0a8f] text-white font-semibold hover:bg-[#400466]"
+                                                                        className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white shadow-sm transition-colors hover:bg-slate-800"
                                                                     >
                                                                         Save Substitution
                                                                     </button>
@@ -891,7 +895,7 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                                                 <div className="flex justify-center py-8">
                                                     <button
                                                         onClick={createNewSet}
-                                                        className="flex items-center gap-2 px-8 py-4 bg-[#5a0a8f] text-white rounded-xl font-bold hover:bg-[#400466] transition-all transform hover:scale-105 shadow-md"
+                                                        className="flex items-center gap-2 rounded-xl border border-amber-200 bg-slate-900 px-8 py-4 font-bold text-white shadow-lg shadow-slate-900/10 transition-all hover:-translate-y-0.5 hover:bg-slate-800"
                                                     >
                                                         <span className="material-symbols-outlined">sports_score</span>
                                                         Start Next Set
@@ -901,41 +905,41 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
 
                                             {/* Regu Winner Section */}
                                             {activeRegu.winner ? (
-                                                <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center">
-                                                    <div className="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-full text-green-700 font-black shadow-sm mb-2 border border-green-100">
+                                                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-6 text-center shadow-sm">
+                                                    <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-white px-4 py-2 font-black text-emerald-700 shadow-sm">
                                                         <span className="material-symbols-outlined">verified</span>
                                                         {activeRegu.reguName} Completed
                                                     </div>
-                                                    <p className="text-gray-600 font-medium mt-2">
+                                                    <p className="mt-2 font-medium text-gray-600">
                                                         Won by: <span className="font-bold text-gray-900">{activeRegu.winner === 'team1' ? selectedMatch.team1 : selectedMatch.team2}</span>
                                                     </p>
                                                 </div>
                                             ) : (
-                                                <div className="flex justify-center gap-4 pt-4 border-t border-gray-200 mt-6">
+                                                <div className="mt-6 flex justify-center gap-4 border-t border-slate-200 pt-4">
                                                     <button
                                                         onClick={() => declareReguWinner('team1')}
-                                                        className="px-6 py-3 bg-white border-2 border-green-200 text-green-700 font-bold rounded-xl hover:bg-green-50 transition-colors shadow-sm flex items-center gap-2"
+                                                        className="flex max-w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 shadow-sm transition-colors hover:bg-amber-50 md:text-base"
                                                     >
-                                                        <span className="material-symbols-outlined text-sm">emoji_events</span>
-                                                        {selectedMatch.team1} Wins {activeRegu.reguName}
+                                                        <span className="material-symbols-outlined text-sm text-amber-500">emoji_events</span>
+                                                        <span className="truncate">{selectedMatch.team1} Wins {activeRegu.reguName}</span>
                                                     </button>
                                                     <button
                                                         onClick={() => declareReguWinner('team2')}
-                                                        className="px-6 py-3 bg-white border-2 border-green-200 text-green-700 font-bold rounded-xl hover:bg-green-50 transition-colors shadow-sm flex items-center gap-2"
+                                                        className="flex max-w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 shadow-sm transition-colors hover:bg-amber-50 md:text-base"
                                                     >
-                                                        <span className="material-symbols-outlined text-sm">emoji_events</span>
-                                                        {selectedMatch.team2} Wins {activeRegu.reguName}
+                                                        <span className="material-symbols-outlined text-sm text-amber-500">emoji_events</span>
+                                                        <span className="truncate">{selectedMatch.team2} Wins {activeRegu.reguName}</span>
                                                     </button>
                                                 </div>
                                             )}
 
                                             {/* Set History */}
                                             {activeRegu.sets && activeRegu.sets.length > 0 && (
-                                                <div className="mt-8 pt-6 border-t border-gray-200">
-                                                    <h4 className="font-black text-gray-400 text-xs uppercase tracking-widest mb-4">Set History for {activeRegu.reguName}</h4>
+                                                <div className="mt-8 border-t border-slate-200 pt-6">
+                                                    <h4 className="mb-4 text-xs font-black uppercase tracking-[0.22em] text-gray-400">Set History for {activeRegu.reguName}</h4>
                                                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                                                         {activeRegu.sets.map((set, idx) => (
-                                                            <div key={idx} className={`p-4 rounded-xl border-2 transition-all ${set.winner ? 'bg-white border-gray-200 shadow-sm' : 'bg-purple-50/50 border-purple-200 border-dashed'}`}>
+                                                            <div key={idx} className={`rounded-2xl border-2 p-4 transition-all ${set.winner ? 'border-gray-200 bg-white shadow-sm' : 'border-slate-200 bg-slate-50/70 border-dashed'}`}>
                                                                 <div className="flex justify-between items-center mb-3">
                                                                     <span className="text-xs font-black text-gray-500 uppercase tracking-wider">Set {set.setNumber}</span>
                                                                     {set.winner ? (
@@ -943,7 +947,7 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                                                                             {set.winner === 'team1' ? `${selectedMatch.team1} Won` : `${selectedMatch.team2} Won`}
                                                                         </span>
                                                                     ) : (
-                                                                        <span className="text-[10px] font-bold bg-purple-100 text-[#5a0a8f] px-2 py-1 rounded uppercase animate-pulse">
+                                                                        <span className="text-[10px] font-bold bg-slate-900/5 text-slate-700 px-2 py-1 rounded uppercase animate-pulse">
                                                                             Live
                                                                         </span>
                                                                     )}
@@ -965,25 +969,25 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
 
                             {/* Match Actions */}
                             {selectedMatch.status !== 'completed' && (
-                                <div className="bg-gray-800 rounded-xl p-6 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4 mt-8">
+                                <div className="mt-8 flex flex-col items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-900/5 sm:flex-row">
                                     <div>
-                                        <h3 className="text-white font-bold">End Match</h3>
-                                        <p className="text-gray-400 text-sm">Declare a final winner and close this match.</p>
+                                        <h3 className="font-bold text-slate-900">End Match</h3>
+                                        <p className="text-sm text-slate-500">Declare a final winner and close this match.</p>
                                     </div>
                                     <div className="flex gap-3 w-full sm:w-auto">
                                         <button
                                             onClick={() => declareMatchWinner('team1')}
-                                            className="flex-1 sm:flex-none px-6 py-3 bg-white text-gray-900 font-bold rounded-xl hover:bg-gray-100 transition-colors shadow-sm flex justify-center items-center gap-2"
+                                            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 shadow-sm transition-colors hover:bg-amber-50 sm:flex-none md:text-base"
                                         >
-                                            <span className="material-symbols-outlined text-green-600">emoji_events</span>
-                                            {selectedMatch.team1}
+                                            <span className="material-symbols-outlined text-amber-500">emoji_events</span>
+                                            <span className="truncate">{selectedMatch.team1}</span>
                                         </button>
                                         <button
                                             onClick={() => declareMatchWinner('team2')}
-                                            className="flex-1 sm:flex-none px-6 py-3 bg-white text-gray-900 font-bold rounded-xl hover:bg-gray-100 transition-colors shadow-sm flex justify-center items-center gap-2"
+                                            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 shadow-sm transition-colors hover:bg-amber-50 sm:flex-none md:text-base"
                                         >
-                                            <span className="material-symbols-outlined text-green-600">emoji_events</span>
-                                            {selectedMatch.team2}
+                                            <span className="material-symbols-outlined text-amber-500">emoji_events</span>
+                                            <span className="truncate">{selectedMatch.team2}</span>
                                         </button>
                                     </div>
                                 </div>
