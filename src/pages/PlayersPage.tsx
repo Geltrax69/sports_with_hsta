@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { fetchPlayers } from '../lib/playersApi'
-import { MaintenanceNotice } from '../components/MaintenanceNotice'
 import type { Player, PlayerType } from '../types/player'
 import { Skeleton } from 'boneyard-js/react'
 
-/** Debounce a value by `delay` ms to avoid re-filtering on every keystroke. */
+/** Debounce a value by `delay` ms. */
 function useDebounce<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value)
   useEffect(() => {
@@ -15,12 +14,6 @@ function useDebounce<T>(value: T, delay: number): T {
   return debounced
 }
 
-const CATEGORY_OPTIONS = [
-  { value: 'MEN', label: 'Men' },
-  { value: 'WOMEN', label: 'Women' },
-  { value: 'JUNIOR', label: 'Junior' },
-]
-
 export function PlayersPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get('tab')
@@ -29,95 +22,85 @@ export function PlayersPage() {
     tabParam === 'international' ? 'international' : 'national',
   )
   const [searchInput, setSearchInput] = useState('')
-  const [stateFilter, setStateFilter] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('')
-  const [sortBy, setSortBy] = useState<'rank' | 'name' | 'age'>('rank')
-  const [currentPage, setCurrentPage] = useState(1)
-  const [players, setPlayers] = useState<Player[]>([])
-  const [loading, setLoading] = useState(true)
+  const [players, setPlayers]         = useState<Player[]>([])
+  const [loading, setLoading]         = useState(true)
+  const [openDistricts, setOpenDistricts] = useState<Set<string>>(new Set())
 
-  const ITEMS_PER_PAGE = 8
-
-  // Debounce the search so filters only run 300 ms after typing stops
   const searchQuery = useDebounce(searchInput, 300)
 
-  // Fetch players — real AbortController so the HTTP request is cancelled on unmount
+  // Fetch all published players once
   useEffect(() => {
     const controller = new AbortController()
     setLoading(true)
     fetchPlayers(undefined, true, controller.signal)
-      .then((data) => {
-        if (!controller.signal.aborted) setPlayers(data)
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setPlayers([])
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false)
-      })
+      .then((data) => { if (!controller.signal.aborted) setPlayers(data) })
+      .catch(() => { if (!controller.signal.aborted) setPlayers([]) })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => { controller.abort() }
   }, [])
 
   // Sync tab from URL
   useEffect(() => {
-    if (tabParam === 'international') setCurrentMode('international')
-    else setCurrentMode('national')
+    setCurrentMode(tabParam === 'international' ? 'international' : 'national')
   }, [tabParam])
 
-  // Switch tab — resets filters
+  // Switch tab — reset search & open districts
   const setMode = useCallback(
     (mode: PlayerType) => {
       setCurrentMode(mode)
-      setStateFilter('')
-      setCategoryFilter('')
       setSearchInput('')
-      setCurrentPage(1)
+      setOpenDistricts(new Set())
       setSearchParams(mode === 'international' ? { tab: 'international' } : {}, { replace: true })
     },
     [setSearchParams],
   )
 
-  // Reset page when any filter changes
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchQuery, sortBy, currentMode, stateFilter, categoryFilter])
+  // Toggle a district accordion open/closed
+  const toggleDistrict = useCallback((name: string) => {
+    setOpenDistricts((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }, [])
 
-  // All derived data is memoised — never recomputed on unrelated renders
+  // Players for current tab, filtered by search
   const tabPlayers = useMemo(
     () => players.filter((p) => p.playerType === currentMode),
     [players, currentMode],
   )
 
-  const stateOptions = useMemo(() => {
-    const seen = new Set<string>()
-    tabPlayers.forEach((p) => { if (p.state?.trim()) seen.add(p.state.trim()) })
-    return Array.from(seen).sort((a, b) => a.localeCompare(b))
-  }, [tabPlayers])
-
   const filteredPlayers = useMemo(() => {
     const q = searchQuery.toLowerCase().trim()
-    return tabPlayers.filter((p) => {
-      const matchSearch =
-        !q || p.name.toLowerCase().includes(q) || p.state.toLowerCase().includes(q)
-      const matchState = !stateFilter || p.state === stateFilter
-      const matchCategory = !categoryFilter || p.category.toUpperCase() === categoryFilter
-      return matchSearch && matchState && matchCategory
+    if (!q) return tabPlayers
+    return tabPlayers.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.state || '').toLowerCase().includes(q) ||
+        (p.role || '').toLowerCase().includes(q),
+    )
+  }, [tabPlayers, searchQuery])
+
+  // Group filtered players by state/district
+  const districtGroups = useMemo(() => {
+    const map = new Map<string, Player[]>()
+    filteredPlayers.forEach((p) => {
+      const key = p.state?.trim() || 'Unassigned'
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(p)
     })
-  }, [tabPlayers, searchQuery, stateFilter, categoryFilter])
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b))
+  }, [filteredPlayers])
 
-  const sortedPlayers = useMemo(
-    () =>
-      [...filteredPlayers].sort((a, b) => {
-        if (sortBy === 'name') return a.name.localeCompare(b.name)
-        if (sortBy === 'age') return a.age - b.age
-        return a.rankNumber - b.rankNumber
-      }),
-    [filteredPlayers, sortBy],
-  )
+  // Auto-expand all districts when searching
+  useEffect(() => {
+    if (searchQuery) {
+      setOpenDistricts(new Set(districtGroups.map(([name]) => name)))
+    }
+  }, [searchQuery, districtGroups])
 
-  const totalPages = Math.ceil(sortedPlayers.length / ITEMS_PER_PAGE)
-  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE
-  const paginated = sortedPlayers.slice(startIdx, startIdx + ITEMS_PER_PAGE)
+  const totalPlayers = filteredPlayers.length
 
   return (
     <Skeleton name="players-page" loading={loading}>
@@ -151,9 +134,9 @@ export function PlayersPage() {
         </section>
 
         {/* ── Filters bar ── */}
-        <div className="bg-gray-50 border-b border-gray-200 py-4">
+        <div className="bg-gray-50 border-b border-gray-200 py-4 sticky top-0 z-10">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
               {/* Tab switcher */}
               <div className="flex items-center gap-3">
@@ -172,186 +155,166 @@ export function PlayersPage() {
                 ))}
               </div>
 
-              {/* Search + dropdowns */}
-              <div className="flex flex-col gap-3 sm:flex-row sm:w-auto w-full">
-                <div className="relative flex-1 sm:min-w-[320px]">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                    <span className="material-symbols-outlined text-[20px]">search</span>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Search by name or state..."
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    className="h-10 w-full rounded-lg border-0 bg-white pl-10 pr-4 text-sm text-gray-900 placeholder:text-gray-500 ring-1 ring-gray-200 focus:ring-2 focus:ring-[#5a0a8f]"
-                  />
-                </div>
-                <select
-                  value={stateFilter}
-                  onChange={(e) => setStateFilter(e.target.value)}
-                  className="h-10 w-full sm:w-auto cursor-pointer rounded-lg border-0 bg-white pl-3 pr-10 text-sm text-gray-700 ring-1 ring-gray-200 focus:ring-2 focus:ring-[#5a0a8f] min-w-[140px]"
-                >
-                  <option value="">All States</option>
-                  {stateOptions.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="h-10 w-full sm:w-auto cursor-pointer rounded-lg border-0 bg-white pl-3 pr-10 text-sm text-gray-700 ring-1 ring-gray-200 focus:ring-2 focus:ring-[#5a0a8f] min-w-[160px]"
-                >
-                  <option value="">All Categories</option>
-                  {CATEGORY_OPTIONS.map((c) => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                  ))}
-                </select>
+              {/* Search */}
+              <div className="relative sm:w-72">
+                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                  <span className="material-symbols-outlined text-[20px]">search</span>
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search by name or district…"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="h-10 w-full rounded-lg border-0 bg-white pl-10 pr-4 text-sm text-gray-900 placeholder:text-gray-500 ring-1 ring-gray-200 focus:ring-2 focus:ring-[#5a0a8f]"
+                />
               </div>
             </div>
           </div>
         </div>
 
-        {/* ── Player grid ── */}
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 lg:py-12 bg-white">
+        {/* ── Content ── */}
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 bg-white min-h-[400px]">
+
+          {/* Summary line */}
           <div className="flex items-center justify-between mb-6">
             <p className="text-sm text-gray-600">
-              Showing{' '}
-              <span className="font-bold text-gray-900">
-                {sortedPlayers.length === 0 ? 0 : startIdx + 1}–{Math.min(startIdx + ITEMS_PER_PAGE, sortedPlayers.length)}
-              </span>{' '}
-              of{' '}
-              <span className="font-bold text-gray-900">{sortedPlayers.length}</span>{' '}
-              {currentMode} players
+              <span className="font-bold text-gray-900">{totalPlayers}</span>{' '}
+              {currentMode} {totalPlayers === 1 ? 'player' : 'players'}
+              {searchQuery && (
+                <span className="text-gray-400"> matching "{searchQuery}"</span>
+              )}
             </p>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="h-10 cursor-pointer rounded-lg border-0 bg-white pl-3 pr-10 text-sm text-gray-700 ring-1 ring-gray-200 focus:ring-2 focus:ring-[#5a0a8f] min-w-[180px]"
-            >
-              <option value="rank">Ranking (High to Low)</option>
-              <option value="name">Name (A–Z)</option>
-              <option value="age">Age (Youngest)</option>
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
-            {paginated.length > 0 ? (
-              paginated.map((player) => (
-                <Link
-                  key={player.id}
-                  to={`/players/${encodeURIComponent(player.id)}`}
-                  className="group block overflow-hidden rounded-xl bg-white border border-gray-200 shadow-sm hover:shadow-lg hover:border-[#5a0a8f]/30 transition-all"
-                >
-                  <div className="relative h-48 bg-gray-100 flex items-center justify-center p-4">
-                    <img
-                      alt={`Profile of ${player.name}`}
-                      className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
-                      src={player.image}
-                      loading="lazy"
-                      onError={(e) => {
-                        const t = e.target as HTMLImageElement
-                        t.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(player.name)}&background=random&size=128&bold=true`
-                      }}
-                    />
-                    {player.badge && (
-                      <div className="absolute top-3 right-3 rounded-full bg-[#fcd34d] px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-gray-900">
-                        {player.badge}
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <h3 className="text-base font-bold text-gray-900 group-hover:text-[#5a0a8f] transition-colors truncate">
-                        {player.name}
-                      </h3>
-                      <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-700 uppercase">
-                        {player.category}
-                      </span>
-                    </div>
-                    <div className="space-y-2 text-xs text-gray-600 mb-4">
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[16px] text-gray-400">location_on</span>
-                        <span>{player.state}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[16px] text-gray-400">workspace_premium</span>
-                        <span>Rank {player.rank}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[16px] text-gray-400">cake</span>
-                        <span>Age: {player.age}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-end pt-3 border-t border-gray-100">
-                      <span className="inline-flex items-center gap-1 text-xs font-bold text-[#5a0a8f] group-hover:gap-2 transition-all">
-                        View Profile
-                        <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              ))
-            ) : (
-              <div className="col-span-full">
-                <MaintenanceNotice
-                  title="No Players Found"
-                  message="No players match your search or filters. Try adjusting your criteria."
-                  icon="search_off"
-                />
-              </div>
+            {districtGroups.length > 0 && (
+              <button
+                onClick={() =>
+                  setOpenDistricts(
+                    openDistricts.size === districtGroups.length
+                      ? new Set()
+                      : new Set(districtGroups.map(([n]) => n)),
+                  )
+                }
+                className="text-xs font-semibold text-[#5a0a8f] hover:underline"
+              >
+                {openDistricts.size === districtGroups.length ? 'Collapse all' : 'Expand all'}
+              </button>
             )}
           </div>
 
-          {/* ── Pagination ── */}
-          {totalPages > 1 && (
-            <div className="flex justify-center">
-              <nav className="flex items-center gap-1">
+          {districtGroups.length === 0 ? (
+            /* ── Empty state ── */
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-20 h-20 rounded-full bg-yellow-100 flex items-center justify-center mb-4">
+                <span className="material-symbols-outlined text-4xl text-yellow-500">person_search</span>
+              </div>
+              <h3 className="text-lg font-bold text-gray-800 mb-1">No Players Found</h3>
+              <p className="text-sm text-gray-500 max-w-xs">
+                {searchQuery
+                  ? 'No players match your search. Try different keywords.'
+                  : 'No players have been added yet.'}
+              </p>
+              {searchQuery && (
                 <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="flex items-center justify-center size-10 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  onClick={() => setSearchInput('')}
+                  className="mt-4 text-sm font-semibold text-[#5a0a8f] hover:underline"
                 >
-                  <span className="material-symbols-outlined text-lg">chevron_left</span>
+                  Clear search
                 </button>
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum: number
-                  if (totalPages <= 5) pageNum = i + 1
-                  else if (currentPage <= 3) pageNum = i + 1
-                  else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i
-                  else pageNum = currentPage - 2 + i
-                  return (
+              )}
+              <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-yellow-300 bg-yellow-50 px-4 py-1.5 text-xs font-semibold text-yellow-700">
+                <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse" />
+                COMING SOON
+              </div>
+            </div>
+          ) : (
+            /* ── District accordion list ── */
+            <div className="space-y-3">
+              {districtGroups.map(([district, districtPlayers]) => {
+                const isOpen = openDistricts.has(district)
+                return (
+                  <div
+                    key={district}
+                    className="rounded-xl border border-gray-200 overflow-hidden shadow-sm"
+                  >
+                    {/* Accordion header */}
                     <button
-                      key={pageNum}
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`flex items-center justify-center size-10 rounded-lg font-medium transition-colors ${
-                        currentPage === pageNum
-                          ? 'bg-[#5a0a8f] text-white shadow-md'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
+                      type="button"
+                      onClick={() => toggleDistrict(district)}
+                      className="w-full flex items-center justify-between px-5 py-4 bg-white hover:bg-gray-50 transition-colors text-left"
                     >
-                      {pageNum}
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-1 h-8 rounded-full bg-[#5a0a8f] shrink-0" />
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-[#5a0a8f] mb-0.5">
+                            District
+                          </p>
+                          <p className="text-base font-black text-gray-900 leading-tight">
+                            {district}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0 ml-4">
+                        <span className="inline-flex items-center justify-center rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-700">
+                          {districtPlayers.length}{' '}
+                          {districtPlayers.length === 1 ? 'player' : 'players'}
+                        </span>
+                        <div
+                          className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                            isOpen ? 'bg-[#5a0a8f] text-white' : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          <span
+                            className={`material-symbols-outlined text-[20px] transition-transform duration-200 ${
+                              isOpen ? 'rotate-180' : ''
+                            }`}
+                          >
+                            keyboard_arrow_down
+                          </span>
+                        </div>
+                      </div>
                     </button>
-                  )
-                })}
-                {totalPages > 5 && currentPage < totalPages - 2 && (
-                  <>
-                    <span className="px-2 text-gray-500">…</span>
-                    <button
-                      onClick={() => setCurrentPage(totalPages)}
-                      className="flex items-center justify-center size-10 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
-                    >
-                      {totalPages}
-                    </button>
-                  </>
-                )}
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="flex items-center justify-center size-10 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <span className="material-symbols-outlined text-lg">chevron_right</span>
-                </button>
-              </nav>
+
+                    {/* Accordion content */}
+                    {isOpen && (
+                      <div className="border-t border-gray-100 bg-gray-50 px-5 py-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                          {districtPlayers.map((player) => (
+                            <Link
+                              key={player.id}
+                              to={`/players/${encodeURIComponent(player.id)}`}
+                              className="group flex items-center gap-3 bg-white rounded-xl border border-gray-200 px-4 py-3 hover:border-[#5a0a8f]/40 hover:shadow-md transition-all"
+                            >
+                              <img
+                                alt={`Profile of ${player.name}`}
+                                className="w-12 h-12 rounded-full object-cover border-2 border-white shadow shrink-0"
+                                src={player.image}
+                                loading="lazy"
+                                onError={(e) => {
+                                  ;(e.target as HTMLImageElement).src =
+                                    `https://ui-avatars.com/api/?name=${encodeURIComponent(player.name)}&background=5a0a8f&color=fff&size=48&bold=true`
+                                }}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="font-bold text-gray-900 text-sm truncate group-hover:text-[#5a0a8f] transition-colors">
+                                  {player.name}
+                                </p>
+                                <p className="text-xs text-gray-500 truncate">{player.role || player.category}</p>
+                                {player.badge && (
+                                  <span className="inline-block mt-1 rounded-full bg-yellow-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-yellow-800">
+                                    {player.badge}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="material-symbols-outlined text-gray-300 group-hover:text-[#5a0a8f] transition-colors text-[18px] shrink-0">
+                                chevron_right
+                              </span>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

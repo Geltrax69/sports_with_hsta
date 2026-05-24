@@ -12,6 +12,38 @@ import {
 } from '../../lib/playersApi'
 import type { Player, PlayerForm, PlayerTournament, PlayerType } from '../../types/player'
 
+/** Approved player registration — minimal shape for the quick-fill dropdown. */
+type ApprovedReg = {
+  _id: string
+  fullName: string
+  district?: string
+  dateOfBirth?: string
+  gender?: string
+  category?: string
+  profilePhoto?: string
+}
+
+function calcAgeFromDob(dob?: string): number {
+  if (!dob) return 0
+  const birth = new Date(dob)
+  if (isNaN(birth.getTime())) return 0
+  const now = new Date()
+  let age = now.getFullYear() - birth.getFullYear()
+  if (
+    now.getMonth() < birth.getMonth() ||
+    (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())
+  ) age--
+  return Math.max(0, age)
+}
+
+function mapGenderToCategory(gender?: string): string {
+  const g = (gender || '').toUpperCase()
+  if (g === 'MALE' || g === 'M') return 'MEN'
+  if (g === 'FEMALE' || g === 'F') return 'WOMEN'
+  if (g === 'JUNIOR') return 'JUNIOR'
+  return ''
+}
+
 export function PlayersDataManagement() {
   const [players, setPlayers] = useState<Player[]>([])
   const [loading, setLoading] = useState(true)
@@ -24,6 +56,52 @@ export function PlayersDataManagement() {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [message, setMessage] = useState('')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  // ── Quick-fill from registered players ────────────────────────────────────
+  const [regPlayers, setRegPlayers]   = useState<ApprovedReg[]>([])
+  const [regSearch, setRegSearch]     = useState('')
+  const [regOpen, setRegOpen]         = useState(false)
+  const regDropRef = useRef<HTMLDivElement>(null)
+
+  // Fetch approved registered players for quick-fill
+  useEffect(() => {
+    apiRequest<{ registrations: ApprovedReg[] }>('/players?status=approved', { auth: true })
+      .then((d) => setRegPlayers(d.registrations || []))
+      .catch(() => {})
+  }, [])
+
+  // Close quick-fill dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (regDropRef.current && !regDropRef.current.contains(e.target as Node)) {
+        setRegOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const filteredReg = regSearch.trim()
+    ? regPlayers.filter(
+        (p) =>
+          p.fullName.toLowerCase().includes(regSearch.toLowerCase()) ||
+          (p.district || '').toLowerCase().includes(regSearch.toLowerCase()),
+      )
+    : regPlayers
+
+  const fillFromReg = (reg: ApprovedReg) => {
+    setForm((prev) => ({
+      ...prev,
+      name:     reg.fullName || prev.name,
+      state:    reg.district || prev.state,
+      dob:      reg.dateOfBirth || prev.dob,
+      age:      calcAgeFromDob(reg.dateOfBirth) || prev.age,
+      category: mapGenderToCategory(reg.gender) || reg.category || prev.category,
+    }))
+    if (reg.profilePhoto) setImagePreview(reg.profilePhoto)
+    setRegSearch(reg.fullName)
+    setRegOpen(false)
+  }
 
   const loadPlayers = useCallback(async () => {
     setLoading(true)
@@ -204,6 +282,78 @@ export function PlayersDataManagement() {
               {submitting ? 'Saving...' : editingId ? 'Update Player' : 'Add Player'}
             </button>
           </div>
+        </div>
+
+        {/* ── Quick-fill from Registered Player ── */}
+        <div className="mb-6 p-4 rounded-xl bg-purple-50 border border-purple-200">
+          <p className="text-xs font-bold text-[#5a0a8f] uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]">person_search</span>
+            Auto-fill from Registered Player
+          </p>
+          <div className="relative" ref={regDropRef}>
+            <div className="relative">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[18px] pointer-events-none">
+                search
+              </span>
+              <input
+                type="text"
+                placeholder="Search by name or district…"
+                value={regSearch}
+                onChange={(e) => { setRegSearch(e.target.value); setRegOpen(true) }}
+                onFocus={() => setRegOpen(true)}
+                className="w-full pl-9 pr-4 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] text-gray-900 bg-white text-sm"
+              />
+              {regSearch && (
+                <button
+                  type="button"
+                  onClick={() => { setRegSearch(''); setRegOpen(false) }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
+              )}
+            </div>
+
+            {regOpen && filteredReg.length > 0 && (
+              <div className="absolute top-full left-0 right-0 z-30 bg-white border border-gray-200 rounded-xl shadow-xl mt-1 max-h-56 overflow-y-auto">
+                {filteredReg.map((reg) => (
+                  <button
+                    key={reg._id}
+                    type="button"
+                    onClick={() => fillFromReg(reg)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 text-left border-b border-gray-100 last:border-b-0 transition-colors"
+                  >
+                    <img
+                      src={
+                        reg.profilePhoto ||
+                        `https://ui-avatars.com/api/?name=${encodeURIComponent(reg.fullName)}&background=5a0a8f&color=fff&size=40`
+                      }
+                      alt={reg.fullName}
+                      className="w-9 h-9 rounded-full object-cover shrink-0"
+                      onError={(e) => {
+                        ;(e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(reg.fullName)}&background=5a0a8f&color=fff&size=40`
+                      }}
+                    />
+                    <div className="min-w-0">
+                      <div className="font-semibold text-gray-900 text-sm truncate">{reg.fullName}</div>
+                      <div className="text-xs text-gray-500 truncate">{reg.district || 'No district assigned'}</div>
+                    </div>
+                    <span className="ml-auto shrink-0 text-xs text-[#5a0a8f] font-semibold">Select</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {regOpen && regSearch && filteredReg.length === 0 && (
+              <div className="absolute top-full left-0 right-0 z-30 bg-white border border-gray-200 rounded-xl shadow-xl mt-1 px-4 py-3 text-sm text-gray-500">
+                No approved players match "{regSearch}".
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-purple-700 mt-2">
+            Select an approved registered player to auto-fill name, district, date of birth, and age.
+            You can still edit any field after selecting.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
