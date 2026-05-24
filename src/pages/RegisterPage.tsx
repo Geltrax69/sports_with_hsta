@@ -50,8 +50,9 @@ export function RegisterPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      if (!file.type.startsWith('image/')) {
-        alert('Only image files are allowed (JPG/PNG/GIF).')
+      const allowedPhotoTypes = ['image/jpeg', 'image/png']
+      if (!allowedPhotoTypes.includes(file.type)) {
+        alert('Only JPG or PNG files are allowed for profile photo.')
         return
       }
       if (file.size > 5 * 1024 * 1024) {
@@ -76,8 +77,8 @@ export function RegisterPage() {
     const filesToAdd = files.slice(0, remainingSlots)
 
     filesToAdd.forEach((file) => {
-      if (!file.type.startsWith('image/')) {
-        alert(`Certificate "${file.name}" is not an image. Only JPG/PNG/GIF allowed.`)
+      if (!['image/jpeg', 'image/png'].includes(file.type)) {
+        alert(`Certificate "${file.name}" is not valid. Only JPG or PNG files are allowed.`)
         return
       }
       if (file.size > 5 * 1024 * 1024) {
@@ -87,7 +88,7 @@ export function RegisterPage() {
     })
 
     const validFiles = filesToAdd.filter(
-      (file) => file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024,
+      (file) => ['image/jpeg', 'image/png'].includes(file.type) && file.size <= 5 * 1024 * 1024,
     )
 
     if (validFiles.length === 0) return
@@ -115,9 +116,9 @@ export function RegisterPage() {
   const handleAadhaarDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf']
+      const validTypes = ['image/jpeg', 'image/png', 'application/pdf']
       if (!validTypes.includes(file.type)) {
-        alert('Only image files (JPG/PNG/GIF) or PDF files are allowed.')
+        alert('Only JPG, PNG, or PDF files are allowed.')
         return
       }
       if (file.size > 5 * 1024 * 1024) {
@@ -141,9 +142,9 @@ export function RegisterPage() {
   const handlePassportDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf']
+      const validTypes = ['image/jpeg', 'image/png', 'application/pdf']
       if (!validTypes.includes(file.type)) {
-        alert('Only image files (JPG/PNG/GIF) or PDF files are allowed.')
+        alert('Only JPG, PNG, or PDF files are allowed.')
         return
       }
       if (file.size > 5 * 1024 * 1024) {
@@ -441,7 +442,7 @@ export function RegisterPage() {
                         Change Photo
                         <input
                           type="file"
-                          accept="image/jpeg,image/png,image/gif"
+                          accept="image/jpeg,image/png"
                           onChange={handleFileChange}
                           className="hidden"
                         />
@@ -469,7 +470,7 @@ export function RegisterPage() {
                         Upload Photo
                         <input
                           type="file"
-                          accept="image/jpeg,image/png,image/gif"
+                          accept="image/jpeg,image/png"
                           onChange={handleFileChange}
                           className="hidden"
                         />
@@ -477,7 +478,7 @@ export function RegisterPage() {
                     </div>
                   </div>
                 )}
-                <p className="text-xs text-gray-600 mt-4">JPG, PNG or GIF. Max size 5MB.</p>
+                <p className="text-xs text-gray-600 mt-4">JPG or PNG only. Max size 5MB.</p>
               </div>
             </div>
 
@@ -798,7 +799,7 @@ export function RegisterPage() {
                                   Change
                                   <input
                                     type="file"
-                                    accept="image/jpeg,image/png,image/gif,application/pdf"
+                                    accept="image/jpeg,image/png,application/pdf"
                                     onChange={handleAadhaarDocumentChange}
                                     className="hidden"
                                   />
@@ -824,7 +825,7 @@ export function RegisterPage() {
                             Upload Aadhaar
                             <input
                               type="file"
-                              accept="image/jpeg,image/png,image/gif,application/pdf"
+                              accept="image/jpeg,image/png,application/pdf"
                               onChange={handleAadhaarDocumentChange}
                               className="hidden"
                             />
@@ -909,7 +910,7 @@ export function RegisterPage() {
                                     Change
                                     <input
                                       type="file"
-                                      accept="image/jpeg,image/png,image/gif,application/pdf"
+                                      accept="image/jpeg,image/png,application/pdf"
                                       onChange={handlePassportDocumentChange}
                                       className="hidden"
                                     />
@@ -935,7 +936,7 @@ export function RegisterPage() {
                               Upload Passport Copy
                               <input
                                 type="file"
-                                accept="image/jpeg,image/png,image/gif,application/pdf"
+                                accept="image/jpeg,image/png,application/pdf"
                                 onChange={handlePassportDocumentChange}
                                 className="hidden"
                               />
@@ -943,7 +944,7 @@ export function RegisterPage() {
                           </div>
                         )}
                       </div>
-                      <p className="text-[10px] text-gray-500 mt-2">Maximum size 5MB. JPG/PNG/PDF supported.</p>
+                      <p className="text-[10px] text-gray-500 mt-2">Maximum size 5MB. JPG, PNG or PDF only.</p>
                     </div>
                   </div>
 
@@ -1121,7 +1122,7 @@ export function RegisterPage() {
                                 Add More Certificates ({formData.certificates.length}/10)
                                 <input
                                   type="file"
-                                  accept="image/jpeg,image/png,image/gif"
+                                  accept="image/jpeg,image/png"
                                   onChange={handleCertificateChange}
                                   multiple
                                   className="hidden"
@@ -1140,7 +1141,7 @@ export function RegisterPage() {
                                 Upload Certificates
                                 <input
                                   type="file"
-                                  accept="image/jpeg,image/png,image/gif"
+                                  accept="image/jpeg,image/png"
                                   onChange={handleCertificateChange}
                                   multiple
                                   className="hidden"
@@ -1151,7 +1152,7 @@ export function RegisterPage() {
                         </div>
                       )}
                       <p className="text-xs text-gray-600 mt-4 text-center">
-                        Upload up to 10 certificate images. JPG, PNG or GIF. Max size 5MB per image.
+                        Upload up to 10 certificate images. JPG or PNG only. Max size 5MB per image.
                       </p>
                       {formData.certificates.length > 0 && (
                         <p className="text-xs text-[#5a0a8f] font-medium mt-2 text-center">
