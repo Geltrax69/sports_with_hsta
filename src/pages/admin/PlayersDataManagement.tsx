@@ -22,6 +22,11 @@ type ApprovedReg = {
   category?: string
   profilePhoto?: string     // signed / public URL — for preview display
   profilePhotoKey?: string  // raw S3 key — used to copy to public location
+  // Games played counts (stored as strings in the registration model)
+  districtGames?: string
+  stateGames?: string
+  nationalGames?: string
+  internationalGames?: string
 }
 
 function calcAgeFromDob(dob?: string): number {
@@ -97,11 +102,15 @@ export function PlayersDataManagement() {
     setRegOpen(false)
     setForm((prev) => ({
       ...prev,
-      name:     reg.fullName || prev.name,
-      state:    reg.district || prev.state,
-      dob:      reg.dateOfBirth || prev.dob,
-      age:      calcAgeFromDob(reg.dateOfBirth) || prev.age,
-      category: mapGenderToCategory(reg.gender) || reg.category || prev.category,
+      name:               reg.fullName    || prev.name,
+      state:              reg.district    || prev.state,
+      dob:                reg.dateOfBirth || prev.dob,
+      age:                calcAgeFromDob(reg.dateOfBirth) || prev.age,
+      category:           mapGenderToCategory(reg.gender) || reg.category || prev.category,
+      districtGames:      Number(reg.districtGames)      || 0,
+      stateGames:         Number(reg.stateGames)         || 0,
+      nationalGames:      Number(reg.nationalGames)      || 0,
+      internationalGames: Number(reg.internationalGames) || 0,
     }))
 
     // Show the signed preview immediately (even before copy finishes)
