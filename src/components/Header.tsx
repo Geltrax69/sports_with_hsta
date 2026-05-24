@@ -28,7 +28,7 @@ export function Header() {
         { name: 'Election Report', to: '/about/election-report' },
         { name: 'Documents', to: '/documents' },
         { name: 'Committees', to: '/about/committees' },
-        { name: 'Constitution, Rules And Policies', to: '/about/constitution-rules-policies' },
+        { name: 'Constitution, Rules And Policies', to: '/about/constitution-rules-and-policies' },
         { name: 'Anti Doping', to: '/about/anti-doping' },
         { name: 'Affiliated District', to: '/about/affiliated-district' },
       ]
