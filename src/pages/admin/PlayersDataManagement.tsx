@@ -409,15 +409,6 @@ export function PlayersDataManagement() {
             </select>
           </div>
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-gray-700">National Rank</label>
-            <input
-              value={form.rank}
-              onChange={handleChange('rank')}
-              placeholder="#4"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] text-gray-900"
-            />
-          </div>
-          <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-700">Age</label>
             <input
               type="number"
@@ -519,7 +510,7 @@ export function PlayersDataManagement() {
         </div>
 
         <h3 className="text-md font-bold text-gray-900 mb-3">Career Statistics</h3>
-        <div className="grid grid-cols-2 gap-4 mb-6 max-w-md">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-3">
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-700">Gold Medals</label>
             <input type="number" min={0} value={form.goldMedals} onChange={handleChange('goldMedals')} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900" />
@@ -527,6 +518,25 @@ export function PlayersDataManagement() {
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-700">Silver Medals</label>
             <input type="number" min={0} value={form.silverMedals} onChange={handleChange('silverMedals')} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900" />
+          </div>
+        </div>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-1">Games Played</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-gray-700">District Games</label>
+            <input type="number" min={0} value={form.districtGames ?? 0} onChange={handleChange('districtGames')} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900" />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-gray-700">State Games</label>
+            <input type="number" min={0} value={form.stateGames ?? 0} onChange={handleChange('stateGames')} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900" />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-gray-700">National Games</label>
+            <input type="number" min={0} value={form.nationalGames ?? 0} onChange={handleChange('nationalGames')} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900" />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-gray-700">International Games</label>
+            <input type="number" min={0} value={form.internationalGames ?? 0} onChange={handleChange('internationalGames')} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900" />
           </div>
         </div>
 

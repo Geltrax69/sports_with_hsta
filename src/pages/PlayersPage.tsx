@@ -4,7 +4,6 @@ import { fetchPlayers } from '../lib/playersApi'
 import type { Player, PlayerType } from '../types/player'
 import { Skeleton } from 'boneyard-js/react'
 
-/** Debounce a value by `delay` ms. */
 function useDebounce<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value)
   useEffect(() => {
@@ -14,6 +13,38 @@ function useDebounce<T>(value: T, delay: number): T {
   return debounced
 }
 
+/** Stat pill shown on each player card */
+function StatPill({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex flex-col items-center bg-gray-50 rounded-lg px-2 py-1.5 min-w-0">
+      <span className="text-base font-black text-[#5a0a8f] leading-none">{value}</span>
+      <span className="text-[9px] font-bold uppercase tracking-wide text-gray-500 mt-0.5 text-center leading-tight">
+        {label}
+      </span>
+    </div>
+  )
+}
+
+/** Player avatar with graceful fallback */
+function PlayerAvatar({ src, name, size = 64 }: { src: string; name: string; size?: number }) {
+  const fallback = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=5a0a8f&color=fff&size=${size * 2}&bold=true&format=svg`
+  return (
+    <img
+      alt={name}
+      src={src || fallback}
+      width={size}
+      height={size}
+      loading="lazy"
+      className="rounded-full object-cover border-2 border-white shadow-md shrink-0"
+      style={{ width: size, height: size }}
+      onError={(e) => {
+        const el = e.target as HTMLImageElement
+        if (el.src !== fallback) el.src = fallback
+      }}
+    />
+  )
+}
+
 export function PlayersPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get('tab')
@@ -21,14 +52,13 @@ export function PlayersPage() {
   const [currentMode, setCurrentMode] = useState<PlayerType>(
     tabParam === 'international' ? 'international' : 'national',
   )
-  const [searchInput, setSearchInput] = useState('')
-  const [players, setPlayers]         = useState<Player[]>([])
-  const [loading, setLoading]         = useState(true)
-  const [openDistricts, setOpenDistricts] = useState<Set<string>>(new Set())
+  const [searchInput, setSearchInput]       = useState('')
+  const [players, setPlayers]               = useState<Player[]>([])
+  const [loading, setLoading]               = useState(true)
+  const [openDistricts, setOpenDistricts]   = useState<Set<string>>(new Set())
 
   const searchQuery = useDebounce(searchInput, 300)
 
-  // Fetch all published players once
   useEffect(() => {
     const controller = new AbortController()
     setLoading(true)
@@ -39,12 +69,10 @@ export function PlayersPage() {
     return () => { controller.abort() }
   }, [])
 
-  // Sync tab from URL
   useEffect(() => {
     setCurrentMode(tabParam === 'international' ? 'international' : 'national')
   }, [tabParam])
 
-  // Switch tab — reset search & open districts
   const setMode = useCallback(
     (mode: PlayerType) => {
       setCurrentMode(mode)
@@ -55,7 +83,6 @@ export function PlayersPage() {
     [setSearchParams],
   )
 
-  // Toggle a district accordion open/closed
   const toggleDistrict = useCallback((name: string) => {
     setOpenDistricts((prev) => {
       const next = new Set(prev)
@@ -65,7 +92,6 @@ export function PlayersPage() {
     })
   }, [])
 
-  // Players for current tab, filtered by search
   const tabPlayers = useMemo(
     () => players.filter((p) => p.playerType === currentMode),
     [players, currentMode],
@@ -82,7 +108,6 @@ export function PlayersPage() {
     )
   }, [tabPlayers, searchQuery])
 
-  // Group filtered players by state/district
   const districtGroups = useMemo(() => {
     const map = new Map<string, Player[]>()
     filteredPlayers.forEach((p) => {
@@ -93,14 +118,14 @@ export function PlayersPage() {
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b))
   }, [filteredPlayers])
 
-  // Auto-expand all districts when searching
+  // Auto-expand all matching districts when searching
   useEffect(() => {
     if (searchQuery) {
       setOpenDistricts(new Set(districtGroups.map(([name]) => name)))
     }
   }, [searchQuery, districtGroups])
 
-  const totalPlayers = filteredPlayers.length
+  const allExpanded = openDistricts.size === districtGroups.length && districtGroups.length > 0
 
   return (
     <Skeleton name="players-page" loading={loading}>
@@ -134,17 +159,15 @@ export function PlayersPage() {
         </section>
 
         {/* ── Filters bar ── */}
-        <div className="bg-gray-50 border-b border-gray-200 py-4 sticky top-0 z-10">
+        <div className="bg-gray-50 border-b border-gray-200 py-3 sticky top-0 z-10">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
-              {/* Tab switcher */}
               <div className="flex items-center gap-3">
                 {(['national', 'international'] as const).map((mode) => (
                   <button
                     key={mode}
                     onClick={() => setMode(mode)}
-                    className={`flex h-10 items-center justify-center rounded-lg px-5 text-sm font-medium transition-colors ${
+                    className={`flex h-10 items-center justify-center rounded-lg px-5 text-sm font-semibold transition-colors ${
                       currentMode === mode
                         ? 'bg-[#5a0a8f] text-white shadow-md'
                         : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
@@ -154,8 +177,6 @@ export function PlayersPage() {
                   </button>
                 ))}
               </div>
-
-              {/* Search */}
               <div className="relative sm:w-72">
                 <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
                   <span className="material-symbols-outlined text-[20px]">search</span>
@@ -175,34 +196,32 @@ export function PlayersPage() {
         {/* ── Content ── */}
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 bg-white min-h-[400px]">
 
-          {/* Summary line */}
-          <div className="flex items-center justify-between mb-6">
-            <p className="text-sm text-gray-600">
-              <span className="font-bold text-gray-900">{totalPlayers}</span>{' '}
-              {currentMode} {totalPlayers === 1 ? 'player' : 'players'}
-              {searchQuery && (
-                <span className="text-gray-400"> matching "{searchQuery}"</span>
-              )}
-            </p>
-            {districtGroups.length > 0 && (
+          {/* Summary + expand-all */}
+          {districtGroups.length > 0 && (
+            <div className="flex items-center justify-between mb-5">
+              <p className="text-sm text-gray-600">
+                <span className="font-bold text-gray-900">{filteredPlayers.length}</span>{' '}
+                {currentMode} {filteredPlayers.length === 1 ? 'player' : 'players'} across{' '}
+                <span className="font-bold text-gray-900">{districtGroups.length}</span>{' '}
+                {districtGroups.length === 1 ? 'district' : 'districts'}
+                {searchQuery && <span className="text-gray-400"> matching "{searchQuery}"</span>}
+              </p>
               <button
                 onClick={() =>
                   setOpenDistricts(
-                    openDistricts.size === districtGroups.length
-                      ? new Set()
-                      : new Set(districtGroups.map(([n]) => n)),
+                    allExpanded ? new Set() : new Set(districtGroups.map(([n]) => n)),
                   )
                 }
                 className="text-xs font-semibold text-[#5a0a8f] hover:underline"
               >
-                {openDistricts.size === districtGroups.length ? 'Collapse all' : 'Expand all'}
+                {allExpanded ? 'Collapse all' : 'Expand all'}
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
           {districtGroups.length === 0 ? (
             /* ── Empty state ── */
-            <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="flex flex-col items-center justify-center py-24 text-center">
               <div className="w-20 h-20 rounded-full bg-yellow-100 flex items-center justify-center mb-4">
                 <span className="material-symbols-outlined text-4xl text-yellow-500">person_search</span>
               </div>
@@ -227,43 +246,45 @@ export function PlayersPage() {
             </div>
           ) : (
             /* ── District accordion list ── */
-            <div className="space-y-3">
+            <div className="space-y-4">
               {districtGroups.map(([district, districtPlayers]) => {
                 const isOpen = openDistricts.has(district)
                 return (
                   <div
                     key={district}
-                    className="rounded-xl border border-gray-200 overflow-hidden shadow-sm"
+                    className="rounded-2xl border border-gray-200 overflow-hidden shadow-sm"
                   >
-                    {/* Accordion header */}
+                    {/* ── Accordion header ── */}
                     <button
                       type="button"
                       onClick={() => toggleDistrict(district)}
-                      className="w-full flex items-center justify-between px-5 py-4 bg-white hover:bg-gray-50 transition-colors text-left"
+                      className="w-full flex items-center justify-between px-6 py-5 bg-white hover:bg-gray-50 transition-colors text-left"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-1 h-8 rounded-full bg-[#5a0a8f] shrink-0" />
+                      <div className="flex items-center gap-4 min-w-0">
+                        {/* Colour accent bar */}
+                        <div className="w-1.5 h-10 rounded-full bg-[#5a0a8f] shrink-0" />
                         <div>
                           <p className="text-[10px] font-bold uppercase tracking-widest text-[#5a0a8f] mb-0.5">
-                            District
+                            DISTRICT
                           </p>
-                          <p className="text-base font-black text-gray-900 leading-tight">
+                          <p className="text-xl font-black text-gray-900 leading-tight tracking-tight">
                             {district}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3 shrink-0 ml-4">
-                        <span className="inline-flex items-center justify-center rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-700">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#5a0a8f]/10 px-3.5 py-1.5 text-sm font-bold text-[#5a0a8f]">
+                          <span className="material-symbols-outlined text-[16px]">person</span>
                           {districtPlayers.length}{' '}
                           {districtPlayers.length === 1 ? 'player' : 'players'}
                         </span>
                         <div
-                          className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-                            isOpen ? 'bg-[#5a0a8f] text-white' : 'bg-gray-100 text-gray-600'
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+                            isOpen ? 'bg-[#5a0a8f] text-white' : 'bg-gray-100 text-gray-500'
                           }`}
                         >
                           <span
-                            className={`material-symbols-outlined text-[20px] transition-transform duration-200 ${
+                            className={`material-symbols-outlined text-[22px] transition-transform duration-200 ${
                               isOpen ? 'rotate-180' : ''
                             }`}
                           >
@@ -273,40 +294,71 @@ export function PlayersPage() {
                       </div>
                     </button>
 
-                    {/* Accordion content */}
+                    {/* ── Expanded player cards ── */}
                     {isOpen && (
-                      <div className="border-t border-gray-100 bg-gray-50 px-5 py-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      <div className="border-t border-gray-100 bg-gradient-to-b from-gray-50 to-white px-6 py-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                           {districtPlayers.map((player) => (
                             <Link
                               key={player.id}
                               to={`/players/${encodeURIComponent(player.id)}`}
-                              className="group flex items-center gap-3 bg-white rounded-xl border border-gray-200 px-4 py-3 hover:border-[#5a0a8f]/40 hover:shadow-md transition-all"
+                              className="group flex flex-col bg-white rounded-2xl border border-gray-200 hover:border-[#5a0a8f]/40 hover:shadow-lg transition-all overflow-hidden"
                             >
-                              <img
-                                alt={`Profile of ${player.name}`}
-                                className="w-12 h-12 rounded-full object-cover border-2 border-white shadow shrink-0"
-                                src={player.image}
-                                loading="lazy"
-                                onError={(e) => {
-                                  ;(e.target as HTMLImageElement).src =
-                                    `https://ui-avatars.com/api/?name=${encodeURIComponent(player.name)}&background=5a0a8f&color=fff&size=48&bold=true`
-                                }}
-                              />
-                              <div className="min-w-0 flex-1">
-                                <p className="font-bold text-gray-900 text-sm truncate group-hover:text-[#5a0a8f] transition-colors">
-                                  {player.name}
-                                </p>
-                                <p className="text-xs text-gray-500 truncate">{player.role || player.category}</p>
-                                {player.badge && (
-                                  <span className="inline-block mt-1 rounded-full bg-yellow-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-yellow-800">
-                                    {player.badge}
+                              {/* Card header strip */}
+                              <div className="h-2 bg-gradient-to-r from-[#400466] via-[#5a0a8f] to-[#7c3aed]" />
+
+                              <div className="p-5">
+                                {/* Photo + name row */}
+                                <div className="flex items-start gap-4 mb-4">
+                                  <PlayerAvatar src={player.image} name={player.name} size={72} />
+                                  <div className="min-w-0 flex-1 pt-1">
+                                    <p className="text-base font-black text-gray-900 leading-tight group-hover:text-[#5a0a8f] transition-colors line-clamp-2">
+                                      {player.name}
+                                    </p>
+                                    {player.role && (
+                                      <p className="text-xs text-gray-500 mt-0.5 font-medium">
+                                        {player.role}
+                                      </p>
+                                    )}
+                                    <div className="flex flex-wrap gap-1.5 mt-2">
+                                      {player.category && (
+                                        <span className="inline-block rounded-full bg-purple-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-purple-800">
+                                          {player.category}
+                                        </span>
+                                      )}
+                                      {player.badge && (
+                                        <span className="inline-block rounded-full bg-yellow-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-yellow-800">
+                                          {player.badge}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* District label */}
+                                <div className="flex items-center gap-1.5 mb-4 text-xs text-gray-500">
+                                  <span className="material-symbols-outlined text-[14px] text-[#5a0a8f]">
+                                    location_on
                                   </span>
-                                )}
+                                  <span className="font-semibold text-gray-700">{district}</span>
+                                </div>
+
+                                {/* Games stats */}
+                                <div className="grid grid-cols-4 gap-1.5">
+                                  <StatPill label="District" value={player.districtGames ?? 0} />
+                                  <StatPill label="State" value={player.stateGames ?? 0} />
+                                  <StatPill label="National" value={player.nationalGames ?? 0} />
+                                  <StatPill label="Intl." value={player.internationalGames ?? 0} />
+                                </div>
+
+                                {/* View profile footer */}
+                                <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-end gap-1 text-xs font-bold text-[#5a0a8f] group-hover:gap-2 transition-all">
+                                  View Profile
+                                  <span className="material-symbols-outlined text-[16px]">
+                                    arrow_forward
+                                  </span>
+                                </div>
                               </div>
-                              <span className="material-symbols-outlined text-gray-300 group-hover:text-[#5a0a8f] transition-colors text-[18px] shrink-0">
-                                chevron_right
-                              </span>
                             </Link>
                           ))}
                         </div>

@@ -36,6 +36,10 @@ export type Player = {
   biography?: string
   goldMedals?: number
   silverMedals?: number
+  districtGames?: number
+  stateGames?: number
+  nationalGames?: number
+  internationalGames?: number
   rankChange?: number
   rankDescription?: string
   tournaments?: PlayerTournament[]
