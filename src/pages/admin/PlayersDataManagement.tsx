@@ -20,7 +20,8 @@ type ApprovedReg = {
   dateOfBirth?: string
   gender?: string
   category?: string
-  profilePhoto?: string
+  profilePhoto?: string     // signed / public URL — for preview display
+  profilePhotoKey?: string  // raw S3 key — used to copy to public location
 }
 
 function calcAgeFromDob(dob?: string): number {
@@ -61,6 +62,7 @@ export function PlayersDataManagement() {
   const [regPlayers, setRegPlayers]   = useState<ApprovedReg[]>([])
   const [regSearch, setRegSearch]     = useState('')
   const [regOpen, setRegOpen]         = useState(false)
+  const [copyingPhoto, setCopyingPhoto] = useState(false)
   const regDropRef = useRef<HTMLDivElement>(null)
 
   // Fetch approved registered players for quick-fill
@@ -89,7 +91,10 @@ export function PlayersDataManagement() {
       )
     : regPlayers
 
-  const fillFromReg = (reg: ApprovedReg) => {
+  const fillFromReg = async (reg: ApprovedReg) => {
+    // Close dropdown immediately and fill text/number fields
+    setRegSearch(reg.fullName)
+    setRegOpen(false)
     setForm((prev) => ({
       ...prev,
       name:     reg.fullName || prev.name,
@@ -98,9 +103,29 @@ export function PlayersDataManagement() {
       age:      calcAgeFromDob(reg.dateOfBirth) || prev.age,
       category: mapGenderToCategory(reg.gender) || reg.category || prev.category,
     }))
+
+    // Show the signed preview immediately (even before copy finishes)
     if (reg.profilePhoto) setImagePreview(reg.profilePhoto)
-    setRegSearch(reg.fullName)
-    setRegOpen(false)
+
+    // Copy the private S3 photo to a permanent public location
+    if (reg.profilePhotoKey) {
+      setCopyingPhoto(true)
+      try {
+        const result = await apiRequest<{ url: string }>('/directory-players/copy-photo', {
+          method: 'POST',
+          auth: true,
+          body: JSON.stringify({ sourceKey: reg.profilePhotoKey }),
+        })
+        if (result.url) {
+          setForm((prev) => ({ ...prev, image: result.url }))
+          setImagePreview(result.url)
+        }
+      } catch {
+        // Copy failed — admin can manually upload
+      } finally {
+        setCopyingPhoto(false)
+      }
+    }
   }
 
   const loadPlayers = useCallback(async () => {
@@ -320,7 +345,7 @@ export function PlayersDataManagement() {
                   <button
                     key={reg._id}
                     type="button"
-                    onClick={() => fillFromReg(reg)}
+                    onClick={() => void fillFromReg(reg)}
                     className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 text-left border-b border-gray-100 last:border-b-0 transition-colors"
                   >
                     <img
@@ -458,7 +483,13 @@ export function PlayersDataManagement() {
           <label className="text-sm font-medium text-gray-700 mb-3 block">Player Photo</label>
           <div className="flex flex-col sm:flex-row items-start gap-6">
             <div className="relative w-32 h-32 shrink-0 rounded-full overflow-hidden border-4 border-white shadow-md bg-white">
-              {(imagePreview || form.image) ? (
+              {copyingPhoto ? (
+                /* Copying spinner */
+                <div className="w-full h-full flex flex-col items-center justify-center bg-purple-50 gap-1">
+                  <div className="w-6 h-6 rounded-full border-2 border-[#5a0a8f] border-t-transparent animate-spin" />
+                  <span className="text-[9px] font-bold text-[#5a0a8f] uppercase tracking-wide">Copying…</span>
+                </div>
+              ) : (imagePreview || form.image) ? (
                 <img
                   src={imagePreview || form.image}
                   alt="Player preview"
@@ -470,13 +501,19 @@ export function PlayersDataManagement() {
                   <span className="material-symbols-outlined text-5xl">person</span>
                 </div>
               )}
+              {/* Green tick when photo is saved */}
+              {!copyingPhoto && form.image && (
+                <div className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-white text-[12px]">check</span>
+                </div>
+              )}
             </div>
             <div className="flex flex-col gap-3">
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
+                disabled={uploading || copyingPhoto}
                 className="inline-flex items-center gap-2 bg-[#5a0a8f] hover:bg-[#400466] disabled:opacity-60 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors w-fit"
               >
                 <span className="material-symbols-outlined text-lg">upload</span>
