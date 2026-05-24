@@ -129,8 +129,12 @@ export function PlayersDataManagement() {
           setForm((prev) => ({ ...prev, image: result.url }))
           setImagePreview(result.url)
         }
-      } catch {
-        // Copy failed — admin can manually upload
+      } catch (err) {
+        // Show error so admin knows to upload manually
+        setUploadError(
+          'Could not copy registration photo. Please upload a photo manually.'
+        )
+        console.error('[copyRegPhoto]', err)
       } finally {
         setCopyingPhoto(false)
       }
@@ -224,6 +228,8 @@ export function PlayersDataManagement() {
     setEditingId(null)
     setImagePreview(null)
     setUploadError(null)
+    setRegSearch('')
+    setRegOpen(false)
   }
 
   const handleSubmit = async (e: FormEvent) => {
