@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { fetchPlayer } from '../lib/playersApi'
 import type { Player } from '../types/player'
+import { useDistricts } from '../context/DistrictsContext'
 
 // ─── small helpers ────────────────────────────────────────────────────────────
 
@@ -45,6 +46,7 @@ function GameStat({ value, label, accent }: GameStatProps) {
 
 export function PlayerDetailPage() {
   const { playerId } = useParams<{ playerId: string }>()
+  const { getDistrictById } = useDistricts()
   const [player, setPlayer]   = useState<Player | undefined>(undefined)
   const [loading, setLoading] = useState(true)
 
@@ -169,7 +171,7 @@ export function PlayerDetailPage() {
                 {player.state && (
                   <div className="flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-[17px] text-[#a78bfa]">location_on</span>
-                    <span>{player.state}, India</span>
+                    <span>{getDistrictById(player.state)?.name || player.state}, India</span>
                   </div>
                 )}
               </div>
@@ -239,7 +241,7 @@ export function PlayerDetailPage() {
                 {player.state && (
                   <div className="flex justify-between items-center">
                     <dt className="text-gray-500">District</dt>
-                    <dd className="font-semibold text-gray-900">{player.state}</dd>
+                    <dd className="font-semibold text-gray-900">{getDistrictById(player.state)?.name || player.state}</dd>
                   </div>
                 )}
                 {player.category && (

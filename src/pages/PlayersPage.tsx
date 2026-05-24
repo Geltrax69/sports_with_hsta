@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { fetchPlayers } from '../lib/playersApi'
 import type { Player, PlayerType } from '../types/player'
 import { Skeleton } from 'boneyard-js/react'
+import { useDistricts } from '../context/DistrictsContext'
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value)
@@ -48,6 +49,14 @@ function PlayerAvatar({ src, name, size = 64 }: { src: string; name: string; siz
 export function PlayersPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get('tab')
+  const { getDistrictById } = useDistricts()
+
+  // Resolve a district code like "AMNW1712" → full name like "Ambala".
+  // Falls back to the raw code if the district isn't found.
+  const resolveDistrict = useCallback(
+    (code: string) => getDistrictById(code)?.name || code,
+    [getDistrictById],
+  )
 
   const [currentMode, setCurrentMode] = useState<PlayerType>(
     tabParam === 'international' ? 'international' : 'national',
@@ -268,7 +277,7 @@ export function PlayersPage() {
                             DISTRICT
                           </p>
                           <p className="text-xl font-black text-gray-900 leading-tight tracking-tight">
-                            {district}
+                            {resolveDistrict(district)}
                           </p>
                         </div>
                       </div>
@@ -340,7 +349,7 @@ export function PlayersPage() {
                                   <span className="material-symbols-outlined text-[14px] text-[#5a0a8f]">
                                     location_on
                                   </span>
-                                  <span className="font-semibold text-gray-700">{district}</span>
+                                  <span className="font-semibold text-gray-700">{resolveDistrict(district)}</span>
                                 </div>
 
                                 {/* Games stats */}

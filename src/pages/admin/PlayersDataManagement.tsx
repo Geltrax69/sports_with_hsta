@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEv
 import { Link } from 'react-router-dom'
 import { apiRequest } from '../../lib/api'
 import { DatePickerField } from '../../components/DatePickerField'
+import { useDistricts } from '../../context/DistrictsContext'
 import {
   createPlayer,
   deletePlayer,
@@ -51,6 +52,7 @@ function mapGenderToCategory(gender?: string): string {
 }
 
 export function PlayersDataManagement() {
+  const { getDistrictById } = useDistricts()
   const [players, setPlayers] = useState<Player[]>([])
   const [loading, setLoading] = useState(true)
   const [filterType, setFilterType] = useState<PlayerType | 'all'>('all')
@@ -706,7 +708,7 @@ export function PlayersDataManagement() {
                         {player.playerType === 'national' ? 'National' : 'International'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{player.state}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{getDistrictById(player.state)?.name || player.state}</td>
                     <td className="px-4 py-3">
                       <span className={`text-xs font-medium ${player.published !== false ? 'text-green-600' : 'text-gray-400'}`}>
                         {player.published !== false ? 'Published' : 'Draft'}
