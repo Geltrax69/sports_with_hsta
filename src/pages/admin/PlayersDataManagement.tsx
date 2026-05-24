@@ -430,7 +430,7 @@ export function PlayersDataManagement() {
             />
           </div>
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-gray-700">State</label>
+            <label className="text-sm font-medium text-gray-700">District</label>
             <input
               value={form.state}
               onChange={handleChange('state')}
@@ -682,7 +682,7 @@ export function PlayersDataManagement() {
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase text-gray-600">Player</th>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase text-gray-600">Category</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase text-gray-600">State</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase text-gray-600">District</th>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase text-gray-600">Status</th>
                   <th className="px-4 py-3 text-right text-xs font-bold uppercase text-gray-600">Actions</th>
                 </tr>
