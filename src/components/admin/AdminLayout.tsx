@@ -409,6 +409,19 @@ export function AdminLayout() {
           </NavLink>
 
           <NavLink
+            to="/admin/letterhead"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white/20 text-white font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <span className="material-symbols-outlined text-xl">edit_document</span>
+            {sidebarOpen && <span>Letterhead</span>}
+          </NavLink>
+
+          <NavLink
             to="/admin/settings"
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive

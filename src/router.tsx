@@ -59,6 +59,7 @@ const AdminManageDirectories     = lazy(() => import('./pages/admin/AdminManageD
 const TournamentRegistrations    = lazy(() => import('./pages/admin/TournamentRegistrations').then(m => ({ default: m.TournamentRegistrations })))
 const AdminCertificates          = lazy(() => import('./pages/admin/AdminCertificates').then(m => ({ default: m.AdminCertificates })))
 const CertificateList            = lazy(() => import('./pages/admin/CertificateList').then(m => ({ default: m.CertificateList })))
+const LetterheadPage             = lazy(() => import('./pages/admin/LetterheadPage').then(m => ({ default: m.LetterheadPage })))
 
 // Player portal pages
 const PlayerDashboard    = lazy(() => import('./pages/player/PlayerDashboard').then(m => ({ default: m.PlayerDashboard })))
@@ -174,6 +175,7 @@ export const appRouter = createBrowserRouter(
             { path: 'documents',                               element: <SuspenseOutlet><DocumentsManagement /></SuspenseOutlet> },
             { path: 'certificates',                            element: <SuspenseOutlet><AdminCertificates /></SuspenseOutlet> },
             { path: 'certificates/list',                       element: <SuspenseOutlet><CertificateList /></SuspenseOutlet> },
+            { path: 'letterhead',                              element: <SuspenseOutlet><LetterheadPage /></SuspenseOutlet> },
             {
               path: 'settings',
               element: (
