@@ -1,15 +1,113 @@
 import { Link } from 'react-router-dom'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useDocuments, type Document, type DocumentCategory } from '../../context/DocumentsContext'
 import { useAuth } from '../../context/AuthContext'
 
+// ─── Upload status overlay ─────────────────────────────────────────────────────
+type UploadStatus = 'idle' | 'uploading' | 'success' | 'error'
+
+function UploadOverlay({
+  status,
+  errorMessage,
+  onClose,
+  onRetry,
+}: {
+  status: UploadStatus
+  errorMessage: string
+  onClose: () => void
+  onRetry: () => void
+}) {
+  if (status === 'idle') return null
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 flex flex-col items-center gap-5 text-center">
+        {status === 'uploading' && (
+          <>
+            {/* CSS border spinner — icon stays centered, ring spins around it */}
+            <div className="relative w-24 h-24 flex items-center justify-center">
+              {/* Spinning ring (border-top is the coloured arc) */}
+              <div className="absolute inset-0 rounded-full border-[6px] border-purple-100 border-t-[#5a0a8f] animate-spin" />
+              {/* Static icon in the centre */}
+              <span
+                className="material-symbols-outlined text-[#5a0a8f]"
+                style={{ fontSize: '34px' }}
+              >
+                upload_file
+              </span>
+            </div>
+            <div>
+              <p className="text-xl font-bold text-gray-900">Uploading…</p>
+              <p className="text-sm text-gray-500 mt-1">Please wait while your document is being uploaded.</p>
+            </div>
+          </>
+        )}
+
+        {status === 'success' && (
+          <>
+            {/* Green animated checkmark circle */}
+            <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center animate-[pop_0.3s_ease-out]">
+              <span className="material-symbols-outlined text-5xl text-green-500">check_circle</span>
+            </div>
+            <div>
+              <p className="text-xl font-bold text-gray-900">Upload Successful!</p>
+              <p className="text-sm text-gray-500 mt-1">Your document has been uploaded successfully.</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl transition-colors"
+            >
+              Done
+            </button>
+          </>
+        )}
+
+        {status === 'error' && (
+          <>
+            {/* Red error circle */}
+            <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center">
+              <span className="material-symbols-outlined text-5xl text-red-500">cancel</span>
+            </div>
+            <div>
+              <p className="text-xl font-bold text-gray-900">Upload Failed</p>
+              <p className="text-sm text-gray-500 mt-1 break-words">{errorMessage || 'Something went wrong. Please try again.'}</p>
+            </div>
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={onClose}
+                className="flex-1 py-2.5 border-2 border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                Dismiss
+              </button>
+              <button
+                onClick={onRetry}
+                className="flex-1 py-2.5 bg-[#5a0a8f] hover:bg-[#400466] text-white font-bold rounded-xl transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Main component ────────────────────────────────────────────────────────────
 export function DocumentsManagement() {
   const { documents, addDocument, updateDocument, deleteDocument } = useDocuments()
   useAuth()
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [editingDoc, setEditingDoc] = useState<Document | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [showAddModal, setShowAddModal]   = useState(false)
+  const [editingDoc,   setEditingDoc]     = useState<Document | null>(null)
+  const [searchQuery,  setSearchQuery]    = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
+
+  // ── upload status state ──
+  const [uploadStatus,  setUploadStatus]  = useState<UploadStatus>('idle')
+  const [uploadError,   setUploadError]   = useState('')
+  // keep a snapshot of the last formData so "Try Again" can resubmit
+  const [pendingData,   setPendingData]   = useState<FormData | null>(null)
+  const [pendingEdit,   setPendingEdit]   = useState<string | null>(null) // editingDoc.id
 
   const [formData, setFormData] = useState({
     title: '',
@@ -19,6 +117,14 @@ export function DocumentsManagement() {
     fileUrl: '',
     fileName: '',
   })
+
+  // Auto-dismiss success after 2.5 s
+  useEffect(() => {
+    if (uploadStatus === 'success') {
+      const t = setTimeout(() => setUploadStatus('idle'), 2500)
+      return () => clearTimeout(t)
+    }
+  }, [uploadStatus])
 
   const filteredDocuments = useMemo(() => {
     return documents.filter((doc) => {
@@ -31,11 +137,11 @@ export function DocumentsManagement() {
   }, [documents, searchQuery, categoryFilter])
 
   const categories: { value: DocumentCategory; label: string }[] = [
-    { value: 'official', label: 'Official' },
-    { value: 'forms', label: 'Forms' },
-    { value: 'guidelines', label: 'Guidelines' },
-    { value: 'rules', label: 'Rules' },
-    { value: 'other', label: 'Other' },
+    { value: 'official',    label: 'Official' },
+    { value: 'forms',       label: 'Forms' },
+    { value: 'guidelines',  label: 'Guidelines' },
+    { value: 'rules',       label: 'Rules' },
+    { value: 'other',       label: 'Other' },
   ]
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,38 +151,40 @@ export function DocumentsManagement() {
         alert('File size must be less than 50MB')
         return
       }
-      setFormData({
-        ...formData,
-        file,
-        fileName: file.name,
-      })
+      setFormData({ ...formData, file, fileName: file.name })
     }
   }
 
   const handleOpenAdd = () => {
-    setFormData({
-      title: '',
-      category: 'official',
-      description: '',
-      file: null,
-      fileUrl: '',
-      fileName: '',
-    })
+    setFormData({ title: '', category: 'official', description: '', file: null, fileUrl: '', fileName: '' })
     setEditingDoc(null)
     setShowAddModal(true)
   }
 
   const handleOpenEdit = (doc: Document) => {
-    setFormData({
-      title: doc.title,
-      category: doc.category,
-      description: doc.description,
-      file: null,
-      fileUrl: doc.fileUrl,
-      fileName: doc.fileName,
-    })
+    setFormData({ title: doc.title, category: doc.category, description: doc.description, file: null, fileUrl: doc.fileUrl, fileName: doc.fileName })
     setEditingDoc(doc)
     setShowAddModal(true)
+  }
+
+  // ── core upload logic (reused by submit + retry) ───────────────────────────
+  const runUpload = async (data: FormData, editId: string | null) => {
+    setUploadStatus('uploading')
+    setUploadError('')
+    try {
+      if (editId) {
+        await updateDocument(editId, data)
+      } else {
+        await addDocument(data)
+      }
+      setUploadStatus('success')
+      setPendingData(null)
+      setPendingEdit(null)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Upload failed. Please try again.'
+      setUploadError(msg)
+      setUploadStatus('error')
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -85,33 +193,42 @@ export function DocumentsManagement() {
     const data = new FormData()
     data.append('title', formData.title)
     data.append('category', formData.category)
-    if (formData.description) {
-      data.append('description', formData.description)
-    }
+    if (formData.description) data.append('description', formData.description)
 
     if (editingDoc) {
-      // For update, only add file if a new one was selected
-      if (formData.file) {
-        data.append('file', formData.file)
-      }
-      await updateDocument(editingDoc.id, data)
+      if (formData.file) data.append('file', formData.file)
     } else {
-      // For create, file is required
       if (!formData.file) {
         alert('Please select a file to upload')
         return
       }
       data.append('file', formData.file)
-      await addDocument(data)
     }
 
+    // Close the form modal first, then show upload overlay
+    const editId = editingDoc?.id ?? null
     setShowAddModal(false)
     setEditingDoc(null)
+    setPendingData(data)
+    setPendingEdit(editId)
+
+    await runUpload(data, editId)
+  }
+
+  const handleRetry = () => {
+    if (pendingData) void runUpload(pendingData, pendingEdit)
+  }
+
+  const handleOverlayClose = () => {
+    setUploadStatus('idle')
+    setUploadError('')
+    setPendingData(null)
+    setPendingEdit(null)
   }
 
   const handleDelete = (id: string) => {
     if (window.confirm('Are you sure you want to delete this document?')) {
-      deleteDocument(id)
+      void deleteDocument(id)
     }
   }
 
@@ -136,9 +253,7 @@ export function DocumentsManagement() {
     <div>
       {/* Breadcrumbs */}
       <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-        <Link to="/admin/dashboard" className="hover:text-[#5a0a8f]">
-          Dashboard
-        </Link>
+        <Link to="/admin/dashboard" className="hover:text-[#5a0a8f]">Dashboard</Link>
         <span>›</span>
         <span className="text-gray-900 font-medium">Documents Management</span>
       </div>
@@ -162,9 +277,7 @@ export function DocumentsManagement() {
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
         <div className="flex flex-col md:flex-row gap-4 items-center">
           <div className="flex-1 relative w-full">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              search
-            </span>
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
             <input
               type="text"
               value={searchQuery}
@@ -180,9 +293,7 @@ export function DocumentsManagement() {
           >
             <option value="all">All Categories</option>
             {categories.map((cat) => (
-              <option key={cat.value} value={cat.value}>
-                {cat.label}
-              </option>
+              <option key={cat.value} value={cat.value}>{cat.label}</option>
             ))}
           </select>
         </div>
@@ -194,21 +305,11 @@ export function DocumentsManagement() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">
-                  Document
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">
-                  Category
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">
-                  Size
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">
-                  Uploaded
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">
-                  Actions
-                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">Document</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">Category</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">Size</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">Uploaded</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -237,9 +338,7 @@ export function DocumentsManagement() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{formatFileSize(doc.fileSize)}</td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-600">
-                        {new Date(doc.uploadedAt).toLocaleDateString()}
-                      </div>
+                      <div className="text-sm text-gray-600">{new Date(doc.uploadedAt).toLocaleDateString()}</div>
                       {doc.uploadedBy && (
                         <div className="text-xs text-gray-500">by {doc.uploadedBy}</div>
                       )}
@@ -277,7 +376,7 @@ export function DocumentsManagement() {
         </div>
       </div>
 
-      {/* Add/Edit Modal */}
+      {/* ── Add / Edit Modal ────────────────────────────────────────────────── */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto my-8">
@@ -286,10 +385,7 @@ export function DocumentsManagement() {
                 {editingDoc ? 'Edit Document' : 'Upload New Document'}
               </h2>
               <button
-                onClick={() => {
-                  setShowAddModal(false)
-                  setEditingDoc(null)
-                }}
+                onClick={() => { setShowAddModal(false); setEditingDoc(null) }}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <span className="material-symbols-outlined text-2xl">close</span>
@@ -322,9 +418,7 @@ export function DocumentsManagement() {
                   className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white"
                 >
                   {categories.map((cat) => (
-                    <option key={cat.value} value={cat.value}>
-                      {cat.label}
-                    </option>
+                    <option key={cat.value} value={cat.value}>{cat.label}</option>
                   ))}
                 </select>
               </div>
@@ -342,9 +436,10 @@ export function DocumentsManagement() {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  {editingDoc ? 'Replace File (Optional)' : 'Upload File'} <span className="text-red-500">*</span>
+                  {editingDoc ? 'Replace File (Optional)' : 'Upload File'}{' '}
+                  {!editingDoc && <span className="text-red-500">*</span>}
                 </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#5a0a8f] hover:bg-purple-50/20 transition-colors">
                   <input
                     type="file"
                     accept=".pdf,.doc,.docx"
@@ -353,10 +448,7 @@ export function DocumentsManagement() {
                     className="hidden"
                     id="file-upload"
                   />
-                  <label
-                    htmlFor="file-upload"
-                    className="cursor-pointer flex flex-col items-center gap-2"
-                  >
+                  <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center gap-2">
                     <span className="material-symbols-outlined text-4xl text-gray-400">upload_file</span>
                     <span className="text-sm text-gray-600">
                       {formData.file ? formData.fileName : editingDoc ? editingDoc.fileName : 'Click to upload PDF'}
@@ -371,10 +463,7 @@ export function DocumentsManagement() {
               <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowAddModal(false)
-                    setEditingDoc(null)
-                  }}
+                  onClick={() => { setShowAddModal(false); setEditingDoc(null) }}
                   className="px-5 py-2.5 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium"
                 >
                   Cancel
@@ -390,6 +479,14 @@ export function DocumentsManagement() {
           </div>
         </div>
       )}
+
+      {/* ── Upload status overlay (uploading / success / error) ─────────────── */}
+      <UploadOverlay
+        status={uploadStatus}
+        errorMessage={uploadError}
+        onClose={handleOverlayClose}
+        onRetry={handleRetry}
+      />
     </div>
   )
 }
