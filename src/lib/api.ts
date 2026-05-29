@@ -52,8 +52,10 @@ export const setAuthToken = (token: string | null) => {
   console.log('[setAuthToken] Token saved to localStorage')
 }
 
-// Reduced from 45 s → 10 s so a cold-start backend fails fast instead of freezing the browser.
-const API_TIMEOUT_MS = 10000
+// Default timeout for regular API calls (auth, reads, deletes, etc.)
+const API_TIMEOUT_MS = 10_000
+// Extended timeout for file uploads — covers Render cold-start (30 s) + actual upload time
+const UPLOAD_TIMEOUT_MS = 120_000
 // Reduced from 2 → 1 so a single bad request costs at most 20 s, not 135 s.
 const API_MAX_RETRIES = 1
 
@@ -92,9 +94,10 @@ async function fetchWithTimeout(
 
 export async function apiRequest<T>(
   path: string,
-  options: RequestInit & { auth?: boolean; retries?: number } = {},
+  options: RequestInit & { auth?: boolean; retries?: number; timeoutMs?: number } = {},
 ): Promise<T> {
   const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`
+  const timeoutMs = options.timeoutMs ?? API_TIMEOUT_MS
   const maxAttempts = (options.retries ?? API_MAX_RETRIES) + 1
 
   // `signal` is part of RequestInit — callers can pass it to cancel the request on unmount.
@@ -123,7 +126,7 @@ export async function apiRequest<T>(
       throw new Error('Request was cancelled.')
     }
     try {
-      const res = await fetchWithTimeout(url, { ...options, headers }, API_TIMEOUT_MS, externalSignal)
+      const res = await fetchWithTimeout(url, { ...options, headers }, timeoutMs, externalSignal)
 
       const text = await res.text()
       let data: unknown = null
@@ -149,14 +152,32 @@ export async function apiRequest<T>(
       if (externalSignal?.aborted) {
         throw new Error('Request was cancelled.')
       }
-      const isAbort = lastError.name === 'AbortError'
-      const isNetwork = lastError.message.includes('Failed to fetch') || lastError.message.includes('NetworkError')
-      if (attempt < maxAttempts - 1 && (isAbort || isNetwork)) {
-        await new Promise((r) => window.setTimeout(r, 800 * (attempt + 1)))
+      const isAbort   = lastError.name === 'AbortError'
+      const isNetwork = lastError.message.includes('Failed to fetch') ||
+                        lastError.message.includes('NetworkError') ||
+                        lastError.message.includes('network')
+      const isUpload  = timeoutMs >= UPLOAD_TIMEOUT_MS
+
+      // For uploads: retry network errors (connection dropped before data sent — safe to retry)
+      //              but never retry timeouts (upload may have partially succeeded — risky).
+      // For regular calls: retry both network errors and timeouts (existing behaviour).
+      const shouldRetry = isNetwork || (isAbort && !isUpload)
+      if (attempt < maxAttempts - 1 && shouldRetry) {
+        // Longer delay for uploads — gives Render's cold-start a few seconds to wake up
+        const delayMs = isUpload ? 3000 : 800 * (attempt + 1)
+        await new Promise((r) => window.setTimeout(r, delayMs))
         continue
       }
+
       if (isAbort) {
-        throw new Error('Request timed out. Please check your connection and try again.')
+        throw new Error(
+          isUpload
+            ? 'Upload timed out — the file may be too large or the server is busy. Please try again.'
+            : 'Request timed out. Please check your connection and try again.',
+        )
+      }
+      if (isNetwork) {
+        throw new Error('Network error — please check your connection and try again.')
       }
       throw lastError
     }
@@ -218,21 +239,25 @@ export const documentsApi = {
     return apiRequest<DocumentResponse>(`/documents/${id}`)
   },
 
-  // Create document (admin only)
+  // Create document (admin only) — long timeout for large file uploads on Render
   create: async (formData: FormData) => {
     return apiRequest<DocumentResponse>('/documents', {
       method: 'POST',
       body: formData,
       auth: true,
+      timeoutMs: UPLOAD_TIMEOUT_MS, // 2 min — covers cold-start + actual upload
+      retries: 1,                    // 1 retry allowed for network drops (safe); timeouts are never retried
     })
   },
 
-  // Update document (admin only)
+  // Update document (admin only) — same extended timeout for file replacement
   update: async (id: string, formData: FormData) => {
     return apiRequest<DocumentResponse>(`/documents/${id}`, {
       method: 'PATCH',
       body: formData,
       auth: true,
+      timeoutMs: UPLOAD_TIMEOUT_MS,
+      retries: 1,
     })
   },
 
