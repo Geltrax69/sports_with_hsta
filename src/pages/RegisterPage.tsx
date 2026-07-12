@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useDistricts } from '../context/DistrictsContext'
 import { apiRequest } from '../lib/api'
 import { DatePickerField } from '../components/DatePickerField'
@@ -11,6 +11,12 @@ export function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitResult, setSubmitResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const resultRef = useRef<HTMLDivElement>(null)
+
+  const showResult = (result: { type: 'success' | 'error'; message: string }) => {
+    setSubmitResult(result)
+    requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+  }
   const [formData, setFormData] = useState({
     profilePhoto: null as File | null,
     fullName: '',
@@ -56,7 +62,7 @@ export function RegisterPage() {
         return
       }
       if (file.size > 5 * 1024 * 1024) {
-        alert('File size must be less than 5MB')
+        alert(`Profile photo is ${(file.size / (1024 * 1024)).toFixed(1)}MB. Max allowed size is 5MB.`)
         return
       }
       setFormData({ ...formData, profilePhoto: file })
@@ -82,7 +88,7 @@ export function RegisterPage() {
         return
       }
       if (file.size > 5 * 1024 * 1024) {
-        alert(`Certificate "${file.name}" is too large. Max size is 5MB.`)
+        alert(`Certificate "${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)}MB. Max allowed size is 5MB.`)
         return
       }
     })
@@ -122,7 +128,7 @@ export function RegisterPage() {
         return
       }
       if (file.size > 5 * 1024 * 1024) {
-        alert('File size must be less than 5MB')
+        alert(`Aadhaar document is ${(file.size / (1024 * 1024)).toFixed(1)}MB. Max allowed size is 5MB.`)
         return
       }
       setFormData({ ...formData, aadhaarDocument: file })
@@ -148,7 +154,7 @@ export function RegisterPage() {
         return
       }
       if (file.size > 5 * 1024 * 1024) {
-        alert('File size must be less than 5MB')
+        alert(`Passport document is ${(file.size / (1024 * 1024)).toFixed(1)}MB. Max allowed size is 5MB.`)
         return
       }
       setFormData({ ...formData, passportDocument: file })
@@ -284,7 +290,7 @@ export function RegisterPage() {
         headers: {},
       })
 
-      setSubmitResult({
+      showResult({
         type: 'success',
         message:
           'Registration submitted successfully! Your application is pending approval. Registration ID: ' +
@@ -327,7 +333,7 @@ export function RegisterPage() {
       setShowPassword(false)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Registration failed'
-      setSubmitResult({ type: 'error', message })
+      showResult({ type: 'error', message })
     } finally {
       setIsSubmitting(false)
     }
@@ -362,6 +368,7 @@ export function RegisterPage() {
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6 md:p-8 lg:p-10">
           {submitResult && (
             <div
+              ref={resultRef}
               className={`mb-6 rounded-xl border p-4 ${submitResult.type === 'success' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
                 }`}
             >
