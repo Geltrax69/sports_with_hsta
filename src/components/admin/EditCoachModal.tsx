@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AdminEmailField } from './AdminEmailField'
 import type { PlayerRegistration } from '../../context/RegistrationsContext'
 
 interface EditCoachModalProps {
@@ -43,16 +44,16 @@ export function EditCoachModal({ registration, onClose, onSave }: EditCoachModal
     }
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4 overflow-y-auto">
-            <div className="bg-white rounded-xl max-w-2xl w-full shadow-2xl animate-in fade-in zoom-in duration-200">
-                <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+        <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-[60] p-2 sm:p-4 overflow-y-auto">
+            <div className="bg-white rounded-xl max-w-2xl w-full my-auto max-h-[95vh] sm:max-h-[90vh] flex flex-col shadow-2xl animate-in fade-in zoom-in duration-200">
+                <div className="p-4 sm:p-6 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
                     <h2 className="text-xl font-bold text-gray-900">Edit Coach Registration</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
                         <span className="material-symbols-outlined">close</span>
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1">Full Name</label>
@@ -65,17 +66,12 @@ export function EditCoachModal({ registration, onClose, onSave }: EditCoachModal
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] outline-none"
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
-                            <input
-                                type="email"
-                                name="email"
-                                value={formData.email}
-                                disabled
-                                className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
-                            />
-                            <p className="text-[10px] text-gray-400 mt-1">Email cannot be changed</p>
-                        </div>
+                        <AdminEmailField
+                            role="coach"
+                            accountId={registration.id}
+                            email={formData.email}
+                            onChanged={(email) => setFormData((prev) => ({ ...prev, email }))}
+                        />
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1">Phone Number</label>
                             <input
@@ -287,7 +283,7 @@ export function EditCoachModal({ registration, onClose, onSave }: EditCoachModal
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
+                    <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-6 border-t border-gray-200 sticky bottom-0 bg-white">
                         <button
                             type="button"
                             onClick={onClose}

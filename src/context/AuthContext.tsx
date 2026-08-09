@@ -23,6 +23,7 @@ type AuthContextType = {
   login: (email: string, password: string, role?: UserRole) => Promise<LoginResult>
   verifyAdminOtp: (email: string, otp: string) => Promise<{ success: boolean; error?: string }>
   resendAdminOtp: (email: string) => Promise<{ ok: boolean; waitSeconds?: number; error?: string }>
+  setUserEmail: (email: string) => void
   logout: () => void
   isAuthenticated: boolean
 }
@@ -187,6 +188,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // ── Email change (keeps the cached session in sync after a verified change) ─
+
+  const setUserEmail = (email: string) => {
+    setUser((prev) => {
+      if (!prev) return prev
+      const next = { ...prev, email }
+      localStorage.setItem('stfi.user', JSON.stringify(next))
+      return next
+    })
+  }
+
   // ── Logout ────────────────────────────────────────────────────────────────
 
   const logout = () => {
@@ -203,6 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         verifyAdminOtp,
         resendAdminOtp,
+        setUserEmail,
         logout,
         isAuthenticated: !!user,
       }}

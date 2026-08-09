@@ -68,6 +68,7 @@ const PlayerResults      = lazy(() => import('./pages/player/PlayerResults').the
 const PlayerCertificates = lazy(() => import('./pages/player/PlayerCertificates').then(m => ({ default: m.PlayerCertificates })))
 const PlayerStatusPage   = lazy(() => import('./pages/player/PlayerStatusPage').then(m => ({ default: m.PlayerStatusPage })))
 const PlayerResubmitPage = lazy(() => import('./pages/player/PlayerResubmitPage').then(m => ({ default: m.PlayerResubmitPage })))
+const PlayerSettings     = lazy(() => import('./pages/player/PlayerSettings').then(m => ({ default: m.PlayerSettings })))
 
 // Coach portal pages
 const CoachDashboard    = lazy(() => import('./pages/coach/CoachDashboard').then(m => ({ default: m.CoachDashboard })))
@@ -76,6 +77,7 @@ const CoachCertificates = lazy(() => import('./pages/coach/CoachCertificates').t
 const CoachMatches      = lazy(() => import('./pages/coach/CoachMatches').then(m => ({ default: m.CoachMatches })))
 const CoachStatusPage   = lazy(() => import('./pages/coach/CoachStatusPage').then(m => ({ default: m.CoachStatusPage })))
 const CoachResubmitPage = lazy(() => import('./pages/coach/CoachResubmitPage').then(m => ({ default: m.CoachResubmitPage })))
+const CoachSettings     = lazy(() => import('./pages/coach/CoachSettings').then(m => ({ default: m.CoachSettings })))
 
 // Referee portal pages
 const RefereeDashboard    = lazy(() => import('./pages/referee/RefereeDashboard').then(m => ({ default: m.RefereeDashboard })))
@@ -84,6 +86,7 @@ const RefereeMatches      = lazy(() => import('./pages/referee/RefereeMatches').
 const RefereeCertificates = lazy(() => import('./pages/referee/RefereeCertificates').then(m => ({ default: m.RefereeCertificates })))
 const RefereeStatusPage   = lazy(() => import('./pages/referee/RefereeStatusPage').then(m => ({ default: m.RefereeStatusPage })))
 const RefereeResubmitPage = lazy(() => import('./pages/referee/RefereeResubmitPage').then(m => ({ default: m.RefereeResubmitPage })))
+const RefereeSettings     = lazy(() => import('./pages/referee/RefereeSettings').then(m => ({ default: m.RefereeSettings })))
 
 // ─── Shared loading fallback ──────────────────────────────────────────────────
 function PageLoader() {
@@ -219,6 +222,7 @@ export const appRouter = createBrowserRouter(
             { path: 'events',        element: <SuspenseOutlet><PlayerEvents /></SuspenseOutlet> },
             { path: 'results',       element: <SuspenseOutlet><PlayerResults /></SuspenseOutlet> },
             { path: 'certificates',  element: <SuspenseOutlet><PlayerCertificates /></SuspenseOutlet> },
+            { path: 'settings',      element: <SuspenseOutlet><PlayerSettings /></SuspenseOutlet> },
           ],
         },
       ],
@@ -237,6 +241,7 @@ export const appRouter = createBrowserRouter(
             { path: 'tournaments',  element: <SuspenseOutlet><CoachTournaments /></SuspenseOutlet> },
             { path: 'matches',      element: <SuspenseOutlet><CoachMatches /></SuspenseOutlet> },
             { path: 'certificates', element: <SuspenseOutlet><CoachCertificates /></SuspenseOutlet> },
+            { path: 'settings',      element: <SuspenseOutlet><CoachSettings /></SuspenseOutlet> },
           ],
         },
       ],
@@ -255,6 +260,7 @@ export const appRouter = createBrowserRouter(
             { path: 'tournaments',  element: <SuspenseOutlet><RefereeTournaments /></SuspenseOutlet> },
             { path: 'matches',      element: <SuspenseOutlet><RefereeMatches /></SuspenseOutlet> },
             { path: 'certificates', element: <SuspenseOutlet><RefereeCertificates /></SuspenseOutlet> },
+            { path: 'settings',      element: <SuspenseOutlet><RefereeSettings /></SuspenseOutlet> },
           ],
         },
       ],
