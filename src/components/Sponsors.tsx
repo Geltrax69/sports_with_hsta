@@ -15,11 +15,6 @@ export function Sponsors() {
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
             />
             <img
-              src={`${import.meta.env.BASE_URL}assets/images/bottom/l2.jpg`}
-              alt="Partner 2"
-              className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
-            />
-            <img
               src={`${import.meta.env.BASE_URL}assets/images/bottom/l3.png`}
               alt="Partner 3"
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
@@ -59,11 +54,6 @@ export function Sponsors() {
             <img
               src={`${import.meta.env.BASE_URL}assets/images/bottom/l1.png`}
               alt="Partner 1"
-              className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
-            />
-            <img
-              src={`${import.meta.env.BASE_URL}assets/images/bottom/l2.jpg`}
-              alt="Partner 2"
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
             />
             <img

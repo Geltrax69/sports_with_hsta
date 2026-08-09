@@ -187,7 +187,6 @@ const SPONSORS_HTML = `
                     
                     <!-- Set 1 -->
                     <img src="${BASE_PATH}assets/images/bottom/l1.png" alt="Partner 1" class="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110">
-                    <img src="${BASE_PATH}assets/images/bottom/l2.jpg" alt="Partner 2" class="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110">
                     <img src="${BASE_PATH}assets/images/bottom/l3.png" alt="Partner 3" class="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110">
                     <img src="${BASE_PATH}assets/images/bottom/l4.jpg" alt="Partner 4" class="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110">
                     <img src="${BASE_PATH}assets/images/bottom/l5.jpg" alt="Partner 5" class="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110">
@@ -198,7 +197,6 @@ const SPONSORS_HTML = `
 
                     <!-- Set 2 (Duplicate for Loop) -->
                     <img src="${BASE_PATH}assets/images/bottom/l1.png" alt="Partner 1" class="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110">
-                    <img src="${BASE_PATH}assets/images/bottom/l2.jpg" alt="Partner 2" class="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110">
                     <img src="${BASE_PATH}assets/images/bottom/l3.png" alt="Partner 3" class="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110">
                     <img src="${BASE_PATH}assets/images/bottom/l4.jpg" alt="Partner 4" class="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110">
                     <img src="${BASE_PATH}assets/images/bottom/l5.jpg" alt="Partner 5" class="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110">
