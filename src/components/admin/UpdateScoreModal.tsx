@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { apiRequest } from '../../lib/api'
+import { roundNamesForEvent } from '../../lib/eventFormat'
 
 type Tournament = {
     _id: string
@@ -16,6 +17,7 @@ type Match = {
     status?: 'scheduled' | 'ongoing' | 'completed'
     description?: string
     bracket?: 'winner' | 'loser'
+    eventType?: 'regu' | 'double' | 'quad'
     scorecard?: {
         matchNo?: string
         round?: string
@@ -225,9 +227,19 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
         return { updatedRegus, scorecardPatch }
     }
 
-    const currentRegus = selectedMatch?.regus || []
-    const activeRegu = currentRegus[selectedReguIndex]
-    const activeReguName = activeRegu?.reguName || `Regu ${selectedReguIndex + 1}`
+    // Rounds come from the event format (regu 1, double 2, quad 3), not from
+    // whatever is stored: matches created before the format was enforced can
+    // carry a different number. Saved rounds are reused by index.
+    const savedRegus = selectedMatch?.regus || []
+    const currentRegus = selectedMatch
+        ? roundNamesForEvent(selectedMatch.eventType).map(
+              (reguName, i) =>
+                  savedRegus[i] || { reguName, team1Score: 0, team2Score: 0, winner: null, sets: [] },
+          )
+        : []
+    const reguIndex = Math.min(selectedReguIndex, Math.max(currentRegus.length - 1, 0))
+    const activeRegu = currentRegus[reguIndex]
+    const activeReguName = activeRegu?.reguName || `Round ${reguIndex + 1}`
 
     const getPlayerName = (player?: { fullName?: string; name?: string } | string) => {
         if (!player) return ''
@@ -285,10 +297,10 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
         const currentSets = activeRegu.sets || []
         const nextSetNumber = currentSets.length + 1
 
-        const { updatedRegus: startedRegus, scorecardPatch } = ensureMatchAndReguStarted(currentRegus, selectedReguIndex)
+        const { updatedRegus: startedRegus, scorecardPatch } = ensureMatchAndReguStarted(currentRegus, reguIndex)
         const newRegus = [...startedRegus]
-        newRegus[selectedReguIndex] = {
-            ...startedRegus[selectedReguIndex],
+        newRegus[reguIndex] = {
+            ...startedRegus[reguIndex],
             sets: [...currentSets, {
                 setNumber: nextSetNumber,
                 team1Score: 0,
@@ -305,7 +317,7 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
     const updateSetPoint = (team: 'team1' | 'team2', delta: number) => {
         if (!selectedMatch || !activeRegu || !activeSet || activeSetIndex === -1) return
 
-        const { updatedRegus: startedRegus, scorecardPatch } = ensureMatchAndReguStarted(currentRegus, selectedReguIndex)
+        const { updatedRegus: startedRegus, scorecardPatch } = ensureMatchAndReguStarted(currentRegus, reguIndex)
         const newRegus = [...startedRegus]
         const currentSets = [...(activeRegu.sets || [])]
         const set = { ...currentSets[activeSetIndex] }
@@ -314,7 +326,7 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
         else set.team2Score = Math.max(0, set.team2Score + delta)
 
         currentSets[activeSetIndex] = set
-        newRegus[selectedReguIndex] = { ...startedRegus[selectedReguIndex], sets: currentSets }
+        newRegus[reguIndex] = { ...startedRegus[reguIndex], sets: currentSets }
 
         handleUpdateScore(newRegus, 'ongoing', undefined, undefined, scorecardPatch)
     }
@@ -322,7 +334,7 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
     const recordTimeout = (team: 'team1' | 'team2') => {
         if (!selectedMatch || !activeRegu || !activeSet || activeSetIndex === -1) return
 
-        const { updatedRegus: startedRegus, scorecardPatch } = ensureMatchAndReguStarted(currentRegus, selectedReguIndex)
+        const { updatedRegus: startedRegus, scorecardPatch } = ensureMatchAndReguStarted(currentRegus, reguIndex)
         const newRegus = [...startedRegus]
         const currentSets = [...(activeRegu.sets || [])]
         const set = { ...currentSets[activeSetIndex] }
@@ -333,7 +345,7 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
         set[field] = existing
 
         currentSets[activeSetIndex] = set
-        newRegus[selectedReguIndex] = { ...startedRegus[selectedReguIndex], sets: currentSets }
+        newRegus[reguIndex] = { ...startedRegus[reguIndex], sets: currentSets }
 
         // Mark the active timeout so live-score viewers see the banner immediately
         const teamName = team === 'team1' ? (selectedMatch.team1 as string) : (selectedMatch.team2 as string)
@@ -362,7 +374,7 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
         const newRegus = [...currentRegus]
         const currentSets = [...(activeRegu.sets || [])]
         currentSets[activeSetIndex] = { ...currentSets[activeSetIndex], winner }
-        newRegus[selectedReguIndex] = { ...activeRegu, sets: currentSets }
+        newRegus[reguIndex] = { ...activeRegu, sets: currentSets }
         
         // Auto-close open substitutions for this set
         const updatedSubs = [...substitutions]
@@ -406,7 +418,7 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
         const team2Score = activeRegu.sets?.filter(s => s.winner === 'team2').length || 0
         
         const reguEndTime = formatNowHHMM()
-        newRegus[selectedReguIndex] = {
+        newRegus[reguIndex] = {
             ...activeRegu,
             winner,
             team1Score,
@@ -653,7 +665,7 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                                             key={idx}
                                             onClick={() => setSelectedReguIndex(idx)}
                                             className={`flex flex-1 flex-col items-center gap-1 border-b-2 px-4 py-4 text-sm font-bold transition-all ${
-                                                selectedReguIndex === idx 
+                                                reguIndex === idx 
                                                     ? 'border-[#5a0a8f] text-[#5a0a8f] bg-white' 
                                                     : 'border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-700'
                                             }`}

@@ -6,18 +6,15 @@ import { resolveDistrictName } from '../../lib/districtDisplay'
 import { UpdateScoreModal } from '../../components/admin/UpdateScoreModal'
 import { ScorecardRemarksModal } from '../../components/admin/ScorecardRemarksModal'
 import { useDistricts } from '../../context/DistrictsContext'
+import { ListPagination } from '../../components/ListPagination'
 import { fieldClass, selectClass } from '../../lib/formStyles'
-
-type EventType = 'regu' | 'double' | 'quad'
+import { eventTypeLabel, type EventType } from '../../lib/eventFormat'
 
 const squadLimitsForEvent = (eventType: EventType) => {
   const starters = ({ regu: 3, double: 2, quad: 4 }[eventType] ?? 3)
   const subs = 2
   return { starters, subs, total: starters + subs }
 }
-
-const eventTypeLabel = (eventType: EventType) =>
-  ({ regu: 'Regu', double: 'Double', quad: 'Quad' }[eventType] ?? 'Regu')
 
 const formatMatchMetaLine = (match: Match) => {
   const parts: string[] = []
@@ -221,6 +218,7 @@ type Match = {
   date: string
   time: string
   bracket?: 'winner' | 'loser'
+  eventType?: EventType
   description?: string
   status?: 'scheduled' | 'ongoing' | 'completed'
   score?: {
@@ -666,7 +664,9 @@ export function TournamentRegistrations() {
   const [quickRegType, setQuickRegType] = useState<'player' | 'coach' | 'referee'>('player')
   const [quickRegResults, setQuickRegResults] = useState<any[]>([])
   const [quickRegLoading, setQuickRegLoading] = useState(false)
-  const [quickRegSuccessMsg, setQuickRegSuccessMsg] = useState('')
+  const [quickRegBusyId, setQuickRegBusyId] = useState('')
+  const [quickRegPage, setQuickRegPage] = useState(1)
+  const QUICK_REG_PAGE_SIZE = 10
 
   // Fetch tournament details
   useEffect(() => {
@@ -1436,6 +1436,7 @@ export function TournamentRegistrations() {
 
     const res = await apiRequest<any>(`${endpoint}?${params.toString()}`, { auth: true })
 
+    setQuickRegPage(1)
     if (type === 'player') setQuickRegResults(res.players || [])
     else if (type === 'coach') setQuickRegResults(res.coaches || [])
     else setQuickRegResults(res.referees || [])
@@ -1459,7 +1460,10 @@ export function TournamentRegistrations() {
     }
   }
 
-  const handleQuickRegDistrictChange = async (districtId: string) => {
+  const handleQuickRegDistrictChange = async (
+    districtId: string,
+    type: 'player' | 'coach' | 'referee' = quickRegType,
+  ) => {
     setQuickRegDistrict(districtId)
     setQuickRegSearch('')
     if (!districtId) {
@@ -1468,7 +1472,7 @@ export function TournamentRegistrations() {
     }
     try {
       setQuickRegLoading(true)
-      await fetchQuickRegPeople(districtId, quickRegType, '')
+      await fetchQuickRegPeople(districtId, type, '')
     } catch (e) {
       console.error('District load error:', e)
       setQuickRegResults([])
@@ -1482,14 +1486,14 @@ export function TournamentRegistrations() {
     setQuickRegDistrict('')
     setQuickRegSearch('')
     setQuickRegResults([])
-    setQuickRegSuccessMsg('')
   }
 
-  const handleQuickRegister = async (userId: string, displayName?: string) => {
+  const handleQuickRegister = async (userId: string) => {
     if (!tournamentId) return
 
-    setQuickRegLoading(true)
-    setQuickRegSuccessMsg('')
+    // Per-row busy flag: the modal-wide loading flag swaps the whole list out
+    // for "Loading…", which makes the box jump and lose its scroll position.
+    setQuickRegBusyId(userId)
     try {
       await apiRequest(`/admin/tournaments/${tournamentId}/registrations`, {
         method: 'POST',
@@ -1507,12 +1511,10 @@ export function TournamentRegistrations() {
       )
       setRegistrations(Array.isArray(res.registrations) ? res.registrations : [])
 
-      const label = displayName?.trim() || 'Participant'
-      setQuickRegSuccessMsg(`${label} registered successfully. You can register more below.`)
     } catch (e: any) {
       alert(e?.message || 'Failed to register participant')
     } finally {
-      setQuickRegLoading(false)
+      setQuickRegBusyId('')
     }
   }
 
@@ -2511,14 +2513,15 @@ export function TournamentRegistrations() {
               </div>
               <div className="flex gap-2">
                 {(['player', 'coach', 'referee'] as const).map((t) => (
-                  <button key={t} type="button" onClick={() => { setQuickRegType(t); if (quickRegDistrict) handleQuickRegDistrictChange(quickRegDistrict) }} className={`px-3 py-1.5 rounded-lg text-sm font-bold capitalize ${quickRegType === t ? 'bg-[#5a0a8f] text-white' : 'bg-gray-100 text-gray-700'}`}>{t}</button>
+                  <button key={t} type="button" onClick={() => { setQuickRegType(t); setQuickRegResults([]); if (quickRegDistrict) void handleQuickRegDistrictChange(quickRegDistrict, t) }} className={`px-3 py-1.5 rounded-lg text-sm font-bold capitalize ${quickRegType === t ? 'bg-[#5a0a8f] text-white' : 'bg-gray-100 text-gray-700'}`}>{t}</button>
                 ))}
               </div>
               <input type="text" placeholder="Filter by name (optional)..." value={quickRegSearch} onChange={(e) => handleQuickRegSearch(e.target.value)} disabled={!quickRegDistrict} className={`${fieldClass} disabled:bg-gray-100 disabled:text-gray-500`} />
-              {quickRegSuccessMsg && <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">{quickRegSuccessMsg}</div>}
               {quickRegLoading ? <p className="text-gray-500 text-sm">Loading...</p> : !quickRegDistrict ? <p className="text-gray-500 text-sm">Select a district to see people.</p> : quickRegResults.length === 0 ? <p className="text-gray-500 text-sm">No {quickRegType}s found for this district.</p> : (
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {quickRegResults.map((person: { _id: string; fullName: string; playerId?: string; coachId?: string; refereeId?: string }) => {
+                <div className="space-y-2">
+                  {quickRegResults
+                    .slice((quickRegPage - 1) * QUICK_REG_PAGE_SIZE, quickRegPage * QUICK_REG_PAGE_SIZE)
+                    .map((person: { _id: string; fullName: string; playerId?: string; coachId?: string; refereeId?: string }) => {
                     const already = isRegistered(person._id, quickRegType)
                     const displayId = formatPersonListId(quickRegType, person)
                     return (
@@ -2528,11 +2531,17 @@ export function TournamentRegistrations() {
                           {displayId !== '—' && <p className="text-xs text-gray-500">{displayId}</p>}
                         </div>
                         {already ? <span className="text-green-600 text-sm font-bold">Registered</span> : (
-                          <button type="button" onClick={() => handleQuickRegister(person._id, person.fullName)} className="px-3 py-1 bg-[#5a0a8f] text-white rounded-lg text-sm font-bold">Register</button>
+                          <button type="button" disabled={quickRegBusyId === person._id} onClick={() => handleQuickRegister(person._id)} className="px-3 py-1 bg-[#5a0a8f] text-white rounded-lg text-sm font-bold disabled:opacity-60">{quickRegBusyId === person._id ? 'Registering…' : 'Register'}</button>
                         )}
                       </div>
                     )
                   })}
+                  <ListPagination
+                    page={quickRegPage}
+                    totalItems={quickRegResults.length}
+                    pageSize={QUICK_REG_PAGE_SIZE}
+                    onPageChange={setQuickRegPage}
+                  />
                 </div>
               )}
             </div>

@@ -155,6 +155,7 @@ export function DatePickerField({
 
             <Box sx={{ display: 'flex', gap: '8px' }}>
               <button
+                type="button"
                 onClick={() => setOpen(false)}
                 style={{
                   flex: 1,
@@ -178,6 +179,7 @@ export function DatePickerField({
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={() => setOpen(false)}
                 style={{
                   flex: 1,

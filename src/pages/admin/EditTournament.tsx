@@ -1,5 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
+import dayjs from 'dayjs'
 import { apiRequest } from '../../lib/api'
 import { DatePickerField } from '../../components/DatePickerField'
 import { Autocomplete, TextField, Chip } from '@mui/material'
@@ -206,6 +207,20 @@ export function EditTournament() {
 
     if (!resolvedTournamentType) {
       setError('Tournament Type is required')
+      return
+    }
+
+    if (formData.startDate && formData.endDate && formData.endDate < formData.startDate) {
+      setError('End date cannot be before start date')
+      return
+    }
+
+    if (
+      formData.registrationOpens &&
+      formData.registrationCloses &&
+      formData.registrationCloses < formData.registrationOpens
+    ) {
+      setError('Registration close date cannot be before open date')
       return
     }
 
@@ -453,6 +468,7 @@ export function EditTournament() {
                   id="endDate"
                   name="endDate"
                   label="Select end date"
+                  minDate={formData.startDate ? dayjs(formData.startDate) : undefined}
                   value={formData.endDate}
                   onChange={(date) => handleInputChange({ target: { name: 'endDate', value: date } } as any)}
                 />
@@ -476,6 +492,7 @@ export function EditTournament() {
                   <DatePickerField
                     name="registrationCloses"
                     label="Registration closes"
+                    minDate={formData.registrationOpens ? dayjs(formData.registrationOpens) : undefined}
                     value={formData.registrationCloses}
                     onChange={(date) => handleInputChange({ target: { name: 'registrationCloses', value: date } } as any)}
                   />
