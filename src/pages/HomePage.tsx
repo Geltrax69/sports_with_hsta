@@ -52,18 +52,34 @@ export function HomePage() {
     }
   }, [])
 
-  // Get featured news from website content settings, or fallback to featured/pinned news
+  // Live matches first, then recent results. The card only has room for two, and
+  // a finished match must never push an in-progress one out of view.
+  const orderedLiveMatches = useMemo(() => {
+    const inProgress = liveMatches.filter((m) => m.status === 'ongoing')
+    const finished = liveMatches.filter((m) => m.status !== 'ongoing')
+    return [...inProgress, ...finished]
+  }, [liveMatches])
+  const ongoingCount = orderedLiveMatches.filter((m) => m.status === 'ongoing').length
+
+  // The homepage selection is curated by id, but those ids can go stale — they are
+  // stored server-side while the articles themselves are not, so a selection made
+  // elsewhere resolves to nothing here. Unresolved ids are skipped and the rest of
+  // the list fills in behind them; only genuinely having no news shows nothing.
   const featuredNews = useMemo(() => {
-    if (websiteContent.homepage.featuredNewsIds.length > 0) {
-      return websiteContent.homepage.featuredNewsIds
-        .map((id) => content.news.find((n) => n.id === id))
-        .filter((n) => n !== undefined)
-        .slice(0, 3)
-    }
-    const newsSorted = [...content.news].sort((a, b) => Number(b.pinned) - Number(a.pinned))
-    return [newsSorted.find((n) => n.featured) ?? newsSorted[0], ...newsSorted.filter((n) => !n.featured)].filter(
-      (n) => n !== undefined,
-    ).slice(0, 3)
+    const byId = new Map(content.news.map((n) => [n.id, n]))
+    const curated = websiteContent.homepage.featuredNewsIds
+      .map((id) => byId.get(id))
+      .filter((n) => n !== undefined)
+
+    const curatedIds = new Set(curated.map((n) => n.id))
+    const rest = content.news
+      .filter((n) => !curatedIds.has(n.id))
+      .sort(
+        (a, b) =>
+          Number(b.pinned) - Number(a.pinned) || Number(b.featured) - Number(a.featured),
+      )
+
+    return [...curated, ...rest].slice(0, 3)
   }, [content.news, websiteContent.homepage.featuredNewsIds])
 
   const featured = featuredNews[0]
@@ -195,6 +211,26 @@ export function HomePage() {
           </div>
 
           <div className="flex flex-col gap-6">
+            {/* Nothing published yet — say so rather than leaving the column blank */}
+            {!featured && cards.length === 0 && (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white px-6 py-16 text-center">
+                <span className="material-symbols-outlined mb-3 text-gray-300" style={{ fontSize: '2.5rem' }}>
+                  newspaper
+                </span>
+                <p className="text-base font-bold text-gray-700">No news published yet</p>
+                <p className="mt-1 max-w-sm text-sm text-gray-500">
+                  Announcements, trial notices and championship results will appear here once they are published.
+                </p>
+                <Link
+                  to="/news"
+                  className="mt-5 inline-flex items-center gap-1.5 rounded-lg border border-[#5a0a8f] px-4 py-2 text-sm font-bold text-[#5a0a8f] transition-colors hover:bg-[#5a0a8f] hover:text-white"
+                >
+                  Browse the news archive
+                  <span className="material-symbols-outlined text-base">arrow_forward</span>
+                </Link>
+              </div>
+            )}
+
             {/* Main Featured News */}
             {featured ? (
               <article className="group cursor-pointer">
@@ -270,24 +306,30 @@ export function HomePage() {
             <div className="bg-gradient-to-r from-red-600 to-[#5a0a8f] text-white px-5 py-4 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-black">Live Scores</h3>
-                <p className="text-xs text-white/80">Matches in progress</p>
+                <p className="text-xs text-white/80">
+                  {ongoingCount > 0
+                    ? `${ongoingCount} match${ongoingCount > 1 ? 'es' : ''} in progress`
+                    : 'Recent results'}
+                </p>
               </div>
               <span className="material-symbols-outlined text-3xl text-white/40">sports_score</span>
             </div>
             <div className="p-4 space-y-3 max-h-[320px] overflow-y-auto">
-              {liveMatches.length === 0 ? (
+              {orderedLiveMatches.length === 0 ? (
                 <p className="text-sm text-gray-500 text-center py-6">No live matches right now.</p>
               ) : (
-                liveMatches.slice(0, 2).map((m) => <LiveScoresCard key={m.id} match={m} compact />)
+                orderedLiveMatches.slice(0, 2).map((m) => <LiveScoresCard key={m.id} match={m} compact />)
               )}
             </div>
-            {liveMatches.length > 0 && (
+            {orderedLiveMatches.length > 0 && (
               <div className="px-4 pb-4">
                 <Link
                   to="/live-scores"
-                  className="block w-full text-center py-2.5 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors"
+                  className="block w-full rounded-lg bg-red-600 py-2.5 text-center text-sm font-bold text-white transition-colors hover:bg-red-700"
                 >
-                  {liveMatches.length > 2 ? `View all ${liveMatches.length} live matches` : 'View live scores'}
+                  {orderedLiveMatches.length > 2
+                    ? `View all ${orderedLiveMatches.length} matches`
+                    : 'View live scores'}
                 </Link>
               </div>
             )}

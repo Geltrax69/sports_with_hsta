@@ -6,6 +6,27 @@ type Props = {
 }
 
 // ─── Small helpers ────────────────────────────────────────────────────────────
+/**
+ * What the big number should be. While a match is live that's the points in the
+ * set being played — rounds won is a slow-moving 2-0 that tells you nothing about
+ * the rally in front of you. Once it's over, rounds won is the result.
+ */
+function headlineScore(match: LiveMatch) {
+  const lastSet = (match.regus ?? []).flatMap((r) => r.sets).at(-1) ?? null
+  const live = match.status === 'ongoing'
+  const points = match.setScore ?? (lastSet ? { team1: lastSet.team1Score, team2: lastSet.team2Score } : null)
+  const setNumber = match.activeSet ?? lastSet?.setNumber ?? null
+
+  return {
+    live,
+    points,
+    setNumber,
+    /** The number shown per team, large. */
+    value: live && points ? points : match.score,
+    rounds: match.score,
+  }
+}
+
 
 function SetRow({
   set, team1, team2,
@@ -67,6 +88,7 @@ function ReguSummaryBlock({
 function CompactCard({ match }: { match: LiveMatch }) {
   const isLive = match.status === 'ongoing'
   const inTimeout = Boolean(match.timeout)
+  const head = headlineScore(match)
 
   return (
     <article
@@ -97,21 +119,49 @@ function CompactCard({ match }: { match: LiveMatch }) {
 
       <p className="text-xs font-bold text-gray-900 truncate mb-2">{match.matchTitle}</p>
 
-      {/* Score */}
-      <div className="grid grid-cols-3 gap-1 items-center">
-        <p className="text-xs font-bold text-gray-800 text-right truncate">{match.team1}</p>
-        <div className="text-center">
-          <p className="text-lg font-black text-[#5a0a8f] tabular-nums leading-none">
-            {match.score.team1} – {match.score.team2}
-          </p>
-          {match.setScore && isLive && (
-            <p className="text-[9px] text-gray-500 mt-0.5">
-              {match.activeRegu} · S{match.activeSet}:{' '}
-              <span className="font-bold">{match.setScore.team1}–{match.setScore.team2}</span>
-            </p>
-          )}
-        </div>
-        <p className="text-xs font-bold text-gray-800 truncate">{match.team2}</p>
+      {/* Score — one row per team, so neither name gets squeezed by a centre column */}
+      <div className="space-y-1">
+        {(['team1', 'team2'] as const).map((s) => {
+          const other = s === 'team1' ? 'team2' : 'team1'
+          const leading = head.value[s] > head.value[other]
+          return (
+            <div key={s} className="flex items-baseline gap-2">
+              <p className="min-w-0 flex-1 truncate text-xs font-bold text-gray-800" title={match[s]}>
+                {match[s]}
+              </p>
+              <p
+                className={`shrink-0 text-xl font-black leading-none tabular-nums ${
+                  leading ? 'text-[#5a0a8f]' : 'text-gray-900'
+                }`}
+              >
+                {head.value[s]}
+              </p>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="mt-2 flex items-center justify-between gap-2 border-t border-gray-100 pt-2 text-[10px] font-semibold">
+        {head.live ? (
+          <>
+            <span className="min-w-0 truncate text-gray-500">
+              {[match.activeRegu, head.setNumber ? `Set ${head.setNumber}` : null].filter(Boolean).join(' · ')}
+              {' · points'}
+            </span>
+            <span className="shrink-0 text-gray-700">
+              Rounds {head.rounds.team1}–{head.rounds.team2}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="min-w-0 truncate text-gray-500">
+              {head.points && head.setNumber
+                ? `Last set ${head.setNumber}: ${head.points.team1}–${head.points.team2}`
+                : 'No sets played'}
+            </span>
+            <span className="shrink-0 text-gray-700">Rounds won</span>
+          </>
+        )}
       </div>
 
       {inTimeout && match.timeout && (
@@ -128,6 +178,7 @@ function CompactCard({ match }: { match: LiveMatch }) {
 function FullCard({ match }: { match: LiveMatch }) {
   const isLive = match.status === 'ongoing'
   const inTimeout = Boolean(match.timeout)
+  const head = headlineScore(match)
 
   // Derive active regu data
   const activeReguData = (match.regus ?? []).find((r) => r.reguName === match.activeRegu)
@@ -188,18 +239,40 @@ function FullCard({ match }: { match: LiveMatch }) {
             </span>
           </div>
         )}
-        <div className="grid grid-cols-3 gap-2 items-center">
-          <p className="font-bold text-gray-900 text-right text-sm leading-tight">{match.team1}</p>
+        <div className="grid grid-cols-3 items-center gap-2">
+          <p className="text-right text-sm font-bold leading-tight text-gray-900">{match.team1}</p>
           <div className="text-center">
-            <p className="text-3xl font-black text-[#5a0a8f] tabular-nums leading-none">
-              {match.score.team1} – {match.score.team2}
+            <p className="text-3xl font-black leading-none tabular-nums text-[#5a0a8f]">
+              {head.value.team1} – {head.value.team2}
             </p>
-            <p className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-wide">
-              {isLive ? 'Regus Won' : 'Final'}
+            <p className="mt-0.5 text-[10px] uppercase tracking-wide text-gray-500">
+              {head.live
+                ? head.setNumber
+                    ? `Set ${head.setNumber} points`
+                    : 'Points'
+                : 'Rounds won'}
             </p>
           </div>
-          <p className="font-bold text-gray-900 text-sm leading-tight">{match.team2}</p>
+          <p className="text-sm font-bold leading-tight text-gray-900">{match.team2}</p>
         </div>
+
+        <p className="mt-2 text-center text-xs font-semibold text-gray-500">
+          {head.live ? (
+            <>
+              Rounds won{' '}
+              <span className="font-black tabular-nums text-gray-800">
+                {head.rounds.team1} – {head.rounds.team2}
+              </span>
+            </>
+          ) : head.points && head.setNumber ? (
+            <>
+              Last set {head.setNumber}{' '}
+              <span className="font-black tabular-nums text-gray-800">
+                {head.points.team1} – {head.points.team2}
+              </span>
+            </>
+          ) : null}
+        </p>
       </div>
 
       {/* ─────────────────── LIVE MATCH DETAIL ─────────────────── */}
@@ -252,31 +325,7 @@ function FullCard({ match }: { match: LiveMatch }) {
             </div>
           )}
 
-          {/* Current set live scoreboard */}
-          {match.setScore && !reguJustStarted && (
-            <div className="mx-4 mb-4">
-              <div className="bg-[#5a0a8f] rounded-2xl px-4 py-5">
-                <p className="text-center text-[10px] font-bold text-white/50 uppercase tracking-widest mb-3">
-                  Set {match.activeSet} · Live Score
-                </p>
-                <div className="grid grid-cols-3 items-center gap-2">
-                  <p className="text-white/80 text-xs font-bold text-right truncate leading-tight">
-                    {match.team1}
-                  </p>
-                  <div className="text-center">
-                    <p className="text-4xl font-black text-white tabular-nums leading-none">
-                      {match.setScore.team1}
-                      <span className="text-white/40 mx-1">–</span>
-                      {match.setScore.team2}
-                    </p>
-                  </div>
-                  <p className="text-white/80 text-xs font-bold truncate leading-tight">
-                    {match.team2}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* The live set points are the headline above — not repeated here. */}
 
           {/* Completed sets in the active regu */}
           {completedSetsInRegu.length > 0 && (
