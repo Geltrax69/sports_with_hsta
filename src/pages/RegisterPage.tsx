@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useDistricts } from '../context/DistrictsContext'
-import { apiRequest } from '../lib/api'
+import { ApiError, apiRequest } from '../lib/api'
 import { DatePickerField } from '../components/DatePickerField'
 
 export function RegisterPage() {
@@ -10,10 +10,12 @@ export function RegisterPage() {
   const loginHref = `${import.meta.env.BASE_URL}login`
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submitResult, setSubmitResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [submitResult, setSubmitResult] = useState<
+    { type: 'success' | 'error'; title?: string; message: string; reference?: string } | null
+  >(null)
   const resultRef = useRef<HTMLDivElement>(null)
 
-  const showResult = (result: { type: 'success' | 'error'; message: string }) => {
+  const showResult = (result: { type: 'success' | 'error'; title?: string; message: string; reference?: string }) => {
     setSubmitResult(result)
     requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
   }
@@ -332,8 +334,24 @@ export function RegisterPage() {
       setPassportPreview(null)
       setShowPassword(false)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Registration failed'
-      showResult({ type: 'error', message })
+      // The request layer has already classified this and written it to the console
+      // and the server log. Here we only pick the heading the applicant sees.
+      const titles: Record<string, string> = {
+        offline: 'You are offline',
+        timeout: 'The server took too long',
+        network: 'Could not reach the server',
+        ratelimit: 'Too many attempts',
+        'too-large': 'Your files are too large',
+        server: 'Server problem — not your connection',
+        client: 'Please check your details',
+      }
+      const apiError = err instanceof ApiError ? err : null
+      showResult({
+        type: 'error',
+        title: apiError ? titles[apiError.kind] ?? 'Registration failed' : 'Registration failed',
+        message: err instanceof Error ? err.message : 'Registration failed. Please try again.',
+        reference: apiError?.requestId,
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -381,11 +399,17 @@ export function RegisterPage() {
                 </span>
                 <div className="text-sm">
                   <div className={`font-bold ${submitResult.type === 'success' ? 'text-green-900' : 'text-red-900'}`}>
-                    {submitResult.type === 'success' ? 'Success' : 'Error'}
+                    {submitResult.title ?? (submitResult.type === 'success' ? 'Success' : 'Error')}
                   </div>
                   <div className={submitResult.type === 'success' ? 'text-green-800' : 'text-red-800'}>
                     {submitResult.message}
                   </div>
+                  {submitResult.reference && (
+                    <div className="mt-2 text-xs text-red-700">
+                      Quote reference <span className="font-mono font-bold">{submitResult.reference}</span> if you
+                      contact the association about this.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
