@@ -286,7 +286,7 @@ export function RegisterPage() {
           ? '/coaches/register'
           : '/referees/register'
 
-      const data = await apiRequest<{ registration: { id: string } }>(path, {
+      const data = await apiRequest<{ registration: { id: string; playerId?: string; coachId?: string; refereeId?: string } }>(path, {
         method: 'POST',
         body: form,
         headers: {},
@@ -295,8 +295,8 @@ export function RegisterPage() {
       showResult({
         type: 'success',
         message:
-          'Registration submitted successfully! Your application is pending approval. Registration ID: ' +
-          data.registration.id,
+          'Registration submitted successfully! Your application is pending approval. Your ID: ' +
+          (data.registration.playerId || data.registration.coachId || data.registration.refereeId || data.registration.id),
       })
 
       // Reset form
@@ -337,18 +337,18 @@ export function RegisterPage() {
       // The request layer has already classified this and written it to the console
       // and the server log. Here we only pick the heading the applicant sees.
       const titles: Record<string, string> = {
-        offline: 'You are offline',
-        timeout: 'The server took too long',
-        network: 'Could not reach the server',
+        offline: 'No internet connection',
+        timeout: 'Upload took too long',
+        network: 'Connection lost',
         ratelimit: 'Too many attempts',
-        'too-large': 'Your files are too large',
-        server: 'Server problem — not your connection',
+        'too-large': 'File too big',
+        server: 'Problem on our side',
         client: 'Please check your details',
       }
       const apiError = err instanceof ApiError ? err : null
       showResult({
         type: 'error',
-        title: apiError ? titles[apiError.kind] ?? 'Registration failed' : 'Registration failed',
+        title: apiError?.status === 409 ? 'Already registered' : apiError ? titles[apiError.kind] ?? 'Registration failed' : 'Registration failed',
         message: err instanceof Error ? err.message : 'Registration failed. Please try again.',
         reference: apiError?.requestId,
       })

@@ -127,37 +127,39 @@ function describeFailure(args: {
 
   switch (kind) {
     case 'offline':
-      return 'Your device is offline, so nothing was sent. Reconnect to the internet and try again.'
+      return 'Your phone or computer is not connected to the internet. Nothing was sent. Connect and try again.'
 
     case 'timeout':
       if (isUpload) {
         return isWrite
-          ? 'The upload was still running after 2 minutes and was stopped. Your connection may be slow or your files too large (each must be under 5 MB). Before submitting again, check whether it already went through.'
-          : 'The upload was still running after 2 minutes and was stopped. Your connection may be slow or the file too large.'
+          ? 'Your files took too long to upload (over 2 minutes). Move to Wi-Fi or a stronger signal, or use smaller photos, then try again. If you have already tried more than once, try logging in first — your form may have been received.'
+          : 'The file took too long to upload. Move to Wi-Fi or a stronger signal, or use a smaller file, and try again.'
       }
       return isWrite
-        ? 'The server did not answer in time, so we stopped waiting. It may still have received your request — check before sending it again.'
-        : 'The server did not answer in time. Check your connection and try again.'
+        ? 'This is taking too long, so we stopped waiting. Your details may already have been saved — check before sending again.'
+        : 'This is taking too long. Check your internet and try again.'
 
     case 'network':
-      return 'We could not reach the server. Either your connection dropped, or the server is temporarily unavailable — please try again in a moment.'
+      return isWrite
+        ? 'The connection was lost while sending. Check your internet and try again. If it then says you are already registered, your form was received — just log in.'
+        : 'The connection was lost. Check your internet and try again.'
 
-    case 'ratelimit':
-      return retryAfterSeconds
-        ? `Too many attempts from this connection. Please wait ${retryAfterSeconds} second${retryAfterSeconds === 1 ? '' : 's'} and try again.`
-        : 'Too many attempts from this connection. Please wait a minute and try again.'
+    case 'ratelimit': {
+      const minutes = retryAfterSeconds ? Math.ceil(retryAfterSeconds / 60) : 1
+      return `Too many attempts. Please wait ${minutes} minute${minutes === 1 ? '' : 's'} and try again.`
+    }
 
     case 'too-large':
-      return 'Your files are too large to upload. Each file must be under 5 MB — try a smaller photo or document.'
+      return 'One of your files is bigger than 5 MB. Please use a smaller photo or document.'
 
     case 'cancelled':
       return 'The request was cancelled.'
 
     case 'server':
       if (status === 503) {
-        return 'The server is starting up or its database is unavailable. This is on our side — please wait about a minute and try again.'
+        return 'The website is starting up. Please wait 1 minute and try again.'
       }
-      return `The server hit an error (${status ?? 500}) while handling this. That is a problem on our side, not your connection — please try again shortly, and tell us if it keeps happening.`
+      return 'Something went wrong on our side — this is not your fault. Nothing was saved. Please try again in a few minutes.'
 
     case 'client':
       // 4xx: the server explained exactly what was wrong. Say that, not a guess.
