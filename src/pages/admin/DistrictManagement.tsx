@@ -216,7 +216,7 @@ export function DistrictManagement() {
 
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="material-symbols-outlined text-3xl text-red-500">briefcase</span>
+            <span className="material-symbols-outlined text-3xl text-red-500">work</span>
           </div>
           <div className="text-3xl font-black text-gray-900 mb-1">{totalOfficials}</div>
           <div className="text-xs text-green-600 font-semibold mb-1">

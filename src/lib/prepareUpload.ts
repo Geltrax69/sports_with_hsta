@@ -17,7 +17,17 @@ export type PreparedUpload = { file: File; error?: undefined } | { file?: undefi
  */
 export async function prepareUpload(original: File, opts: { allowPdf: boolean; label: string }): Promise<PreparedUpload> {
   const type = original.type || typeFromName(original.name)
-  const file = type === original.type ? original : new File([original], original.name, { type })
+
+  // Copy the bytes now. A picked file is only a pointer to the phone's storage; if the
+  // gallery or cloud app re-saves it before Submit, Chrome refuses to send it
+  // (net::ERR_UPLOAD_FILE_CHANGED) and the applicant sees "connection lost" on good internet.
+  let bytes: ArrayBuffer
+  try {
+    bytes = await original.arrayBuffer()
+  } catch {
+    return { error: `"${original.name}" could not be read from your phone. Please choose it again.` }
+  }
+  const file = new File([bytes], original.name, { type })
 
   if (file.size === 0) return { error: `The ${opts.label} "${file.name}" is empty. Please choose it again.` }
 

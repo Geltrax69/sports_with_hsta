@@ -6,4 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: '/',
+  // Hashed build output lives apart from public/assets (logo, photos) so vercel.json
+  // can cache it forever without also freezing files that keep their names.
+  build: { assetsDir: 'static' },
 })
