@@ -9,84 +9,84 @@ export function Sponsors() {
         <div className="marquee-container w-full overflow-hidden">
           <div className="marquee-content flex items-center gap-12 py-4">
             {/* Set 1 */}
-            <img
+            <img loading="lazy" decoding="async"
               src={`${import.meta.env.BASE_URL}assets/images/bottom/l1.png`}
               alt="Partner 1"
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
             />
-            <img
+            <img loading="lazy" decoding="async"
               src={`${import.meta.env.BASE_URL}assets/images/bottom/l3.png`}
               alt="Partner 3"
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
             />
-            <img
+            <img loading="lazy" decoding="async"
               src={`${import.meta.env.BASE_URL}assets/images/bottom/l4.jpg`}
               alt="Partner 4"
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
             />
-            <img
+            <img loading="lazy" decoding="async"
               src={`${import.meta.env.BASE_URL}assets/images/bottom/l5.jpg`}
               alt="Partner 5"
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
             />
-            <img
+            <img loading="lazy" decoding="async"
               src={`${import.meta.env.BASE_URL}assets/images/bottom/l6.jpg`}
               alt="Partner 6"
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
             />
-            <img
+            <img loading="lazy" decoding="async"
               src={`${import.meta.env.BASE_URL}assets/images/bottom/l7.jpg`}
               alt="Partner 7"
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
             />
-            <img
+            <img loading="lazy" decoding="async"
               src={`${import.meta.env.BASE_URL}assets/images/bottom/l8.jpg`}
               alt="Partner 8"
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
             />
-            <img
+            <img loading="lazy" decoding="async"
               src={`${import.meta.env.BASE_URL}assets/images/bottom/l9.png`}
               alt="Partner 9"
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
             />
 
             {/* Set 2 */}
-            <img
+            <img loading="lazy" decoding="async"
               src={`${import.meta.env.BASE_URL}assets/images/bottom/l1.png`}
               alt="Partner 1"
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
             />
-            <img
+            <img loading="lazy" decoding="async"
               src={`${import.meta.env.BASE_URL}assets/images/bottom/l3.png`}
               alt="Partner 3"
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
             />
-            <img
+            <img loading="lazy" decoding="async"
               src={`${import.meta.env.BASE_URL}assets/images/bottom/l4.jpg`}
               alt="Partner 4"
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
             />
-            <img
+            <img loading="lazy" decoding="async"
               src={`${import.meta.env.BASE_URL}assets/images/bottom/l5.jpg`}
               alt="Partner 5"
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
             />
-            <img
+            <img loading="lazy" decoding="async"
               src={`${import.meta.env.BASE_URL}assets/images/bottom/l6.jpg`}
               alt="Partner 6"
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
             />
-            <img
+            <img loading="lazy" decoding="async"
               src={`${import.meta.env.BASE_URL}assets/images/bottom/l7.jpg`}
               alt="Partner 7"
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
             />
-            <img
+            <img loading="lazy" decoding="async"
               src={`${import.meta.env.BASE_URL}assets/images/bottom/l8.jpg`}
               alt="Partner 8"
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
             />
-            <img
+            <img loading="lazy" decoding="async"
               src={`${import.meta.env.BASE_URL}assets/images/bottom/l9.png`}
               alt="Partner 9"
               className="h-12 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110"
