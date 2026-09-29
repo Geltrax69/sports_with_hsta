@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useDistricts } from '../context/DistrictsContext'
 import { ApiError, apiRequest } from '../lib/api'
+import { prepareUpload } from '../lib/prepareUpload'
 import { DatePickerField } from '../components/DatePickerField'
 
 export function RegisterPage() {
@@ -55,63 +56,35 @@ export function RegisterPage() {
   const [aadhaarPreview, setAadhaarPreview] = useState<string | null>(null)
   const [passportPreview, setPassportPreview] = useState<string | null>(null)
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const allowedPhotoTypes = ['image/jpeg', 'image/png']
-      if (!allowedPhotoTypes.includes(file.type)) {
-        alert('Only JPG or PNG files are allowed for profile photo.')
-        return
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        alert(`Profile photo is ${(file.size / (1024 * 1024)).toFixed(1)}MB. Max allowed size is 5MB.`)
-        return
-      }
-      setFormData({ ...formData, profilePhoto: file })
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setProfilePreview(reader.result as string)
-      }
-      reader.readAsDataURL(file)
-    }
+  const readPreview = (file: File, set: (v: string) => void) => {
+    const reader = new FileReader()
+    reader.onloadend = () => set(reader.result as string)
+    reader.readAsDataURL(file)
   }
 
-  const handleCertificateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    if (files.length === 0) return
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = e.target.files?.[0]
+    e.target.value = '' // lets the applicant pick the same file again after an error
+    if (!picked) return
+    const { file, error } = await prepareUpload(picked, { allowPdf: false, label: 'profile photo' })
+    if (!file) return alert(error)
+    setFormData((prev) => ({ ...prev, profilePhoto: file }))
+    readPreview(file, setProfilePreview)
+  }
 
-    // Limit to 10 certificates
-    const remainingSlots = 10 - formData.certificates.length
-    const filesToAdd = files.slice(0, remainingSlots)
+  const handleCertificateChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files || []).slice(0, 10 - formData.certificates.length)
+    e.target.value = ''
+    if (picked.length === 0) return
 
-    filesToAdd.forEach((file) => {
-      if (!['image/jpeg', 'image/png'].includes(file.type)) {
-        alert(`Certificate "${file.name}" is not valid. Only JPG or PNG files are allowed.`)
-        return
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        alert(`Certificate "${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)}MB. Max allowed size is 5MB.`)
-        return
-      }
-    })
-
-    const validFiles = filesToAdd.filter(
-      (file) => ['image/jpeg', 'image/png'].includes(file.type) && file.size <= 5 * 1024 * 1024,
-    )
-
+    const results = await Promise.all(picked.map((f) => prepareUpload(f, { allowPdf: false, label: 'certificate' })))
+    const errors = results.flatMap((r) => (r.error ? [r.error] : []))
+    if (errors.length) alert(errors.join('\n\n'))
+    const validFiles = results.flatMap((r) => (r.file ? [r.file] : []))
     if (validFiles.length === 0) return
 
-    const newCertificates = [...formData.certificates, ...validFiles].slice(0, 10)
-    setFormData({ ...formData, certificates: newCertificates })
-
-    // Create previews
-    validFiles.forEach((file) => {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setCertificatePreviews((prev) => [...prev, reader.result as string])
-      }
-      reader.readAsDataURL(file)
-    })
+    setFormData((prev) => ({ ...prev, certificates: [...prev.certificates, ...validFiles].slice(0, 10) }))
+    validFiles.forEach((file) => readPreview(file, (url) => setCertificatePreviews((prev) => [...prev, url])))
   }
 
   const removeCertificate = (index: number) => {
@@ -121,57 +94,21 @@ export function RegisterPage() {
     setCertificatePreviews(newPreviews)
   }
 
-  const handleAadhaarDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const validTypes = ['image/jpeg', 'image/png', 'application/pdf']
-      if (!validTypes.includes(file.type)) {
-        alert('Only JPG, PNG, or PDF files are allowed.')
-        return
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        alert(`Aadhaar document is ${(file.size / (1024 * 1024)).toFixed(1)}MB. Max allowed size is 5MB.`)
-        return
-      }
-      setFormData({ ...formData, aadhaarDocument: file })
-
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          setAadhaarPreview(reader.result as string)
-        }
-        reader.readAsDataURL(file)
-      } else {
-        setAadhaarPreview('pdf')
-      }
+  const handleDocumentChange =
+    (field: 'aadhaarDocument' | 'passportDocument', label: string, setPreview: (v: string | null) => void) =>
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const picked = e.target.files?.[0]
+      e.target.value = ''
+      if (!picked) return
+      const { file, error } = await prepareUpload(picked, { allowPdf: true, label })
+      if (!file) return alert(error)
+      setFormData((prev) => ({ ...prev, [field]: file }))
+      if (file.type === 'application/pdf') setPreview('pdf')
+      else readPreview(file, setPreview)
     }
-  }
 
-  const handlePassportDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const validTypes = ['image/jpeg', 'image/png', 'application/pdf']
-      if (!validTypes.includes(file.type)) {
-        alert('Only JPG, PNG, or PDF files are allowed.')
-        return
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        alert(`Passport document is ${(file.size / (1024 * 1024)).toFixed(1)}MB. Max allowed size is 5MB.`)
-        return
-      }
-      setFormData({ ...formData, passportDocument: file })
-
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          setPassportPreview(reader.result as string)
-        }
-        reader.readAsDataURL(file)
-      } else {
-        setPassportPreview('pdf')
-      }
-    }
-  }
+  const handleAadhaarDocumentChange = handleDocumentChange('aadhaarDocument', 'Aadhaar card', setAadhaarPreview)
+  const handlePassportDocumentChange = handleDocumentChange('passportDocument', 'passport', setPassportPreview)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -473,7 +410,7 @@ export function RegisterPage() {
                         Change Photo
                         <input
                           type="file"
-                          accept="image/jpeg,image/png"
+                          accept="image/*"
                           onChange={handleFileChange}
                           className="hidden"
                         />
@@ -501,7 +438,7 @@ export function RegisterPage() {
                         Upload Photo
                         <input
                           type="file"
-                          accept="image/jpeg,image/png"
+                          accept="image/*"
                           onChange={handleFileChange}
                           className="hidden"
                         />
@@ -509,7 +446,7 @@ export function RegisterPage() {
                     </div>
                   </div>
                 )}
-                <p className="text-xs text-gray-600 mt-4">JPG or PNG only. Max size 5MB.</p>
+                <p className="text-xs text-gray-600 mt-4">Any clear photo. Large photos are made smaller automatically.</p>
               </div>
             </div>
 
@@ -830,7 +767,7 @@ export function RegisterPage() {
                                   Change
                                   <input
                                     type="file"
-                                    accept="image/jpeg,image/png,application/pdf"
+                                    accept="image/*,application/pdf"
                                     onChange={handleAadhaarDocumentChange}
                                     className="hidden"
                                   />
@@ -856,7 +793,7 @@ export function RegisterPage() {
                             Upload Aadhaar
                             <input
                               type="file"
-                              accept="image/jpeg,image/png,application/pdf"
+                              accept="image/*,application/pdf"
                               onChange={handleAadhaarDocumentChange}
                               className="hidden"
                             />
@@ -941,7 +878,7 @@ export function RegisterPage() {
                                     Change
                                     <input
                                       type="file"
-                                      accept="image/jpeg,image/png,application/pdf"
+                                      accept="image/*,application/pdf"
                                       onChange={handlePassportDocumentChange}
                                       className="hidden"
                                     />
@@ -967,7 +904,7 @@ export function RegisterPage() {
                               Upload Passport Copy
                               <input
                                 type="file"
-                                accept="image/jpeg,image/png,application/pdf"
+                                accept="image/*,application/pdf"
                                 onChange={handlePassportDocumentChange}
                                 className="hidden"
                               />
@@ -975,7 +912,7 @@ export function RegisterPage() {
                           </div>
                         )}
                       </div>
-                      <p className="text-[10px] text-gray-500 mt-2">Maximum size 5MB. JPG, PNG or PDF only.</p>
+                      <p className="text-[10px] text-gray-500 mt-2">A photo or a PDF (PDF under 5MB). Large photos are made smaller automatically.</p>
                     </div>
                   </div>
 
@@ -1153,7 +1090,7 @@ export function RegisterPage() {
                                 Add More Certificates ({formData.certificates.length}/10)
                                 <input
                                   type="file"
-                                  accept="image/jpeg,image/png"
+                                  accept="image/*"
                                   onChange={handleCertificateChange}
                                   multiple
                                   className="hidden"
@@ -1172,7 +1109,7 @@ export function RegisterPage() {
                                 Upload Certificates
                                 <input
                                   type="file"
-                                  accept="image/jpeg,image/png"
+                                  accept="image/*"
                                   onChange={handleCertificateChange}
                                   multiple
                                   className="hidden"
@@ -1183,7 +1120,7 @@ export function RegisterPage() {
                         </div>
                       )}
                       <p className="text-xs text-gray-600 mt-4 text-center">
-                        Upload up to 10 certificate images. JPG or PNG only. Max size 5MB per image.
+                        Upload up to 10 certificate photos. Large photos are made smaller automatically.
                       </p>
                       {formData.certificates.length > 0 && (
                         <p className="text-xs text-[#5a0a8f] font-medium mt-2 text-center">
