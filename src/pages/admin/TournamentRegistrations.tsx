@@ -460,27 +460,39 @@ export function TournamentRegistrations() {
     const seen = new Set<string>()
     const options: MatchDistrict[] = []
 
-    for (const registration of registrations) {
-      if (registration.registerAs !== 'player' || registration.status !== 'approved') continue
-      const raw = registration.applicant?.district?.trim()
-      if (!raw) continue
-
-      const district = getDistrictById(raw)
-      const id = (district?.id || district?.code || raw).trim()
+    const pushDistrict = (raw: string | undefined | null) => {
+      const value = raw?.trim()
+      if (!value) return
+      const district = getDistrictById(value)
+      const id = (district?.id || district?.code || value).trim()
       const key = id.toLowerCase()
-      if (seen.has(key)) continue
+      if (seen.has(key)) return
       seen.add(key)
-
       options.push({
         id,
         code: district?.code || id,
-        name: district?.name || raw,
+        name: district?.name || value,
         zone: district?.zone || '',
       })
     }
 
+    // Districts with approved individual player registrations…
+    for (const registration of registrations) {
+      if (registration.registerAs !== 'player' || registration.status !== 'approved') continue
+      pushDistrict(registration.applicant?.district)
+    }
+
+    // …plus districts with registered (non-rejected) teams. A team-only
+    // tournament has no individual registrations, so without this the
+    // district dropdown in Create Match would be empty.
+    for (const team of teams) {
+      if (team.status === 'rejected') continue
+      const d = team.district
+      pushDistrict(typeof d === 'string' ? d : d?.code || d?.name)
+    }
+
     return options.sort((a, b) => a.name.localeCompare(b.name))
-  }, [registrations, getDistrictById])
+  }, [registrations, teams, getDistrictById])
 
   const availableDistrictsForMatch = useMemo(() => {
     return tournamentDistrictOptions.length > 0 ? tournamentDistrictOptions : []
