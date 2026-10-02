@@ -1029,13 +1029,9 @@ export function TournamentRegistrations() {
     const player = squad.find((p) => p._id === playerId)
     if (!player) return
 
-    const { starters, subs } = countSquad(squad)
+    const { starters } = countSquad(squad)
     const willBeSub = !player.isSubstitute
 
-    if (willBeSub && subs >= squadLimits.subs) {
-      alert(`Maximum ${squadLimits.subs} substitutes per team for ${eventTypeLabel(matchEventType)}`)
-      return
-    }
     if (!willBeSub && starters >= squadLimits.starters) {
       alert(`Maximum ${squadLimits.starters} playing players per team for ${eventTypeLabel(matchEventType)}`)
       return
@@ -1121,8 +1117,9 @@ export function TournamentRegistrations() {
   const loadTeamSquad = (side: 1 | 2, team: Team) => {
     const members = team.members || []
     const starters = squadLimits.starters
+    // No cap: the full registered squad loads — first `starters` play, the
+    // rest are substitutes.
     const squadPlayers: SimpleMatchPlayer[] = members
-      .slice(0, starters + squadLimits.subs)
       .map((m, i) => ({
         _id: m._id,
         fullName: teamMemberName(m),
@@ -1240,18 +1237,12 @@ export function TournamentRegistrations() {
     }
 
     const validateTeamSquad = (players: SimpleMatchPlayer[], teamLabel: string) => {
-      const { starters, subs } = countSquad(players)
+      const { starters } = countSquad(players)
       if (starters < 1) {
         return `${teamLabel} needs at least 1 playing player`
       }
       if (starters > squadLimits.starters) {
         return `${teamLabel} has ${starters} playing players (max ${squadLimits.starters} for ${eventTypeLabel(matchEventType)})`
-      }
-      if (subs > squadLimits.subs) {
-        return `${teamLabel} has ${subs} substitutes (max ${squadLimits.subs})`
-      }
-      if (players.length > squadLimits.total) {
-        return `${teamLabel} has too many players (max ${squadLimits.total})`
       }
       return null
     }
@@ -1672,17 +1663,15 @@ export function TournamentRegistrations() {
                     ))}
                   </div>
                   <span>
-                    {squadLimits.starters} playing player{squadLimits.starters !== 1 ? 's' : ''} +{' '}
-                    {squadLimits.subs} substitute{squadLimits.subs !== 1 ? 's' : ''} per team (
-                    {squadLimits.total} total)
+                    {squadLimits.starters} playing player{squadLimits.starters !== 1 ? 's' : ''} per team ·{' '}
+                    full registered squad as substitutes
                   </span>
                 </div>
               ) : (
                 <>
                   <span className="font-bold">Event Type:</span> {eventTypeLabel(matchEventType)} —{' '}
-                  {squadLimits.starters} playing player{squadLimits.starters !== 1 ? 's' : ''} +{' '}
-                  {squadLimits.subs} substitute{squadLimits.subs !== 1 ? 's' : ''} per team (
-                  {squadLimits.total} total)
+                  {squadLimits.starters} playing player{squadLimits.starters !== 1 ? 's' : ''} per team ·{' '}
+                  full registered squad as substitutes
                 </>
               )}
             </div>
@@ -1811,8 +1800,8 @@ export function TournamentRegistrations() {
                     const c = countSquad(wizard.simpleMatch.team1Players)
                     return (
                       <p className="text-xs font-semibold text-blue-700 mb-2">
-                        Playing: {c.starters}/{squadLimits.starters} · Subs: {c.subs}/{squadLimits.subs} · Total:{' '}
-                        {c.total}/{squadLimits.total}
+                        Playing: {c.starters}/{squadLimits.starters} · Subs: {c.subs} · Total:{' '}
+                        {c.total}
                       </p>
                     )
                   })()}
@@ -1969,8 +1958,8 @@ export function TournamentRegistrations() {
                     const c = countSquad(wizard.simpleMatch.team2Players)
                     return (
                       <p className="text-xs font-semibold text-orange-700 mb-2">
-                        Playing: {c.starters}/{squadLimits.starters} · Subs: {c.subs}/{squadLimits.subs} · Total:{' '}
-                        {c.total}/{squadLimits.total}
+                        Playing: {c.starters}/{squadLimits.starters} · Subs: {c.subs} · Total:{' '}
+                        {c.total}
                       </p>
                     )
                   })()}
