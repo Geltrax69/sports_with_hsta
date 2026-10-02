@@ -1102,11 +1102,33 @@ export function TournamentRegistrations() {
     }))
   }
 
+  // Teams referenced by a match's team1/team2 are match-day snapshots created
+  // by the Create Match wizard (one per side, cascade-deleted with the
+  // match) — not tournament registrations. They are hidden wherever
+  // registered teams are listed so the same district doesn't show twice.
+  const matchSnapshotTeamIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const m of matches) {
+      for (const t of [m.team1, m.team2]) {
+        if (typeof t === 'string' && t) ids.add(t)
+        else if (t && typeof t === 'object' && (t as { _id?: string })._id) {
+          ids.add(String((t as { _id?: string })._id))
+        }
+      }
+    }
+    return ids
+  }, [matches])
+
+  const registeredTeams = useMemo(
+    () => teams.filter((t) => !matchSnapshotTeamIds.has(t._id)),
+    [teams, matchSnapshotTeamIds],
+  )
+
   // Registered (non-rejected) teams for this tournament, for the Create Match
   // team picker. The other side's pick is excluded so a team can't face itself.
   const matchRegisteredTeams = (side: 1 | 2): Team[] => {
     const otherPick = matchTeamSel[side === 1 ? 2 : 1]
-    return teams
+    return registeredTeams
       .filter((t) => t.status !== 'rejected' && t._id !== otherPick)
       .sort((a, b) => a.name.localeCompare(b.name))
   }
@@ -1147,7 +1169,7 @@ export function TournamentRegistrations() {
   // and positions before saving.
   const handleMatchTeamSelect = (side: 1 | 2, teamId: string) => {
     setMatchTeamSel((prev) => ({ ...prev, [side]: teamId }))
-    const team = teamId ? teams.find((t) => t._id === teamId) : undefined
+    const team = teamId ? registeredTeams.find((t) => t._id === teamId) : undefined
     setWizard((prev) => ({
       ...prev,
       simpleMatch: {
@@ -2388,14 +2410,14 @@ export function TournamentRegistrations() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {teams.length === 0 ? (
+                    {registeredTeams.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                           No teams yet for this tournament.
                         </td>
                       </tr>
                     ) : (
-                      teams.map((team) => (
+                      registeredTeams.map((team) => (
                         <tr key={team._id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-6 py-4 font-semibold text-gray-900">{team.name}</td>
                           <td className="px-6 py-4 text-sm text-gray-700">
