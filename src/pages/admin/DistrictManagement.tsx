@@ -23,6 +23,8 @@ export function DistrictManagement() {
     clubs: '',
     players: '',
     status: 'active' as 'active' | 'pending' | 'inactive',
+    districtEmail: '',
+    districtPassword: '',
   })
 
   const activeDistricts = districts.filter((d) => d.status === 'active')
@@ -53,6 +55,8 @@ export function DistrictManagement() {
       clubs: '',
       players: '',
       status: 'active',
+      districtEmail: '',
+      districtPassword: '',
     })
     setEditingDistrict(null)
     setShowAddModal(true)
@@ -76,6 +80,9 @@ export function DistrictManagement() {
       clubs: district.stats?.clubs.toString() || '',
       players: district.stats?.players.toString() || '',
       status: district.status,
+      districtEmail: district.email || '',
+      // Never pre-fill the password — blank keeps the current one.
+      districtPassword: '',
     })
     // Preserve the identifier; prefer code if available, normalized to uppercase for API.
     const idOrCode = (district.id || (district as any).code || '').trim().toUpperCase()
@@ -91,10 +98,14 @@ export function DistrictManagement() {
       return digits ? `+91${digits}` : ''
     }
 
-    const districtData: Omit<District, 'id' | 'createdAt'> = {
+    const districtData: Omit<District, 'id' | 'createdAt'> & { password?: string } = {
       name: formData.name,
       zone: formData.zone,
       status: formData.status,
+      // Login credentials for the district portal. Email is optional on create;
+      // the backend requires a password whenever an email is set.
+      email: formData.districtEmail.trim() || undefined,
+      password: formData.districtPassword || undefined,
       secretary:
         formData.secretaryName || formData.secretaryEmail || formData.secretaryPhone
           ? {
@@ -276,6 +287,9 @@ export function DistrictManagement() {
                   CONTACT
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">
+                  LOGIN
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">
                   STATS
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">
@@ -289,7 +303,7 @@ export function DistrictManagement() {
             <tbody className="divide-y divide-gray-200">
               {filteredDistricts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                     No districts found. Click "Add New District" to create one.
                   </td>
                 </tr>
@@ -342,6 +356,22 @@ export function DistrictManagement() {
                         </div>
                       ) : (
                         <div className="text-sm text-gray-400">No contact</div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {district.hasLogin || district.email ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                            <span className="material-symbols-outlined text-base">mail</span>
+                            <span className="break-all">{district.email}</span>
+                          </div>
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                            Login enabled
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">No login</span>
                       )}
                     </td>
                     <td className="px-6 py-4">
@@ -584,6 +614,46 @@ export function DistrictManagement() {
                     />
                   </div>
                 </div>
+              </div>
+
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-1">Login Credentials</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  {editingDistrict
+                    ? 'Set the email and password this district uses to sign in. Leave the password blank to keep the current one.'
+                    : 'Optional. Set the email and password this district will use to sign in to the district portal.'}
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">District Email</label>
+                    <input
+                      type="email"
+                      value={formData.districtEmail}
+                      onChange={(e) => setFormData({ ...formData, districtEmail: e.target.value })}
+                      className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900"
+                      placeholder="district@example.org"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">
+                      District Password {editingDistrict && <span className="font-normal text-gray-500">(blank = unchanged)</span>}
+                    </label>
+                    <input
+                      type="password"
+                      value={formData.districtPassword}
+                      onChange={(e) => setFormData({ ...formData, districtPassword: e.target.value })}
+                      className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900"
+                      placeholder={editingDistrict ? 'Enter a new password to change it' : 'Min. 6 characters'}
+                      autoComplete="new-password"
+                    />
+                  </div>
+                </div>
+                {editingDistrict?.hasLogin && (
+                  <div className="mt-3 flex items-center gap-2 text-sm text-green-700">
+                    <span className="material-symbols-outlined text-base">verified</span>
+                    Login is enabled for this district.
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200">

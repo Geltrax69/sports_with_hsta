@@ -7,6 +7,10 @@ export type District = {
   code?: string
   name: string
   zone: string
+  /** Login email for the district portal. Absent when the district has no login. */
+  email?: string
+  /** Whether the district has login credentials configured. */
+  hasLogin?: boolean
   secretary?: {
     name: string
     email: string
@@ -157,6 +161,8 @@ type ApiDistrict = {
   name: string
   zone: string
   status: 'active' | 'pending' | 'inactive'
+  email?: string
+  hasLogin?: boolean
   secretary?: {
     name?: string
     email?: string
@@ -182,6 +188,8 @@ const mapApiDistrict = (d: ApiDistrict): District => {
     name: d.name,
     zone: d.zone,
     status: d.status,
+    email: d.email || undefined,
+    hasLogin: d.hasLogin ?? (d.email ? true : undefined),
     secretary: d.secretary
       ? {
           name: d.secretary.name || '',
@@ -254,7 +262,7 @@ export function DistrictsProvider({ children }: { children: ReactNode }) {
     }
   }, [districts, user?.role])
 
-  const addDistrict = async (districtData: Omit<District, 'id' | 'createdAt'>) => {
+  const addDistrict = async (districtData: Omit<District, 'id' | 'createdAt'> & { password?: string }) => {
     if (user?.role !== 'admin') {
       throw new Error('Not authorized')
     }
@@ -267,6 +275,9 @@ export function DistrictsProvider({ children }: { children: ReactNode }) {
         secretary: districtData.secretary,
         contact: districtData.contact,
         stats: districtData.stats,
+        // Login credentials (optional). The backend hashes the password.
+        email: districtData.email || undefined,
+        password: districtData.password || undefined,
       }
 
       const data = await apiRequest<{ district: ApiDistrict }>('/admin/districts', {
@@ -282,7 +293,7 @@ export function DistrictsProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const updateDistrict = async (id: string, updates: Partial<District>) => {
+  const updateDistrict = async (id: string, updates: Partial<District> & { password?: string }) => {
     if (user?.role !== 'admin') {
       throw new Error('Not authorized')
     }
@@ -300,6 +311,10 @@ export function DistrictsProvider({ children }: { children: ReactNode }) {
       if (updates.secretary !== undefined) payload.secretary = updates.secretary
       if (updates.contact !== undefined) payload.contact = updates.contact
       if (updates.stats !== undefined) payload.stats = updates.stats
+      // Login credentials. Send email whenever the admin touched the field;
+      // send password only when a new one was typed (blank keeps the current).
+      if (updates.email !== undefined) payload.email = updates.email
+      if (updates.password) payload.password = updates.password
 
       const data = await apiRequest<{ district: ApiDistrict }>(`/admin/districts/${encodeURIComponent(targetCode)}`, {
         method: 'PATCH',

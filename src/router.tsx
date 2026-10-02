@@ -8,6 +8,7 @@ import { ProtectedRoute } from './components/admin/ProtectedRoute'
 import { CoachLayout } from './components/coach/CoachLayout'
 import { PlayerLayout } from './components/player/PlayerLayout'
 import { RefereeLayout } from './components/referee/RefereeLayout'
+import { DistrictLayout } from './components/district/DistrictLayout'
 
 // ─── Page-level lazy imports ──────────────────────────────────────────────────
 // Each page is loaded only when the user navigates to that route.
@@ -87,6 +88,11 @@ const RefereeCertificates = lazy(() => import('./pages/referee/RefereeCertificat
 const RefereeStatusPage   = lazy(() => import('./pages/referee/RefereeStatusPage').then(m => ({ default: m.RefereeStatusPage })))
 const RefereeResubmitPage = lazy(() => import('./pages/referee/RefereeResubmitPage').then(m => ({ default: m.RefereeResubmitPage })))
 const RefereeSettings     = lazy(() => import('./pages/referee/RefereeSettings').then(m => ({ default: m.RefereeSettings })))
+
+// District pages
+const DistrictDashboard   = lazy(() => import('./pages/district/DistrictDashboard').then(m => ({ default: m.DistrictDashboard })))
+const DistrictTournaments = lazy(() => import('./pages/district/DistrictTournaments').then(m => ({ default: m.DistrictTournaments })))
+const DistrictTeams       = lazy(() => import('./pages/district/DistrictTeams').then(m => ({ default: m.DistrictTeams })))
 
 // ─── Shared loading fallback ──────────────────────────────────────────────────
 function PageLoader() {
@@ -261,6 +267,21 @@ export const appRouter = createBrowserRouter(
             { path: 'matches',      element: <SuspenseOutlet><RefereeMatches /></SuspenseOutlet> },
             { path: 'certificates', element: <SuspenseOutlet><RefereeCertificates /></SuspenseOutlet> },
             { path: 'settings',      element: <SuspenseOutlet><RefereeSettings /></SuspenseOutlet> },
+          ],
+        },
+      ],
+    },
+    {
+      path: '/district',
+      element: <ProtectedRoute requiredRole="district" />,
+      children: [
+        {
+          element: <DistrictLayout />,
+          children: [
+            { index: true,      element: <Navigate to="/district/dashboard" replace /> },
+            { path: 'dashboard',   element: <SuspenseOutlet><DistrictDashboard /></SuspenseOutlet> },
+            { path: 'tournaments', element: <SuspenseOutlet><DistrictTournaments /></SuspenseOutlet> },
+            { path: 'teams',       element: <SuspenseOutlet><DistrictTeams /></SuspenseOutlet> },
           ],
         },
       ],

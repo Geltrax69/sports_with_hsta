@@ -204,10 +204,16 @@ type Team = {
   _id: string
   name: string
   maxMembers: number
+  teamType?: 'regu' | 'double' | 'quad'
+  status?: 'pending' | 'approved' | 'rejected'
+  district?: { _id: string; code: string; name: string } | null
+  createdAt?: string
   members: {
     _id: string
     name: string
     playerId: string
+    fullName?: string
+    gender?: string
   }[]
 }
 
@@ -363,7 +369,7 @@ export function TournamentRegistrations() {
   const [tournament, setTournament] = useState<AdminTournament | null>(null)
   const [tournamentLoading, setTournamentLoading] = useState(true)
   const [registrations, setRegistrations] = useState<TournamentRegistration[]>([])
-  const [, setTeams] = useState<Team[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
   const [matches, setMatches] = useState<Match[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -371,7 +377,13 @@ export function TournamentRegistrations() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [typeFilter, setTypeFilter] = useState('all')
   // UI State
-  const [activeTab, setActiveTab] = useState<'registrations' | 'matches' | 'winners'>('registrations')
+  const [activeTab, setActiveTab] = useState<'registrations' | 'matches' | 'teams' | 'winners'>('registrations')
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null)
+
+  const teamTypeLabel = (teamType?: string) =>
+    teamType === 'regu' ? 'Regu' : teamType === 'double' ? 'Doubles' : teamType === 'quad' ? 'Quad' : '—'
+
+  const teamMemberName = (m: Team['members'][number]) => m.fullName || m.name || '—'
 
   const [winners, setWinners] = useState<{
     first: WinnerEntry[]
@@ -2345,7 +2357,7 @@ export function TournamentRegistrations() {
         </div>
 
         <div className="flex gap-2 mb-6 border-b border-gray-200">
-          {(['registrations', 'matches', 'winners'] as const).map((tab) => (
+          {(['registrations', 'matches', 'teams', 'winners'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -2455,6 +2467,152 @@ export function TournamentRegistrations() {
                   </div>
                 </div>
               )})
+            )}
+          </div>
+        )}
+
+        {activeTab === 'teams' && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      {['TEAM', 'DISTRICT', 'TYPE', 'PLAYERS', 'STATUS', 'CREATED', 'ACTIONS'].map((h) => (
+                        <th key={h} className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-700">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {teams.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                          No teams yet for this tournament.
+                        </td>
+                      </tr>
+                    ) : (
+                      teams.map((team) => (
+                        <tr key={team._id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 font-semibold text-gray-900">{team.name}</td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            {team.district ? (
+                              <span className="inline-flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-base text-[#5a0a8f]">location_on</span>
+                                {team.district.name}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-700">{teamTypeLabel(team.teamType)}</td>
+                          <td className="px-6 py-4 text-sm text-gray-700">{team.members.length}</td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold capitalize ${
+                                team.status === 'approved'
+                                  ? 'bg-green-100 text-green-800'
+                                  : team.status === 'rejected'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-orange-100 text-orange-800'
+                              }`}
+                            >
+                              {team.status || 'pending'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500">
+                            {team.createdAt ? new Date(team.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                          </td>
+                          <td className="px-6 py-4">
+                            <button
+                              onClick={() => setSelectedTeam(team)}
+                              className="text-[#5a0a8f] hover:underline text-sm font-medium"
+                            >
+                              View Details
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Team details modal */}
+            {selectedTeam && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+                  <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                    <h2 className="text-xl font-bold text-gray-900">Team Details</h2>
+                    <button
+                      onClick={() => setSelectedTeam(null)}
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                      aria-label="Close"
+                    >
+                      <span className="material-symbols-outlined text-2xl">close</span>
+                    </button>
+                  </div>
+                  <div className="p-6 space-y-4 text-sm">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-xs font-semibold text-gray-500 uppercase">Team</div>
+                        <div className="font-semibold text-gray-900">{selectedTeam.name}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-gray-500 uppercase">Team Type</div>
+                        <div className="font-semibold text-gray-900">{teamTypeLabel(selectedTeam.teamType)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-gray-500 uppercase">District</div>
+                        <div className="font-semibold text-gray-900">
+                          {selectedTeam.district ? `${selectedTeam.district.name} (${selectedTeam.district.code})` : '—'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-gray-500 uppercase">Tournament</div>
+                        <div className="font-semibold text-gray-900">{tournament?.title || '—'}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-gray-500 uppercase">Registration Status</div>
+                        <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-bold capitalize bg-gray-100 text-gray-700">
+                          {selectedTeam.status || 'pending'}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-gray-500 uppercase">Created By</div>
+                        <div className="font-semibold text-gray-900">
+                          {selectedTeam.district ? 'District' : 'Admin'}
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Players</div>
+                      {selectedTeam.members.length === 0 ? (
+                        <p className="text-gray-500">No players assigned.</p>
+                      ) : (
+                        <ol className="space-y-2">
+                          {selectedTeam.members.map((m, i) => (
+                            <li key={m._id} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
+                              <span className="w-7 h-7 rounded-full bg-[#5a0a8f]/10 text-[#5a0a8f] flex items-center justify-center text-xs font-bold">
+                                {i + 1}
+                              </span>
+                              <div>
+                                <div className="font-medium text-gray-900">{teamMemberName(m)}</div>
+                                <div className="text-xs text-gray-500">
+                                  Player ID: {m.playerId || '—'}
+                                  {m.gender ? ` · ${m.gender}` : ''}
+                                </div>
+                              </div>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         )}

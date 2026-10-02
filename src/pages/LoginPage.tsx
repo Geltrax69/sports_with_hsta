@@ -33,7 +33,7 @@ export function LoginPage() {
     setLoading(true)
 
     try {
-      const role = selectedRole as 'admin' | 'coach' | 'player' | 'referee'
+      const role = selectedRole as 'admin' | 'coach' | 'player' | 'referee' | 'district'
       const result = await login(email, password, role)
 
       if (result.status === 'success') {
@@ -86,6 +86,7 @@ export function LoginPage() {
     else if (role === 'player')  navigate('/player/dashboard')
     else if (role === 'coach')   navigate('/coach/dashboard')
     else if (role === 'referee') navigate('/referee/dashboard')
+    else if (role === 'district') navigate('/district/dashboard')
     else navigate('/')
   }
 
@@ -226,6 +227,7 @@ export function LoginPage() {
                     <option value="coach">COACHES</option>
                     <option value="player">PLAYERS</option>
                     <option value="referee">REFEREES</option>
+                    <option value="district">DISTRICTS</option>
                   </select>
                   <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
                     keyboard_arrow_down
