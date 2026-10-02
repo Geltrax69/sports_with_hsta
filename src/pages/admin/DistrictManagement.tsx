@@ -375,14 +375,30 @@ export function DistrictManagement() {
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      {district.stats ? (
-                        <div className="text-sm text-gray-600">
-                          <div>{district.stats.clubs} Clubs</div>
+                      <div className="space-y-1 text-sm text-gray-600">
+                        {district.stats && <div>{district.stats.clubs} Clubs</div>}
+                        {district.playerCounts ? (
+                          <div>
+                            <div className="font-bold text-gray-900">
+                              {district.playerCounts.total}{' '}
+                              {district.playerCounts.total === 1 ? 'Player' : 'Players'}
+                            </div>
+                            <div className="mt-0.5 text-xs text-gray-500">
+                              <span className="font-semibold text-sky-700">
+                                &#9794; {district.playerCounts.male}
+                              </span>
+                              <span className="mx-1.5 text-gray-300">|</span>
+                              <span className="font-semibold text-pink-700">
+                                &#9792; {district.playerCounts.female}
+                              </span>
+                            </div>
+                          </div>
+                        ) : district.stats ? (
                           <div>{district.stats.players} Players</div>
-                        </div>
-                      ) : (
-                        <div className="text-sm text-gray-500">No data yet</div>
-                      )}
+                        ) : (
+                          <div className="text-gray-400">No data yet</div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center gap-2">

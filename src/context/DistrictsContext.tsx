@@ -25,6 +25,12 @@ export type District = {
     clubs: number
     players: number
   }
+  /** Live registered-player counts computed by the backend from the players collection. */
+  playerCounts?: {
+    total: number
+    male: number
+    female: number
+  }
   status: 'active' | 'pending' | 'inactive'
   createdAt: string
 }
@@ -177,6 +183,11 @@ type ApiDistrict = {
     clubs?: number
     players?: number
   }
+  playerCounts?: {
+    total: number
+    male: number
+    female: number
+  }
   createdAt?: string
 }
 
@@ -211,6 +222,13 @@ const mapApiDistrict = (d: ApiDistrict): District => {
             players: Number(d.stats.players || 0),
           }
         : undefined,
+    playerCounts: d.playerCounts
+      ? {
+          total: Number(d.playerCounts.total || 0),
+          male: Number(d.playerCounts.male || 0),
+          female: Number(d.playerCounts.female || 0),
+        }
+      : undefined,
     createdAt: d.createdAt || new Date().toISOString(),
   }
 }
