@@ -507,7 +507,7 @@ export function TournamentRegistrations() {
             <span className="text-2xl" aria-hidden>{styles.medal}</span>
             <div>
               <h3 className="text-lg font-black tracking-tight">{styles.title}</h3>
-              <p className="text-white/80 text-xs">Pick winning players for this district</p>
+              <p className="text-white/80 text-xs">Players are selected automatically — tap to adjust</p>
             </div>
           </div>
           {selected.length > 0 && (
@@ -526,9 +526,11 @@ export function TournamentRegistrations() {
               setWinnerDistricts((prev) => ({ ...prev, [place]: nextDistrict }))
               const districtMatches = (stored?: string) => applicantMatchesDistrict(stored, nextDistrict)
               const options = buildWinnerPlayerOptions(matches, registrations, nextDistrict, districtMatches)
+              // Picking a district selects all of its players as the winners for this
+              // place (team tournaments); the user can deselect individuals below.
               setWinners((prev) => ({
                 ...prev,
-                [place]: prev[place].filter((w) => options.some((o) => o.key === w.key)),
+                [place]: options,
               }))
             }}
             className="w-full mb-4 rounded-xl border-2 border-gray-200 bg-white px-4 py-3 text-gray-900 font-medium focus:border-[#5a0a8f] focus:ring-2 focus:ring-[#5a0a8f]/20 outline-none"
@@ -545,10 +547,30 @@ export function TournamentRegistrations() {
                 <p className="text-sm font-bold text-gray-900">
                   {districtName || 'District'}
                 </p>
-                <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${styles.badge}`}>
-                  {playerOptions.length} player{playerOptions.length !== 1 ? 's' : ''}
-                  {registeredCount > 0 ? ` · ${registeredCount} registered` : ''}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${styles.badge}`}>
+                    {playerOptions.length} player{playerOptions.length !== 1 ? 's' : ''}
+                    {registeredCount > 0 ? ` · ${registeredCount} registered` : ''}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allSelected =
+                        playerOptions.length > 0 &&
+                        playerOptions.every((p) => selected.some((w) => w.key === p.key))
+                      setWinners((prev) => ({
+                        ...prev,
+                        [place]: allSelected ? [] : playerOptions,
+                      }))
+                    }}
+                    className="text-xs font-bold px-2.5 py-1 rounded-full border border-[#5a0a8f]/30 text-[#5a0a8f] bg-white hover:bg-purple-50 transition-colors"
+                  >
+                    {playerOptions.length > 0 &&
+                    playerOptions.every((p) => selected.some((w) => w.key === p.key))
+                      ? 'Clear'
+                      : `Select all`}
+                  </button>
+                </div>
               </div>
 
               {playerOptions.length === 0 ? (
@@ -646,7 +668,13 @@ export function TournamentRegistrations() {
       )
       setTournament(res.tournament)
 
-      alert('Winners saved successfully! Tournament marked as COMPLETED.')
+      const totalWinners =
+        winnersData.first.length + winnersData.second.length + winnersData.third.length
+      alert(
+        totalWinners > 0
+          ? 'Winners saved successfully! Tournament marked as COMPLETED.'
+          : 'Saved, but no winners were selected — pick a district (its players are selected automatically) and save again to mark the tournament as COMPLETED.'
+      )
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Failed to save winners')
     } finally {
@@ -2569,7 +2597,7 @@ export function TournamentRegistrations() {
                   <p className="text-purple-200 text-xs font-bold uppercase tracking-widest mb-1">Podium</p>
                   <h2 className="text-2xl md:text-3xl font-black">Tournament Winners</h2>
                   <p className="text-purple-100/90 mt-2 max-w-xl text-sm">
-                    Choose a district for each medal place, then select registered players. Approved registrations appear automatically.
+                    Choose a district for each medal place — its players are selected as winners automatically (tap to adjust). Approved registrations appear automatically.
                   </p>
                 </div>
                 <span className="material-symbols-outlined text-5xl text-white/30">emoji_events</span>
