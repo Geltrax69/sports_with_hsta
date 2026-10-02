@@ -5,6 +5,7 @@ import { eventTypesLabel, tournamentEventTypes } from '../../lib/eventFormat'
 
 type AdminTournament = {
   _id: string
+  code?: string
   title: string
   tournamentType?: string
   eventType?: string
@@ -25,7 +26,7 @@ type AdminTournament = {
 
 type TournamentRegistrationSummary = Record<
   string,
-  { total: number; pending: number; approved: number; rejected: number }
+  { total: number; pending: number; approved: number; rejected: number; teams: number }
 >
 
 type IconName =
@@ -380,8 +381,13 @@ export function TournamentManagement() {
                 </tr>
               ) : (
                 filteredTournaments.map((tournament) => {
-                  const counts = summary[tournament._id] || { total: 0, pending: 0, approved: 0, rejected: 0 }
+                  const counts = summary[tournament._id] || { total: 0, pending: 0, approved: 0, rejected: 0, teams: 0 }
                   const pendingCount = counts.pending
+                  const teamCount = counts.teams || 0
+                  const soloCount = Math.max(0, (counts.total || 0) - teamCount)
+                  const breakdown: string[] = []
+                  if (teamCount > 0) breakdown.push(`${teamCount} team${teamCount === 1 ? '' : 's'}`)
+                  if (soloCount > 0) breakdown.push(`${soloCount} solo`)
 
                   return (
                     <tr key={tournament._id} className="hover:bg-gray-50 transition-colors">
@@ -402,7 +408,9 @@ export function TournamentManagement() {
                                 </span>
                               ))}
                             </div>
-                            <div className="mt-1 text-xs text-gray-500">ID: {tournament._id}</div>
+                            <div className="mt-1 text-xs text-gray-500">
+                              ID: {tournament.code || String(tournament._id).slice(-6).toUpperCase()}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -427,6 +435,9 @@ export function TournamentManagement() {
                             </span>
                           )}
                         </div>
+                        {breakdown.length > 0 && (
+                          <div className="mt-1 text-xs text-gray-500">{breakdown.join(' · ')}</div>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <span className="inline-flex items-center gap-2">

@@ -1,5 +1,16 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import { apiRequest, getAuthToken, setAuthToken } from '../lib/api'
+import { createContext, useContext, useState, type ReactNode } from 'react'
+import {
+  apiRequest,
+  getAuthToken,
+  setAuthToken,
+  getActiveRole,
+  setActiveRole,
+  getLastRole,
+  setLastRole,
+  getStoredUser,
+  setStoredUser,
+  clearAuthStorage,
+} from '../lib/api'
 
 export type UserRole = 'admin' | 'coach' | 'player' | 'referee' | 'district'
 
@@ -37,26 +48,75 @@ const makeAvatar = (name: string) =>
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [authReady, setAuthReady] = useState(false)
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem('stfi.user')
-    if (storedUser) {
+/**
+ * Restore this tab's session from storage, synchronously. Sessions are
+ * stored per role so an admin tab and a district tab in the same browser
+ * don't clobber each other (that used to produce "Forbidden" errors and
+ * surprise logouts). Returns the restored user, or null.
+ */
+function restoreSession(): User | null {
+  const tryRole = (role: string | null): User | null => {
+    if (!role) return null
+    setActiveRole(role)
+    const storedUser = getStoredUser(role)
+    const token = getAuthToken()
+    if (storedUser && token) {
       try {
-        const token = getAuthToken()
-        if (!token) {
-          localStorage.removeItem('stfi.user')
-        } else {
-          setUser(JSON.parse(storedUser))
-        }
+        const parsed = JSON.parse(storedUser) as User
+        if (parsed && parsed.role === role) return parsed
       } catch {
-        localStorage.removeItem('stfi.user')
+        /* fall through to cleanup */
       }
     }
-    setAuthReady(true)
-  }, [])
+    // Stale/incomplete session for this role — drop it, don't half-login.
+    clearAuthStorage(role)
+    setActiveRole(null)
+    return null
+  }
+
+  // 1. This tab already has an active role (e.g. after reload).
+  const fromTab = tryRole(getActiveRole())
+  if (fromTab) return fromTab
+
+  // 2. Migrate a pre-existing single-key session (from before per-role
+  //    storage) into the namespaced layout.
+  try {
+    const legacy = window.localStorage.getItem('stfi.user')
+    if (legacy) {
+      const parsed = JSON.parse(legacy) as User
+      const legacyToken = window.localStorage.getItem('stfi.token')
+      if (parsed?.role && legacyToken) {
+        setActiveRole(parsed.role)
+        setAuthToken(legacyToken, parsed.role)
+        setStoredUser(parsed.role, legacy)
+        setLastRole(parsed.role)
+        window.localStorage.removeItem('stfi.user')
+        window.localStorage.removeItem('stfi.token')
+        return parsed
+      }
+    }
+  } catch {
+    /* corrupted legacy session — start logged out */
+  }
+
+  // 3. Fresh tab: pick up the most recently used role's session.
+  return tryRole(getLastRole())
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  // Session restore is synchronous (lazy initializer), so auth is ready on
+  // first render — no loading gate needed.
+  const [user, setUser] = useState<User | null>(() => restoreSession())
+  const authReady = true
+
+  /** Persist a freshly authenticated session for its role. */
+  const persistSession = (token: string, nextUser: User) => {
+    setActiveRole(nextUser.role)
+    setAuthToken(token, nextUser.role)
+    setStoredUser(nextUser.role, JSON.stringify(nextUser))
+    setLastRole(nextUser.role)
+    setUser(nextUser)
+  }
 
   // ── Step 1: password login ───────────────────────────────────────────────
 
@@ -74,7 +134,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           body:   JSON.stringify({ email, password, role }),
         })
 
-        setAuthToken(data.token)
         const nextUser: User = {
           id:     data.user.id,
           role:   data.user.role,
@@ -82,8 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email:  data.user.email,
           avatar: makeAvatar(data.user.name),
         }
-        setUser(nextUser)
-        localStorage.setItem('stfi.user', JSON.stringify(nextUser))
+        persistSession(data.token, nextUser)
         return { status: 'success' }
       } catch {
         return { status: 'error' }
@@ -107,7 +165,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Shouldn't reach here normally, but handle direct JWT just in case
       if ('token' in data) {
-        setAuthToken(data.token)
         const nextUser: User = {
           id:     data.user.id,
           role:   data.user.role,
@@ -115,8 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email:  data.user.email,
           avatar: makeAvatar(data.user.name),
         }
-        setUser(nextUser)
-        localStorage.setItem('stfi.user', JSON.stringify(nextUser))
+        persistSession(data.token, nextUser)
         return { status: 'success' }
       }
 
@@ -141,7 +197,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body:   JSON.stringify({ email, otp }),
       })
 
-      setAuthToken(data.token)
       const nextUser: User = {
         id:     data.user.id,
         role:   data.user.role,
@@ -149,8 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email:  data.user.email,
         avatar: makeAvatar(data.user.name),
       }
-      setUser(nextUser)
-      localStorage.setItem('stfi.user', JSON.stringify(nextUser))
+      persistSession(data.token, nextUser)
       return { success: true }
     } catch (err: unknown) {
       const msg =
@@ -194,7 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser((prev) => {
       if (!prev) return prev
       const next = { ...prev, email }
-      localStorage.setItem('stfi.user', JSON.stringify(next))
+      setStoredUser(getActiveRole(), JSON.stringify(next))
       return next
     })
   }
@@ -203,8 +257,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null)
-    localStorage.removeItem('stfi.user')
-    setAuthToken(null)
+    clearAuthStorage()
+    setActiveRole(null)
   }
 
   return (

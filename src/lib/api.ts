@@ -31,28 +31,123 @@ export const API_BASE_URL: string = normalizeApiBaseUrl(
 )
 
 const TOKEN_KEY = 'stfi.token'
+const USER_KEY = 'stfi.user'
+// Per-tab active role (sessionStorage is not shared across tabs, so an admin
+// tab and a district tab in the same browser keep their own sessions).
+const ACTIVE_ROLE_KEY = 'stfi.activeRole'
+const LAST_ROLE_KEY = 'stfi.lastRole'
+
+const tokenKeyFor = (role: string) => `${TOKEN_KEY}.${role}`
+const userKeyFor = (role: string) => `${USER_KEY}.${role}`
+
+let activeRole: string | null = null
+try {
+  activeRole = window.sessionStorage.getItem(ACTIVE_ROLE_KEY)
+} catch {
+  activeRole = null
+}
+
+/** Which role's session this tab is currently using. */
+export const getActiveRole = (): string | null => activeRole
+
+export const setActiveRole = (role: string | null) => {
+  activeRole = role
+  try {
+    if (role) window.sessionStorage.setItem(ACTIVE_ROLE_KEY, role)
+    else window.sessionStorage.removeItem(ACTIVE_ROLE_KEY)
+  } catch {
+    /* storage unavailable — session simply won't survive reload */
+  }
+}
+
+export const getLastRole = (): string | null => {
+  try {
+    return window.localStorage.getItem(LAST_ROLE_KEY)
+  } catch {
+    return null
+  }
+}
+
+export const setLastRole = (role: string | null) => {
+  try {
+    if (role) window.localStorage.setItem(LAST_ROLE_KEY, role)
+    else window.localStorage.removeItem(LAST_ROLE_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Stored user profile for a role (null role = legacy single key). */
+export const getStoredUser = (role: string | null): string | null => {
+  try {
+    if (role) {
+      const namespaced = window.localStorage.getItem(userKeyFor(role))
+      if (namespaced) return namespaced
+    }
+    return window.localStorage.getItem(USER_KEY)
+  } catch {
+    return null
+  }
+}
+
+export const setStoredUser = (role: string | null, value: string | null) => {
+  try {
+    const key = role ? userKeyFor(role) : USER_KEY
+    if (value == null) window.localStorage.removeItem(key)
+    else window.localStorage.setItem(key, value)
+  } catch {
+    /* ignore */
+  }
+}
 
 export const getAuthToken = (): string | null => {
   try {
-    const token = window.localStorage.getItem(TOKEN_KEY)
-    const tokenValue = token || 'null'
-    console.log('[getAuthToken] Token retrieved:', !!token, 'Key:', TOKEN_KEY, 'Value length:', tokenValue.length)
-    return token
+    // Role-namespaced token first — this is what keeps an admin tab working
+    // when a district logs in from another tab in the same browser.
+    if (activeRole) {
+      return window.localStorage.getItem(tokenKeyFor(activeRole))
+    }
+    // No active role yet (e.g. before AuthContext restores the session):
+    // fall back to the legacy single key.
+    return window.localStorage.getItem(TOKEN_KEY)
   } catch (err) {
     console.log('[getAuthToken] Error retrieving token:', err)
     return null
   }
 }
 
-export const setAuthToken = (token: string | null) => {
-  console.log('[setAuthToken] Setting token:', !!token, 'Value length:', token?.length || 0)
+export const setAuthToken = (token: string | null, role?: string | null) => {
+  const targetRole = role ?? activeRole
+  const key = targetRole ? tokenKeyFor(targetRole) : TOKEN_KEY
   if (!token) {
-    window.localStorage.removeItem(TOKEN_KEY)
-    console.log('[setAuthToken] Token removed from localStorage')
+    try {
+      window.localStorage.removeItem(key)
+    } catch {
+      /* ignore */
+    }
     return
   }
-  window.localStorage.setItem(TOKEN_KEY, token)
-  console.log('[setAuthToken] Token saved to localStorage')
+  try {
+    window.localStorage.setItem(key, token)
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Remove stored credentials for a role (defaults to the tab's active role). */
+export const clearAuthStorage = (role?: string | null) => {
+  const targetRole = role ?? activeRole
+  try {
+    if (targetRole) {
+      window.localStorage.removeItem(tokenKeyFor(targetRole))
+      window.localStorage.removeItem(userKeyFor(targetRole))
+    }
+    // Also drop legacy keys so a stale single session can't resurface.
+    window.localStorage.removeItem(TOKEN_KEY)
+    window.localStorage.removeItem(USER_KEY)
+  } catch {
+    /* ignore */
+  }
 }
 
 // Default timeout for regular API calls (auth, reads, deletes, etc.)

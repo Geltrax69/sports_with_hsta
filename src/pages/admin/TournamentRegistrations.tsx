@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
-import { apiRequest } from '../../lib/api'
+import { apiRequest, getAuthToken } from '../../lib/api'
 import { formatPersonListId, formatRegistrationDisplayId } from '../../lib/memberId'
 import { resolveDistrictName } from '../../lib/districtDisplay'
 import { UpdateScoreModal } from '../../components/admin/UpdateScoreModal'
@@ -81,6 +81,7 @@ type Player = {
   fullName: string
   playerId: string
   district?: string
+  profilePhoto?: string
 }
 
 type WinnerEntry = {
@@ -217,7 +218,41 @@ type Team = {
     playerId: string
     fullName?: string
     gender?: string
+    profilePhoto?: string
   }[]
+}
+
+/** Player avatar with initials fallback when the photo is missing or fails. */
+function TeamMemberAvatar({ photo, name, size = 'md' }: { photo?: string; name: string; size?: 'sm' | 'md' }) {
+  const [failed, setFailed] = useState(false)
+  const initials = (name || '')
+    .split(' ')
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+  const cls =
+    size === 'sm'
+      ? 'w-8 h-8 text-[10px]'
+      : 'w-10 h-10 text-xs'
+  if (!photo || failed) {
+    return (
+      <span
+        className={`${cls} rounded-full bg-[#5a0a8f]/10 text-[#5a0a8f] flex items-center justify-center font-bold flex-shrink-0`}
+      >
+        {initials || '•'}
+      </span>
+    )
+  }
+  return (
+    <img
+      src={photo}
+      alt={name}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className={`${cls} rounded-full object-cover flex-shrink-0 bg-gray-100`}
+    />
+  )
 }
 
 type Match = {
@@ -305,6 +340,7 @@ type SimpleMatchPlayer = {
   _id: string
   fullName: string
   playerId: string
+  profilePhoto?: string
   jerseyNumber?: number
   position?: string
   isCaptain?: boolean
@@ -665,6 +701,10 @@ export function TournamentRegistrations() {
 
   const [savingMatch, setSavingMatch] = useState(false)
 
+  // Registered district team selected per match side (connects a district's
+  // tournament team into the Create Match squad picker).
+  const [matchTeamSel, setMatchTeamSel] = useState<{ 1: string; 2: string }>({ 1: '', 2: '' })
+
   const [scorecardRemarksOpen, setScorecardRemarksOpen] = useState(false)
   const [scorecardRemarksMatch, setScorecardRemarksMatch] = useState<Match | null>(null)
   const [scorecardRemarksText, setScorecardRemarksText] = useState('')
@@ -789,7 +829,7 @@ export function TournamentRegistrations() {
     try {
       const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://sports-backend-fgsp.onrender.com'
       const baseUrl = API_BASE.replace(/\/api$/, '')
-      const token = window.localStorage.getItem('stfi.token')
+      const token = getAuthToken()
 
       const response = await fetch(`${baseUrl}/api/admin/tournaments/${tournamentId}/match-schedule-pdf`, {
         method: 'GET',
@@ -829,6 +869,27 @@ export function TournamentRegistrations() {
     }
   }, [tournamentId])
 
+  // Refresh when the Teams tab is opened — a district may have registered a
+  // team while this page was open.
+  useEffect(() => {
+    if (activeTab === 'teams' && tournamentId) {
+      fetchTeams(tournamentId)
+    }
+  }, [activeTab, tournamentId])
+
+  // Refresh when the tab regains focus, so new district teams appear
+  // without a manual reload.
+  useEffect(() => {
+    const onFocus = () => {
+      if (tournamentId) {
+        fetchTeams(tournamentId)
+        fetchMatches(tournamentId)
+      }
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [tournamentId])
+
   const applicantMatchesDistrict = (applicantDistrict: string | undefined, districtId: string) => {
     if (!applicantDistrict?.trim() || !districtId) return false
     const meta = getDistrictById(districtId)
@@ -864,6 +925,7 @@ export function TournamentRegistrations() {
         fullName: r.applicant!.fullName,
         playerId: r.applicant!.playerId || r.userId || r.applicant!._id,
         district: r.applicant!.district,
+        profilePhoto: r.applicant!.profilePhoto,
       }))
       .filter((p) => {
         if (!q) return true
@@ -930,6 +992,7 @@ export function TournamentRegistrations() {
     setPlayerSearch('')
     setPlayerResults([])
     setActiveSearchSide(null)
+    setMatchTeamSel({ 1: '', 2: '' })
     setCoachSearch('')
     setCoachResults([])
     setActiveCoachSide(null)
@@ -972,6 +1035,7 @@ export function TournamentRegistrations() {
         _id: player._id,
         fullName: player.fullName,
         playerId: player.playerId,
+        profilePhoto: player.profilePhoto,
         jerseyNumber: undefined,
         position: '',
         isCaptain: false,
@@ -1143,8 +1207,64 @@ export function TournamentRegistrations() {
     }))
   }
 
+  // District teams registered for this tournament, for one match side.
+  const teamsForMatchDistrict = (districtId: string): Team[] => {
+    if (!districtId) return []
+    const meta = getDistrictById(districtId)
+    const keys = new Set(
+      [districtId, meta?.id, meta?.code, meta?.name]
+        .filter(Boolean)
+        .map((s) => String(s).toLowerCase()),
+    )
+    return teams.filter((t) => {
+      const d = t.district
+      if (!d) return false
+      return [d._id, d.code, d.name]
+        .filter(Boolean)
+        .map((s) => String(s).toLowerCase())
+        .some((v) => keys.has(v))
+    })
+  }
+
+  // Load a registered team's members into the match squad: first N as the
+  // playing XI per the event's squad limits, the rest as substitutes. The
+  // admin can then rearrange playing vs subs with the checkboxes.
+  const loadTeamSquad = (side: 1 | 2, team: Team) => {
+    const members = team.members || []
+    const starters = squadLimits.starters
+    const squadPlayers: SimpleMatchPlayer[] = members
+      .slice(0, starters + squadLimits.subs)
+      .map((m, i) => ({
+        _id: m._id,
+        fullName: teamMemberName(m),
+        playerId: m.playerId,
+        profilePhoto: m.profilePhoto,
+        jerseyNumber: undefined,
+        position: '',
+        isCaptain: false,
+        isSubstitute: i >= starters,
+        entryTime: '',
+        exitTime: '',
+      }))
+    setWizard((prev) => ({
+      ...prev,
+      simpleMatch: {
+        ...prev.simpleMatch,
+        ...(side === 1 ? { team1Players: squadPlayers } : { team2Players: squadPlayers }),
+      },
+    }))
+  }
+
+  const handleMatchTeamSelect = (side: 1 | 2, teamId: string) => {
+    setMatchTeamSel((prev) => ({ ...prev, [side]: teamId }))
+    if (!teamId) return
+    const team = teams.find((t) => t._id === teamId)
+    if (team) loadTeamSquad(side, team)
+  }
+
   const setTeamDistrict = (side: 1 | 2, districtId: string) => {
     const district = getDistrictById(districtId)
+    const districtTeams = teamsForMatchDistrict(districtId)
     setWizard((prev) => ({
       ...prev,
       simpleMatch: {
@@ -1162,6 +1282,14 @@ export function TournamentRegistrations() {
             }),
       },
     }))
+    // If the district has exactly one registered team, connect it straight
+    // away; otherwise let the admin pick from the team dropdown.
+    if (districtTeams.length === 1) {
+      setMatchTeamSel((prev) => ({ ...prev, [side]: districtTeams[0]._id }))
+      loadTeamSquad(side, districtTeams[0])
+    } else {
+      setMatchTeamSel((prev) => ({ ...prev, [side]: '' }))
+    }
     setPlayerSearch('')
     if (districtId) {
       loadMatchPlayersForSide(side, districtId, '')
@@ -1377,7 +1505,7 @@ export function TournamentRegistrations() {
     try {
       const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://sports-backend-fgsp.onrender.com'
       const baseUrl = API_BASE.replace(/\/api$/, '')
-      const token = window.localStorage.getItem('stfi.token')
+      const token = getAuthToken()
       const body: Record<string, string> = {}
       if (remarks?.trim()) body.remarks = remarks.trim()
       const response = await fetch(
@@ -1797,6 +1925,46 @@ export function TournamentRegistrations() {
                     ))}
                   </select>
                 </div>
+{wizard.simpleMatch.team2District && teamsForMatchDistrict(wizard.simpleMatch.team2District).length > 0 && (
+                  <div className="mb-4">
+                    <label className="block text-xs font-bold uppercase text-orange-800 mb-1">Registered Team</label>
+                    <select
+                      value={matchTeamSel[2]}
+                      onChange={(e) => handleMatchTeamSelect(2, e.target.value)}
+                      className="w-full px-3 py-2 border-2 border-orange-200 focus:border-orange-500 rounded-lg focus:outline-none bg-white text-gray-900"
+                    >
+                      <option value="">Select team…</option>
+                      {teamsForMatchDistrict(wizard.simpleMatch.team2District).map((t) => (
+                        <option key={t._id} value={t._id}>
+                          {t.name} · {teamTypeLabel(t.teamType)} ({(t.members || []).length} players)
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-[11px] text-orange-700">
+                      Pick a team to load its players — then set playing / subs below.
+                    </p>
+                  </div>
+                )}
+{wizard.simpleMatch.team1District && teamsForMatchDistrict(wizard.simpleMatch.team1District).length > 0 && (
+                  <div className="mb-4">
+                    <label className="block text-xs font-bold uppercase text-blue-800 mb-1">Registered Team</label>
+                    <select
+                      value={matchTeamSel[1]}
+                      onChange={(e) => handleMatchTeamSelect(1, e.target.value)}
+                      className="w-full px-3 py-2 border-2 border-blue-200 focus:border-blue-500 rounded-lg focus:outline-none bg-white text-gray-900"
+                    >
+                      <option value="">Select team…</option>
+                      {teamsForMatchDistrict(wizard.simpleMatch.team1District).map((t) => (
+                        <option key={t._id} value={t._id}>
+                          {t.name} · {teamTypeLabel(t.teamType)} ({(t.members || []).length} players)
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-[11px] text-blue-700">
+                      Pick a team to load its players — then set playing / subs below.
+                    </p>
+                  </div>
+                )}
 
                 <div className="mb-4">
                   <label className="block text-xs font-bold uppercase text-blue-800 mb-1">Team Name</label>
@@ -1861,9 +2029,12 @@ export function TournamentRegistrations() {
                               }}
                               className={`px-3 py-2 border-b last:border-0 flex justify-between items-center ${selected ? 'bg-green-50/70 cursor-default' : 'hover:bg-gray-50 cursor-pointer'}`}
                             >
-                              <div>
-                                <div className="font-semibold text-sm text-gray-900">{pl.fullName}</div>
-                                <div className="text-xs text-gray-500">{pl.playerId}</div>
+                              <div className="flex items-center gap-2.5">
+                                <TeamMemberAvatar photo={pl.profilePhoto} name={pl.fullName} size="sm" />
+                                <div>
+                                  <div className="font-semibold text-sm text-gray-900">{pl.fullName}</div>
+                                  <div className="text-xs text-gray-500">{pl.playerId}</div>
+                                </div>
                               </div>
                               {selected ? (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">
@@ -1885,10 +2056,13 @@ export function TournamentRegistrations() {
                 <div className="space-y-3">
                   {wizard.simpleMatch.team1Players.map(p => (
                     <div key={p._id} className="bg-white px-3 py-3 rounded-lg border border-blue-100 shadow-sm">
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1">
-                          <div className="font-semibold text-blue-900 text-base">{p.fullName}</div>
-                          <div className="text-xs text-gray-500 mt-0.5">{p.playerId || 'N/A'}</div>
+                      <div className="flex justify-between items-center mb-3">
+                        <div className="flex-1 flex items-center gap-3">
+                          <TeamMemberAvatar photo={p.profilePhoto} name={p.fullName} size="sm" />
+                          <div>
+                            <div className="font-semibold text-blue-900 text-base">{p.fullName}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">{p.playerId || 'N/A'}</div>
+                          </div>
                         </div>
                         <button onClick={() => removePlayerFromTeam(1, p._id)} className="text-red-500 hover:text-red-700 font-bold text-2xl leading-none ml-2">×</button>
                       </div>
@@ -2082,9 +2256,12 @@ export function TournamentRegistrations() {
                               }}
                               className={`px-3 py-2 border-b last:border-0 flex justify-between items-center ${selected ? 'bg-green-50/70 cursor-default' : 'hover:bg-gray-50 cursor-pointer'}`}
                             >
-                              <div>
-                                <div className="font-semibold text-sm text-gray-900">{pl.fullName}</div>
-                                <div className="text-xs text-gray-500">{pl.playerId}</div>
+                              <div className="flex items-center gap-2.5">
+                                <TeamMemberAvatar photo={pl.profilePhoto} name={pl.fullName} size="sm" />
+                                <div>
+                                  <div className="font-semibold text-sm text-gray-900">{pl.fullName}</div>
+                                  <div className="text-xs text-gray-500">{pl.playerId}</div>
+                                </div>
                               </div>
                               {selected ? (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">
@@ -2106,10 +2283,13 @@ export function TournamentRegistrations() {
                 <div className="space-y-3">
                   {wizard.simpleMatch.team2Players.map(p => (
                     <div key={p._id} className="bg-white px-3 py-3 rounded-lg border border-orange-100 shadow-sm">
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1">
-                          <div className="font-semibold text-orange-900 text-base">{p.fullName}</div>
-                          <div className="text-xs text-gray-500 mt-0.5">{p.playerId || 'N/A'}</div>
+                      <div className="flex justify-between items-center mb-3">
+                        <div className="flex-1 flex items-center gap-3">
+                          <TeamMemberAvatar photo={p.profilePhoto} name={p.fullName} size="sm" />
+                          <div>
+                            <div className="font-semibold text-orange-900 text-base">{p.fullName}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">{p.playerId || 'N/A'}</div>
+                          </div>
                         </div>
                         <button onClick={() => removePlayerFromTeam(2, p._id)} className="text-red-500 hover:text-red-700 font-bold text-2xl leading-none ml-2">×</button>
                       </div>
@@ -2653,6 +2833,7 @@ export function TournamentRegistrations() {
                               <span className="w-7 h-7 rounded-full bg-[#5a0a8f]/10 text-[#5a0a8f] flex items-center justify-center text-xs font-bold">
                                 {i + 1}
                               </span>
+                              <TeamMemberAvatar photo={m.profilePhoto} name={teamMemberName(m)} size="sm" />
                               <div>
                                 <div className="font-medium text-gray-900">{teamMemberName(m)}</div>
                                 <div className="text-xs text-gray-500">

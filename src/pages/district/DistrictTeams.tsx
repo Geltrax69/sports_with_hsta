@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { districtApi, teamTypeLabel, type DistrictTeam } from '../../lib/districtApi'
 import { TeamFormModal } from '../../components/district/TeamFormModal'
 import { GenderCategoryBadge } from '../../components/GenderCategoryBadge'
+import { PlayerAvatar } from '../../components/PlayerAvatar'
 
 const statusStyle = (status: string) => {
   switch (status) {
@@ -218,6 +219,7 @@ export function DistrictTeams() {
                       <span className="w-7 h-7 rounded-full bg-[#5a0a8f]/10 text-[#5a0a8f] flex items-center justify-center text-xs font-bold">
                         {i + 1}
                       </span>
+                      <PlayerAvatar photo={m.profilePhoto} name={m.fullName} size="sm" />
                       <div>
                         <div className="font-medium text-gray-900">{m.fullName}</div>
                         <div className="text-xs text-gray-500">

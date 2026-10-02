@@ -3,33 +3,7 @@ import { apiRequest } from '../../lib/api'
 import { tournamentEventTypes } from '../../lib/eventFormat'
 import { GenderSegmentedControl } from '../admin/TournamentEventFields'
 import { GenderCategoryBadge } from '../GenderCategoryBadge'
-
-/** Player photo with an initials fallback when missing or failing to load. */
-function PlayerAvatar({ photo, name }: { photo?: string; name: string }) {
-  const [failed, setFailed] = useState(false)
-  const initials = name
-    .split(' ')
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase()
-  if (!photo || failed) {
-    return (
-      <span className="w-10 h-10 rounded-full bg-[#5a0a8f]/10 text-[#5a0a8f] flex items-center justify-center text-xs font-bold flex-shrink-0">
-        {initials || '•'}
-      </span>
-    )
-  }
-  return (
-    <img
-      src={photo}
-      alt={name}
-      className="w-10 h-10 rounded-full object-cover flex-shrink-0 bg-gray-100"
-      loading="lazy"
-      onError={() => setFailed(true)}
-    />
-  )
-}
+import { PlayerAvatar } from '../PlayerAvatar'
 import {
   districtApi,
   teamTypeLabel,
@@ -68,12 +42,18 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
   const [players, setPlayers] = useState<DistrictPlayer[]>([])
   const [loadingPlayers, setLoadingPlayers] = useState(false)
   const [search, setSearch] = useState('')
+  const [genderFilter, setGenderFilter] = useState<'all' | 'male' | 'female'>('all')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const minRequired = teamType ? MIN_PLAYERS_REQUIRED[teamType] : 0
+
+  // Default the gender filter to the team's category (still overridable).
+  useEffect(() => {
+    setGenderFilter(genderCategory === 'male' ? 'male' : genderCategory === 'female' ? 'female' : 'all')
+  }, [genderCategory])
 
   // In edit mode the previously selected members must stay visible even if
   // they are missing from the loaded player list.
@@ -84,6 +64,14 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
       .map((m) => ({ _id: m._id, fullName: m.fullName, playerId: m.playerId, gender: m.gender, profilePhoto: m.profilePhoto }))
     return [...missing, ...players]
   }, [players, editingTeam])
+
+  // Gender filter for the picker; already-selected players always stay visible.
+  const filteredPlayers = useMemo(() => {
+    if (genderFilter === 'all') return displayPlayers
+    return displayPlayers.filter(
+      (p) => selectedIds.includes(p._id) || (p.gender || '').toLowerCase() === genderFilter,
+    )
+  }, [displayPlayers, genderFilter, selectedIds])
 
   const selectedPlayers = useMemo(
     () => selectedIds.map((id) => displayPlayers.find((p) => p._id === id)).filter(Boolean) as DistrictPlayer[],
@@ -361,28 +349,46 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
               </span>
             </div>
 
-            <div className="relative mb-3">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                search
-              </span>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search players by name or player ID…"
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900"
-              />
+            <div className="flex items-center gap-2 mb-3">
+              <div className="relative flex-1">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  search
+                </span>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search players by name or player ID…"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900"
+                />
+              </div>
+              <div className="flex rounded-lg border border-gray-300 overflow-hidden flex-shrink-0" role="group" aria-label="Filter by gender">
+                {(['all', 'male', 'female'] as const).map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setGenderFilter(g)}
+                    className={`px-3 py-2.5 text-xs font-bold capitalize transition-colors ${
+                      genderFilter === g
+                        ? 'bg-[#5a0a8f] text-white'
+                        : 'bg-white text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {g}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="border border-gray-200 rounded-lg max-h-72 overflow-y-auto divide-y divide-gray-100">
               {loadingPlayers ? (
                 <p className="px-4 py-6 text-center text-sm text-gray-500">Loading players…</p>
-              ) : displayPlayers.length === 0 ? (
+              ) : filteredPlayers.length === 0 ? (
                 <p className="px-4 py-6 text-center text-sm text-gray-500">
                   No approved players found for your district.
                 </p>
               ) : (
-                displayPlayers.map((p) => {
+                filteredPlayers.map((p) => {
                   const selected = selectedIds.includes(p._id)
                   return (
                     <button
