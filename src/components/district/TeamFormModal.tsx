@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiRequest } from '../../lib/api'
+import { tournamentEventTypes } from '../../lib/eventFormat'
 import {
   districtApi,
   teamTypeLabel,
@@ -121,6 +122,23 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
       ? tournament
       : tournaments.find((t) => t._id === tournamentId)
 
+  // Team types the active tournament allows. Districts pick one when the
+  // tournament mixes events; a single-event tournament locks its type.
+  const allowedTeamTypes = useMemo(
+    () => TEAM_TYPES.filter((t) => tournamentEventTypes(activeTournament).includes(t.value)),
+    [activeTournament],
+  )
+
+  // Reset the picked team type when the tournament (or its events) change.
+  useEffect(() => {
+    if (isEdit) return
+    setTeamType((prev) => {
+      if (prev && allowedTeamTypes.some((t) => t.value === prev)) return prev
+      return allowedTeamTypes.length === 1 ? allowedTeamTypes[0].value : ''
+    })
+    setSelectedIds([])
+  }, [tournamentId, allowedTeamTypes, isEdit])
+
   const canSave =
     !!tournamentId && !!teamType && selectedIds.length === required && !saving
 
@@ -208,8 +226,13 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
             <label className="block text-sm font-semibold text-gray-900 mb-2">
               Team Type <span className="text-red-500">*</span>
             </label>
+            {allowedTeamTypes.length > 1 && (
+              <p className="text-xs text-gray-500 mb-2">
+                This tournament has multiple events — pick the one this team is for.
+              </p>
+            )}
             <div className="grid grid-cols-3 gap-3">
-              {TEAM_TYPES.map((t) => {
+              {allowedTeamTypes.map((t) => {
                 const active = teamType === t.value
                 return (
                   <button

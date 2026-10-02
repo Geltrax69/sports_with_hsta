@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { apiRequest } from '../../lib/api'
-import { teamTypeLabel, isTournamentOpen, type DistrictTeam, type TournamentOption } from '../../lib/districtApi'
+import { isTournamentOpen, type DistrictTeam, type TournamentOption } from '../../lib/districtApi'
+import { eventTypesLabel, tournamentEventTypes } from '../../lib/eventFormat'
 import { TeamFormModal } from '../../components/district/TeamFormModal'
 
 const formatDate = (value?: string) => {
@@ -87,12 +88,12 @@ export function DistrictTournaments() {
                       {[t.venueName, t.city].filter(Boolean).join(', ')}
                     </div>
                   )}
-                  {t.eventType && (
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-base text-gray-400">sports</span>
-                      Event: {teamTypeLabel(t.eventType)}
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base text-gray-400">sports</span>
+                    <span>
+                      Event{tournamentEventTypes(t).length > 1 ? 's' : ''}: {eventTypesLabel(t)}
+                    </span>
+                  </div>
                   {t.registrationCloses && (
                     <div className="flex items-center gap-2">
                       <span className="material-symbols-outlined text-base text-gray-400">schedule</span>

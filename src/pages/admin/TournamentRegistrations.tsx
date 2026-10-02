@@ -8,7 +8,7 @@ import { ScorecardRemarksModal } from '../../components/admin/ScorecardRemarksMo
 import { useDistricts } from '../../context/DistrictsContext'
 import { ListPagination } from '../../components/ListPagination'
 import { fieldClass, selectClass } from '../../lib/formStyles'
-import { eventTypeLabel, type EventType } from '../../lib/eventFormat'
+import { eventTypeLabel, tournamentEventTypes, type EventType } from '../../lib/eventFormat'
 
 const squadLimitsForEvent = (eventType: EventType) => {
   const starters = ({ regu: 3, double: 2, quad: 4 }[eventType] ?? 3)
@@ -39,6 +39,7 @@ type AdminTournament = {
   _id: string
   title: string
   eventType?: EventType
+  eventTypes?: string[]
   startDate?: string
   endDate?: string
   venueName?: string
@@ -641,7 +642,9 @@ export function TournamentRegistrations() {
     }
   })
 
-  const matchEventType: EventType = (tournament?.eventType as EventType) || 'regu'
+  const [wizardEventType, setWizardEventType] = useState<EventType>('regu')
+  const tournamentEventOptions = tournamentEventTypes(tournament ?? undefined)
+  const matchEventType: EventType = wizardEventType
   const squadLimits = squadLimitsForEvent(matchEventType)
 
   // Player Search State for the Wizard
@@ -893,6 +896,7 @@ export function TournamentRegistrations() {
 
   // Start Create Match Wizard
   const startCreateMatch = () => {
+    setWizardEventType(tournamentEventTypes(tournament ?? undefined)[0] || 'regu')
     setWizard({
       phase: 'create-match',
       simpleMatch: {
@@ -1642,10 +1646,41 @@ export function TournamentRegistrations() {
 
           <div className="p-6 flex-1 overflow-y-auto space-y-6">
             <div className="rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-900">
-              <span className="font-bold">Event Type:</span> {eventTypeLabel(matchEventType)} —{' '}
-              {squadLimits.starters} playing player{squadLimits.starters !== 1 ? 's' : ''} +{' '}
-              {squadLimits.subs} substitute{squadLimits.subs !== 1 ? 's' : ''} per team (
-              {squadLimits.total} total)
+              {tournamentEventOptions.length > 1 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-bold">Event Type:</span>
+                  <div className="inline-flex rounded-lg border border-purple-200 bg-white p-0.5" role="radiogroup" aria-label="Match event type">
+                    {tournamentEventOptions.map((et) => (
+                      <button
+                        key={et}
+                        type="button"
+                        role="radio"
+                        aria-checked={wizardEventType === et}
+                        onClick={() => setWizardEventType(et)}
+                        className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5a0a8f] ${
+                          wizardEventType === et
+                            ? 'bg-[#5a0a8f] text-white'
+                            : 'text-purple-900 hover:bg-purple-100'
+                        }`}
+                      >
+                        {eventTypeLabel(et)}
+                      </button>
+                    ))}
+                  </div>
+                  <span>
+                    {squadLimits.starters} playing player{squadLimits.starters !== 1 ? 's' : ''} +{' '}
+                    {squadLimits.subs} substitute{squadLimits.subs !== 1 ? 's' : ''} per team (
+                    {squadLimits.total} total)
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <span className="font-bold">Event Type:</span> {eventTypeLabel(matchEventType)} —{' '}
+                  {squadLimits.starters} playing player{squadLimits.starters !== 1 ? 's' : ''} +{' '}
+                  {squadLimits.subs} substitute{squadLimits.subs !== 1 ? 's' : ''} per team (
+                  {squadLimits.total} total)
+                </>
+              )}
             </div>
 
             {/* Title, match no, round */}

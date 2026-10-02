@@ -21,6 +21,24 @@ export const eventTypeLabel = (eventType?: string) => {
   return v.charAt(0).toUpperCase() + v.slice(1)
 }
 
+/** Effective event types for a tournament-like object (new array wins, legacy string falls back). */
+export const tournamentEventTypes = (t?: { eventTypes?: string[]; eventType?: string }): EventType[] => {
+  const arr = Array.isArray(t?.eventTypes) ? t.eventTypes : []
+  const valid = arr.map((e) => String(e || '').trim().toLowerCase()).filter((e) => e in ROUNDS_PER_EVENT)
+  if (valid.length) return [...new Set(valid)] as EventType[]
+  return [normalizeEventType(t?.eventType)]
+}
+
+/** "Regu + Doubles" style label for a tournament's event types. */
+const TOURNAMENT_EVENT_LABELS: Record<EventType, string> = {
+  regu: 'Regu',
+  double: 'Doubles',
+  quad: 'Quad',
+}
+
+export const eventTypesLabel = (t?: { eventTypes?: string[]; eventType?: string }) =>
+  tournamentEventTypes(t).map((e) => TOURNAMENT_EVENT_LABELS[e]).join(' + ')
+
 export const roundsForEvent = (eventType?: string) => ROUNDS_PER_EVENT[normalizeEventType(eventType)]
 
 /** Round names for a match, e.g. quad -> ['Quad 1', 'Quad 2', 'Quad 3'] */

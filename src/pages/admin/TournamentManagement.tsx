@@ -1,11 +1,14 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { apiRequest } from '../../lib/api'
+import { eventTypesLabel, tournamentEventTypes } from '../../lib/eventFormat'
 
 type AdminTournament = {
   _id: string
   title: string
   tournamentType?: string
+  eventType?: string
+  eventTypes?: string[]
   description?: string
   startDate?: string
   endDate?: string
@@ -389,7 +392,17 @@ export function TournamentManagement() {
                           </div>
                           <div>
                             <div className="font-semibold text-gray-900">{tournament.title}</div>
-                            <div className="text-xs text-gray-500">ID: {tournament._id}</div>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {tournamentEventTypes(tournament).map((et) => (
+                                <span
+                                  key={et}
+                                  className="rounded-full bg-[#5a0a8f]/10 px-2 py-px text-[11px] font-bold text-[#5a0a8f]"
+                                >
+                                  {eventTypesLabel({ eventTypes: [et] })}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="mt-1 text-xs text-gray-500">ID: {tournament._id}</div>
                           </div>
                         </div>
                       </td>

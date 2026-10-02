@@ -25,6 +25,8 @@ export type TournamentOption = {
   _id: string
   title: string
   eventType?: string
+  /** Full set of event types when the tournament mixes events. */
+  eventTypes?: string[]
   status?: string
   startDate?: string
   endDate?: string
@@ -76,7 +78,7 @@ export type DistrictTeam = {
   maxMembers: number
   members: DistrictTeamMember[]
   district?: { _id: string; code: string; name: string }
-  tournament?: { _id: string; title: string; eventType?: string; status?: string }
+  tournament?: { _id: string; title: string; eventType?: string; eventTypes?: string[]; status?: string }
   createdAt: string
   updatedAt: string
 }
