@@ -76,14 +76,6 @@ type TournamentRegistration = {
   notes?: string
 }
 
-type Player = {
-  _id: string
-  fullName: string
-  playerId: string
-  district?: string
-  profilePhoto?: string
-}
-
 type WinnerEntry = {
   key: string
   role: 'player' | 'coach' | 'referee' | 'written'
@@ -697,11 +689,6 @@ export function TournamentRegistrations() {
   const matchEventType: EventType = wizardEventType
   const squadLimits = squadLimitsForEvent(matchEventType)
 
-  // Player Search State for the Wizard
-  const [playerSearch, setPlayerSearch] = useState('')
-  const [activeSearchSide, setActiveSearchSide] = useState<1 | 2 | null>(null)
-  const [, setPlayerResults] = useState<Player[]>([])
-
   // Coach and Referee Search States
   const [coachSearch, setCoachSearch] = useState('')
   const [coachResults, setCoachResults] = useState<Coach[]>([])
@@ -927,64 +914,6 @@ export function TournamentRegistrations() {
     }
   }, [matches, registrations, winnerDistricts, districts])
 
-  const isPlayerSelected = (side: 1 | 2, playerId: string) => {
-    const squad = side === 1 ? wizard.simpleMatch.team1Players : wizard.simpleMatch.team2Players
-    return squad.some((player) => player._id === playerId)
-  }
-
-  // Every player available for manual add in Create Match: approved individual
-  // registrations plus members of registered (non-rejected) teams, deduplicated.
-  const getTournamentPlayers = (query = '') => {
-    const q = query.trim().toLowerCase()
-    const seen = new Set<string>()
-    const out: Player[] = []
-    const push = (p: Player) => {
-      if (!p?._id || seen.has(p._id)) return
-      seen.add(p._id)
-      out.push(p)
-    }
-    for (const r of registrations) {
-      if (r.registerAs !== 'player' || r.status !== 'approved' || !r.applicant) continue
-      push({
-        _id: r.applicant._id,
-        fullName: r.applicant.fullName,
-        playerId: r.applicant.playerId || r.userId || r.applicant._id,
-        district: r.applicant.district,
-        profilePhoto: r.applicant.profilePhoto,
-      })
-    }
-    for (const t of teams) {
-      if (t.status === 'rejected') continue
-      for (const m of t.members || []) {
-        push({
-          _id: m._id,
-          fullName: teamMemberName(m),
-          playerId: m.playerId,
-          profilePhoto: m.profilePhoto,
-        })
-      }
-    }
-    const filtered = q
-      ? out.filter(
-          (p) =>
-            p.fullName.toLowerCase().includes(q) ||
-            p.playerId.toLowerCase().includes(q),
-        )
-      : out
-    return filtered.sort((a, b) => a.fullName.localeCompare(b.fullName))
-  }
-
-  const loadMatchPlayersForSide = (side: 1 | 2, query = '') => {
-    setActiveSearchSide(side)
-    setPlayerResults(getTournamentPlayers(query))
-  }
-
-  // Filter tournament players for manual add
-  const handlePlayerSearch = (query: string, side: 1 | 2) => {
-    setPlayerSearch(query)
-    loadMatchPlayersForSide(side, query)
-  }
-
   // Start Create Match Wizard
   const startCreateMatch = () => {
     setWizardEventType(tournamentEventTypes(tournament ?? undefined)[0] || 'regu')
@@ -1016,9 +945,6 @@ export function TournamentRegistrations() {
         time: '10:00'
       }
     })
-    setPlayerSearch('')
-    setPlayerResults([])
-    setActiveSearchSide(null)
     setMatchTeamSel({ 1: '', 2: '' })
     setCoachSearch('')
     setCoachResults([])
@@ -1026,55 +952,6 @@ export function TournamentRegistrations() {
     setRefereeSearch('')
     setRefereeResults([])
     setActiveRefereeSide(null)
-  }
-
-  const addPlayerToTeam = (side: 1 | 2, player: Player) => {
-    const squad = side === 1 ? wizard.simpleMatch.team1Players : wizard.simpleMatch.team2Players
-    if (squad.some((p) => p._id === player._id)) return
-
-    const { starters, subs, total } = countSquad(squad)
-    if (total >= squadLimits.total) {
-      alert(
-        `${eventTypeLabel(matchEventType)}: maximum ${squadLimits.total} players per team (${squadLimits.starters} playing + ${squadLimits.subs} substitutes)`,
-      )
-      return
-    }
-
-    let asSubstitute = false
-    if (starters >= squadLimits.starters) {
-      if (subs >= squadLimits.subs) {
-        alert(
-          `${eventTypeLabel(matchEventType)}: already have ${squadLimits.starters} playing players and ${squadLimits.subs} substitutes`,
-        )
-        return
-      }
-      asSubstitute = true
-    }
-
-    setWizard(prev => {
-      const newState = { ...prev }
-      const newPlayer = {
-        _id: player._id,
-        fullName: player.fullName,
-        playerId: player.playerId,
-        profilePhoto: player.profilePhoto,
-        jerseyNumber: undefined,
-        position: '',
-        isCaptain: false,
-        isSubstitute: asSubstitute,
-        entryTime: '',
-        exitTime: '',
-      }
-      if (side === 1) {
-        newState.simpleMatch.team1Players = [...newState.simpleMatch.team1Players, newPlayer]
-      } else {
-        newState.simpleMatch.team2Players = [...newState.simpleMatch.team2Players, newPlayer]
-      }
-      return newState
-    })
-    // Clear search after add
-    setPlayerSearch('')
-    setPlayerResults([])
   }
 
   const removePlayerFromTeam = (side: 1 | 2, playerId: string) => {
@@ -1291,13 +1168,8 @@ export function TournamentRegistrations() {
             }),
       },
     }))
-    setPlayerSearch('')
     if (team) {
       loadTeamSquad(side, team)
-      loadMatchPlayersForSide(side, '')
-    } else {
-      setPlayerResults([])
-      setActiveSearchSide(null)
     }
   }
 
@@ -1934,7 +1806,7 @@ export function TournamentRegistrations() {
                 </div>
 
                 <div className="mb-4">
-                  <label className="block text-xs font-bold uppercase text-blue-800 mb-1">Add Players</label>
+                  <label className="block text-xs font-bold uppercase text-blue-800 mb-1">Squad</label>
                   {(() => {
                     const c = countSquad(wizard.simpleMatch.team1Players)
                     return (
@@ -1942,57 +1814,6 @@ export function TournamentRegistrations() {
                         Playing: {c.starters}/{squadLimits.starters} · Subs: {c.subs}/{squadLimits.subs} · Total:{' '}
                         {c.total}/{squadLimits.total}
                       </p>
-                    )
-                  })()}
-                  <input
-                    type="text"
-                    value={activeSearchSide === 1 ? playerSearch : ''}
-                    onFocus={() => {
-                      loadMatchPlayersForSide(1, playerSearch)
-                    }}
-                    onChange={(e) => handlePlayerSearch(e.target.value, 1)}
-                    placeholder="Search tournament players to add…"
-                    className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-gray-900"
-                  />
-                  {activeSearchSide === 1 && (() => {
-                    const available = getTournamentPlayers(activeSearchSide === 1 ? playerSearch : '')
-                    return (
-                    <div className="mt-2 bg-white rounded-lg shadow-lg border border-gray-200 max-h-48 overflow-y-auto">
-                        {available.length === 0 ? (
-                          <p className="px-3 py-4 text-xs text-blue-700 italic text-center">
-                            No players found in this tournament.
-                          </p>
-                        ) : (
-                          available.map((pl) => {
-                            const selected = isPlayerSelected(1, pl._id)
-                            return (
-                            <div
-                              key={pl._id}
-                              onClick={() => {
-                                if (!selected) addPlayerToTeam(1, pl)
-                              }}
-                              className={`px-3 py-2 border-b last:border-0 flex justify-between items-center ${selected ? 'bg-green-50/70 cursor-default' : 'hover:bg-gray-50 cursor-pointer'}`}
-                            >
-                              <div className="flex items-center gap-2.5">
-                                <TeamMemberAvatar photo={pl.profilePhoto} name={pl.fullName} size="sm" />
-                                <div>
-                                  <div className="font-semibold text-sm text-gray-900">{pl.fullName}</div>
-                                  <div className="text-xs text-gray-500">{pl.playerId}</div>
-                                </div>
-                              </div>
-                              {selected ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">
-                                  <span className="material-symbols-outlined text-sm">check</span>
-                                  Added
-                                </span>
-                              ) : (
-                                <span className="text-blue-600 font-bold">+</span>
-                              )}
-                            </div>
-                            )
-                          })
-                        )}
-                      </div>
                     )
                   })()}
                 </div>
@@ -2143,7 +1964,7 @@ export function TournamentRegistrations() {
                 </div>
 
                 <div className="mb-4">
-                  <label className="block text-xs font-bold uppercase text-orange-800 mb-1">Add Players</label>
+                  <label className="block text-xs font-bold uppercase text-orange-800 mb-1">Squad</label>
                   {(() => {
                     const c = countSquad(wizard.simpleMatch.team2Players)
                     return (
@@ -2151,57 +1972,6 @@ export function TournamentRegistrations() {
                         Playing: {c.starters}/{squadLimits.starters} · Subs: {c.subs}/{squadLimits.subs} · Total:{' '}
                         {c.total}/{squadLimits.total}
                       </p>
-                    )
-                  })()}
-                  <input
-                    type="text"
-                    value={activeSearchSide === 2 ? playerSearch : ''}
-                    onFocus={() => {
-                      loadMatchPlayersForSide(2, playerSearch)
-                    }}
-                    onChange={(e) => handlePlayerSearch(e.target.value, 2)}
-                    placeholder="Search tournament players to add…"
-                    className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg focus:outline-none focus:border-orange-500 bg-white text-gray-900"
-                  />
-                  {activeSearchSide === 2 && (() => {
-                    const available = getTournamentPlayers(activeSearchSide === 2 ? playerSearch : '')
-                    return (
-                      <div className="mt-2 bg-white rounded-lg shadow-lg border border-gray-200 max-h-48 overflow-y-auto">
-                        {available.length === 0 ? (
-                          <p className="px-3 py-4 text-xs text-orange-700 italic text-center">
-                            No players found in this tournament.
-                          </p>
-                        ) : (
-                          available.map((pl) => {
-                            const selected = isPlayerSelected(2, pl._id)
-                            return (
-                            <div
-                              key={pl._id}
-                              onClick={() => {
-                                if (!selected) addPlayerToTeam(2, pl)
-                              }}
-                              className={`px-3 py-2 border-b last:border-0 flex justify-between items-center ${selected ? 'bg-green-50/70 cursor-default' : 'hover:bg-gray-50 cursor-pointer'}`}
-                            >
-                              <div className="flex items-center gap-2.5">
-                                <TeamMemberAvatar photo={pl.profilePhoto} name={pl.fullName} size="sm" />
-                                <div>
-                                  <div className="font-semibold text-sm text-gray-900">{pl.fullName}</div>
-                                  <div className="text-xs text-gray-500">{pl.playerId}</div>
-                                </div>
-                              </div>
-                              {selected ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">
-                                  <span className="material-symbols-outlined text-sm">check</span>
-                                  Added
-                                </span>
-                              ) : (
-                                <span className="text-orange-600 font-bold">+</span>
-                              )}
-                            </div>
-                            )
-                          })
-                        )}
-                      </div>
                     )
                   })()}
                 </div>
