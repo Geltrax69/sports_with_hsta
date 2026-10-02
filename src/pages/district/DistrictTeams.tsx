@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { districtApi, teamTypeLabel, type DistrictTeam } from '../../lib/districtApi'
+import { districtApi, teamTypeLabel, GENDER_CATEGORY_LABELS, type DistrictTeam } from '../../lib/districtApi'
 import { TeamFormModal } from '../../components/district/TeamFormModal'
 
 const statusStyle = (status: string) => {
@@ -62,7 +62,7 @@ export function DistrictTeams() {
     }
   }
 
-  const editable = (team: DistrictTeam) => team.status === 'pending'
+  const editable = (team: DistrictTeam) => team.status === 'pending' || team.status === 'approved'
 
   return (
     <div>
@@ -114,7 +114,12 @@ export function DistrictTeams() {
                 teams.map((team) => (
                   <tr key={team._id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 font-semibold text-gray-900">{team.name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{teamTypeLabel(team.teamType)}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      <div>{teamTypeLabel(team.teamType)}</div>
+                      {team.genderCategory && (
+                        <div className="text-xs text-gray-500">{GENDER_CATEGORY_LABELS[team.genderCategory]}</div>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-700">{team.tournament?.title || '—'}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {team.members.length}
@@ -186,6 +191,12 @@ export function DistrictTeams() {
                 <div>
                   <div className="text-xs font-semibold text-gray-500 uppercase">Team Type</div>
                   <div className="font-semibold text-gray-900">{teamTypeLabel(viewingTeam.teamType)}</div>
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase">Category</div>
+                  <div className="font-semibold text-gray-900">
+                    {viewingTeam.genderCategory ? GENDER_CATEGORY_LABELS[viewingTeam.genderCategory] : '—'}
+                  </div>
                 </div>
                 <div>
                   <div className="text-xs font-semibold text-gray-500 uppercase">Tournament</div>

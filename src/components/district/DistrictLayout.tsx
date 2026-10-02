@@ -28,19 +28,15 @@ export function DistrictLayout() {
         {/* Brand */}
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen((v) => !v)}
-              className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 hover:bg-gray-200 transition-colors"
-              aria-label="Toggle sidebar"
-            >
-              <span className="material-symbols-outlined text-gray-700">menu</span>
-            </button>
-
+            <img
+              src={`${import.meta.env.BASE_URL}assets/images/logo.png`}
+              alt="HSTA logo"
+              className="w-10 h-10 rounded-lg object-contain flex-shrink-0 bg-white"
+            />
             {sidebarOpen && (
-              <div>
+              <div className="min-w-0">
                 <div className="font-black text-sm text-gray-900">HSTA</div>
-                <div className="text-xs text-gray-500">Haryana Sepak Takraw Association</div>
+                <div className="text-xs text-gray-500 leading-tight">Haryana Sepak Takraw Association</div>
               </div>
             )}
           </div>
@@ -84,7 +80,15 @@ export function DistrictLayout() {
         {/* Topbar */}
         <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
           <div className="px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
+            <div className="flex items-center gap-3 text-sm text-gray-600">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen((v) => !v)}
+                className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Toggle sidebar"
+              >
+                <span className="material-symbols-outlined text-xl">menu</span>
+              </button>
               <span className="material-symbols-outlined text-[#5a0a8f]">location_on</span>
               <span className="font-semibold text-gray-900">District Portal</span>
             </div>

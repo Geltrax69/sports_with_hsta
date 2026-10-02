@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiRequest } from '../../lib/api'
 import { tournamentEventTypes } from '../../lib/eventFormat'
+import { GenderSegmentedControl } from '../admin/TournamentEventFields'
 import {
   districtApi,
   teamTypeLabel,
   PLAYERS_REQUIRED,
   TEAM_TYPES,
   isTournamentOpen,
+  GENDER_CATEGORY_LABELS,
   type DistrictPlayer,
   type DistrictTeam,
+  type GenderCategory,
   type TeamType,
   type TournamentOption,
 } from '../../lib/districtApi'
@@ -31,6 +34,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
 
   const [tournamentId, setTournamentId] = useState('')
   const [teamType, setTeamType] = useState<TeamType | ''>('')
+  const [genderCategory, setGenderCategory] = useState<GenderCategory>('both')
   const [teamName, setTeamName] = useState('')
 
   const [players, setPlayers] = useState<DistrictPlayer[]>([])
@@ -42,9 +46,20 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
   const [error, setError] = useState('')
 
   const required = teamType ? PLAYERS_REQUIRED[teamType] : 0
+
+  // In edit mode the previously selected members must stay visible even if
+  // they are missing from the loaded player list.
+  const displayPlayers = useMemo(() => {
+    const ids = new Set(players.map((p) => p._id))
+    const missing: DistrictPlayer[] = (editingTeam?.members || [])
+      .filter((m) => !ids.has(m._id))
+      .map((m) => ({ _id: m._id, fullName: m.fullName, playerId: m.playerId, gender: m.gender, profilePhoto: m.profilePhoto }))
+    return [...missing, ...players]
+  }, [players, editingTeam])
+
   const selectedPlayers = useMemo(
-    () => selectedIds.map((id) => players.find((p) => p._id === id)).filter(Boolean) as DistrictPlayer[],
-    [selectedIds, players],
+    () => selectedIds.map((id) => displayPlayers.find((p) => p._id === id)).filter(Boolean) as DistrictPlayer[],
+    [selectedIds, displayPlayers],
   )
 
   // ── Load open tournaments (create mode, no pre-selected tournament) ────────
@@ -73,6 +88,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
     if (editingTeam) {
       setTournamentId(editingTeam.tournament?._id || '')
       setTeamType((editingTeam.teamType as TeamType) || '')
+      setGenderCategory(editingTeam.genderCategory || 'both')
       setTeamName(editingTeam.name || '')
       setSelectedIds((editingTeam.members || []).map((m) => m._id))
     } else {
@@ -80,6 +96,8 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
       setTeamType(tournament?.eventType && TEAM_TYPES.some((t) => t.value === tournament.eventType)
         ? (tournament.eventType as TeamType)
         : '')
+      const tg = tournament?.genderCategory
+      setGenderCategory(tg === 'male' || tg === 'female' ? tg : 'both')
       setTeamName('')
       setSelectedIds([])
     }
@@ -136,7 +154,11 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
       if (prev && allowedTeamTypes.some((t) => t.value === prev)) return prev
       return allowedTeamTypes.length === 1 ? allowedTeamTypes[0].value : ''
     })
+    // Keep the team category inside the tournament's participation.
+    const tg = activeTournament?.genderCategory
+    if (tg === 'male' || tg === 'female') setGenderCategory(tg)
     setSelectedIds([])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournamentId, allowedTeamTypes, isEdit])
 
   const canSave =
@@ -154,6 +176,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
       const payload = {
         tournamentId,
         teamType: teamType as TeamType,
+        genderCategory,
         name: teamName.trim() || undefined,
         memberIds: selectedIds,
       }
@@ -256,6 +279,24 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
             </div>
           </div>
 
+          {/* Gender category for this team */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-900 mb-2">
+              Team Category <span className="text-red-500">*</span>
+            </label>
+            {(() => {
+              const tg = activeTournament?.genderCategory
+              if (tg === 'male' || tg === 'female') {
+                return (
+                  <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 font-medium">
+                    {GENDER_CATEGORY_LABELS[tg]} <span className="text-gray-500 font-normal">— set by the tournament</span>
+                  </div>
+                )
+              }
+              return <GenderSegmentedControl value={genderCategory} onChange={setGenderCategory} />
+            })()}
+          </div>
+
           {/* Team name */}
           <div>
             <label className="block text-sm font-semibold text-gray-900 mb-2">Team Name (optional)</label>
@@ -297,13 +338,19 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
             <div className="border border-gray-200 rounded-lg max-h-72 overflow-y-auto divide-y divide-gray-100">
               {loadingPlayers ? (
                 <p className="px-4 py-6 text-center text-sm text-gray-500">Loading players…</p>
-              ) : players.length === 0 ? (
+              ) : displayPlayers.length === 0 ? (
                 <p className="px-4 py-6 text-center text-sm text-gray-500">
                   No approved players found for your district.
                 </p>
               ) : (
-                players.map((p) => {
+                displayPlayers.map((p) => {
                   const selected = selectedIds.includes(p._id)
+                  const initials = p.fullName
+                    .split(' ')
+                    .map((w) => w[0])
+                    .slice(0, 2)
+                    .join('')
+                    .toUpperCase()
                   return (
                     <button
                       key={p._id}
@@ -320,6 +367,18 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
                       >
                         <span className="material-symbols-outlined text-sm">check</span>
                       </span>
+                      {p.profilePhoto ? (
+                        <img
+                          src={p.profilePhoto}
+                          alt={p.fullName}
+                          className="w-10 h-10 rounded-full object-cover flex-shrink-0 bg-gray-100"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <span className="w-10 h-10 rounded-full bg-[#5a0a8f]/10 text-[#5a0a8f] flex items-center justify-center text-xs font-bold flex-shrink-0">
+                          {initials || '•'}
+                        </span>
+                      )}
                       <span className="flex-1 min-w-0">
                         <span className="block font-medium text-gray-900 truncate">{p.fullName}</span>
                         <span className="block text-xs text-gray-500">
@@ -348,6 +407,9 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
                 </p>
                 <p>
                   <span className="font-semibold">Team Type:</span> {teamTypeLabel(teamType)}
+                </p>
+                <p>
+                  <span className="font-semibold">Category:</span> {GENDER_CATEGORY_LABELS[genderCategory]}
                 </p>
                 <p className="font-semibold pt-1">Players:</p>
                 <ol className="list-decimal list-inside space-y-0.5">

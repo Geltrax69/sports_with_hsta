@@ -2,6 +2,14 @@ import { apiRequest } from './api'
 
 export type TeamType = 'regu' | 'double' | 'quad'
 
+export type GenderCategory = 'male' | 'female' | 'both'
+
+export const GENDER_CATEGORY_LABELS: Record<GenderCategory, string> = {
+  male: 'Male',
+  female: 'Female',
+  both: 'Male & Female',
+}
+
 export const TEAM_TYPES: { value: TeamType; label: string; playersRequired: number }[] = [
   { value: 'regu', label: 'Regu', playersRequired: 3 },
   { value: 'double', label: 'Doubles', playersRequired: 2 },
@@ -34,6 +42,8 @@ export type TournamentOption = {
   city?: string
   registrationOpens?: string
   registrationCloses?: string
+  imageUrl?: string
+  genderCategory?: GenderCategory
 }
 
 /** Mirrors the backend's registration-open check for tournaments. */
@@ -61,6 +71,7 @@ export type DistrictPlayer = {
   gender?: string
   district?: string
   dateOfBirth?: string
+  profilePhoto?: string
 }
 
 export type DistrictTeamMember = {
@@ -68,17 +79,19 @@ export type DistrictTeamMember = {
   fullName: string
   playerId?: string
   gender?: string
+  profilePhoto?: string
 }
 
 export type DistrictTeam = {
   _id: string
   name: string
   teamType?: TeamType
+  genderCategory?: GenderCategory
   status: 'pending' | 'approved' | 'rejected'
   maxMembers: number
   members: DistrictTeamMember[]
   district?: { _id: string; code: string; name: string }
-  tournament?: { _id: string; title: string; eventType?: string; eventTypes?: string[]; status?: string }
+  tournament?: { _id: string; title: string; eventType?: string; eventTypes?: string[]; status?: string; genderCategory?: GenderCategory }
   createdAt: string
   updatedAt: string
 }
@@ -97,7 +110,7 @@ export const districtApi = {
 
   getTeam: (id: string) => apiRequest<{ team: DistrictTeam }>(`/district/teams/${id}`, { auth: true }),
 
-  createTeam: (payload: { tournamentId: string; teamType: TeamType; name?: string; memberIds: string[] }) =>
+  createTeam: (payload: { tournamentId: string; teamType: TeamType; genderCategory?: GenderCategory; name?: string; memberIds: string[] }) =>
     apiRequest<{ team: DistrictTeam }>('/district/teams', {
       method: 'POST',
       auth: true,
@@ -106,7 +119,7 @@ export const districtApi = {
 
   updateTeam: (
     id: string,
-    payload: { name?: string; teamType?: TeamType; memberIds?: string[] },
+    payload: { name?: string; teamType?: TeamType; genderCategory?: GenderCategory; memberIds?: string[] },
   ) =>
     apiRequest<{ team: DistrictTeam }>(`/district/teams/${id}`, {
       method: 'PATCH',

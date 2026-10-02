@@ -2542,7 +2542,14 @@ export function TournamentRegistrations() {
                             )}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-700">{teamTypeLabel(team.teamType)}</td>
-                          <td className="px-6 py-4 text-sm text-gray-700">{team.members.length}</td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            <div className="font-semibold">{team.members.length}</div>
+                            {team.members.length > 0 && (
+                              <div className="text-xs text-gray-500 max-w-[220px] truncate" title={team.members.map((m) => teamMemberName(m)).join(', ')}>
+                                {team.members.map((m) => teamMemberName(m)).join(', ')}
+                              </div>
+                            )}
+                          </td>
                           <td className="px-6 py-4">
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold capitalize ${

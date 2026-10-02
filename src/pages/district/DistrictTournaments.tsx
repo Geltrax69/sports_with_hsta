@@ -64,7 +64,18 @@ export function DistrictTournaments() {
           {tournaments.map((t) => {
             const open = isTournamentOpen(t)
             return (
-              <div key={t._id} className="bg-white rounded-xl border border-gray-200 p-6 flex flex-col">
+              <div key={t._id} className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col">
+                {t.imageUrl && (
+                  <div className="h-40 w-full bg-gray-100 overflow-hidden">
+                    <img
+                      src={t.imageUrl}
+                      alt={t.title}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                )}
+                <div className="p-6 flex flex-col flex-1">
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <h2 className="text-lg font-bold text-gray-900">{t.title}</h2>
                   <span
@@ -116,6 +127,7 @@ export function DistrictTournaments() {
                       Registration closed
                     </div>
                   )}
+                </div>
                 </div>
               </div>
             )
