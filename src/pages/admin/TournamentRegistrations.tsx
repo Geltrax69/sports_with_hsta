@@ -251,6 +251,8 @@ type Match = {
   _id: string
   team1: string
   team2: string
+  team1Id?: string
+  team2Id?: string
   date: string
   time: string
   bracket?: 'winner' | 'loser'
@@ -1102,18 +1104,17 @@ export function TournamentRegistrations() {
     }))
   }
 
-  // Teams referenced by a match's team1/team2 are match-day snapshots created
+  // Teams referenced by a match's team1Id/team2Id are match-day snapshots created
   // by the Create Match wizard (one per side, cascade-deleted with the
   // match) — not tournament registrations. They are hidden wherever
   // registered teams are listed so the same district doesn't show twice.
+  // (listMatches returns team1/team2 as display names, so the raw ids come
+  // from the additive team1Id/team2Id fields.)
   const matchSnapshotTeamIds = useMemo(() => {
     const ids = new Set<string>()
     for (const m of matches) {
-      for (const t of [m.team1, m.team2]) {
+      for (const t of [m.team1Id, m.team2Id]) {
         if (typeof t === 'string' && t) ids.add(t)
-        else if (t && typeof t === 'object' && (t as { _id?: string })._id) {
-          ids.add(String((t as { _id?: string })._id))
-        }
       }
     }
     return ids
