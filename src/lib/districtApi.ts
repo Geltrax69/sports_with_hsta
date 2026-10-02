@@ -16,9 +16,10 @@ export const TEAM_TYPES: { value: TeamType; label: string; playersRequired: numb
   { value: 'quad', label: 'Quad', playersRequired: 4 },
 ]
 
-// Must stay in sync with TEAM_TYPE_ROSTER in the backend
-// (sports-backend/src/controllers/districtTeamController.js).
-export const PLAYERS_REQUIRED: Record<TeamType, number> = {
+// Minimum players per team type. Must stay in sync with TEAM_TYPE_ROSTER
+// (sports-backend/src/controllers/districtTeamController.js), which enforces
+// it as a minimum — districts may register larger squads.
+export const MIN_PLAYERS_REQUIRED: Record<TeamType, number> = {
   regu: 3,
   double: 2,
   quad: 4,

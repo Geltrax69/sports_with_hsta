@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { districtApi, teamTypeLabel, GENDER_CATEGORY_LABELS, type DistrictTeam } from '../../lib/districtApi'
+import { districtApi, teamTypeLabel, type DistrictTeam } from '../../lib/districtApi'
 import { TeamFormModal } from '../../components/district/TeamFormModal'
+import { GenderCategoryBadge } from '../../components/GenderCategoryBadge'
 
 const statusStyle = (status: string) => {
   switch (status) {
@@ -116,9 +117,9 @@ export function DistrictTeams() {
                     <td className="px-6 py-4 font-semibold text-gray-900">{team.name}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       <div>{teamTypeLabel(team.teamType)}</div>
-                      {team.genderCategory && (
-                        <div className="text-xs text-gray-500">{GENDER_CATEGORY_LABELS[team.genderCategory]}</div>
-                      )}
+                      <div className="mt-1">
+                        <GenderCategoryBadge value={team.genderCategory} />
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">{team.tournament?.title || '—'}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">
@@ -194,8 +195,8 @@ export function DistrictTeams() {
                 </div>
                 <div>
                   <div className="text-xs font-semibold text-gray-500 uppercase">Category</div>
-                  <div className="font-semibold text-gray-900">
-                    {viewingTeam.genderCategory ? GENDER_CATEGORY_LABELS[viewingTeam.genderCategory] : '—'}
+                  <div className="mt-1">
+                    <GenderCategoryBadge value={viewingTeam.genderCategory} />
                   </div>
                 </div>
                 <div>

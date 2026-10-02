@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { apiRequest } from '../../lib/api'
 import { tournamentEventTypes } from '../../lib/eventFormat'
 import { GenderSegmentedControl } from '../admin/TournamentEventFields'
+import { GenderCategoryBadge } from '../GenderCategoryBadge'
 import {
   districtApi,
   teamTypeLabel,
-  PLAYERS_REQUIRED,
+  MIN_PLAYERS_REQUIRED,
   TEAM_TYPES,
   isTournamentOpen,
   GENDER_CATEGORY_LABELS,
@@ -45,7 +46,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const required = teamType ? PLAYERS_REQUIRED[teamType] : 0
+  const minRequired = teamType ? MIN_PLAYERS_REQUIRED[teamType] : 0
 
   // In edit mode the previously selected members must stay visible even if
   // they are missing from the loaded player list.
@@ -128,9 +129,9 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
   }, [open, search])
 
   const togglePlayer = (id: string) => {
+    // No upper cap: districts may register larger squads (incl. substitutes).
     setSelectedIds((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id)
-      if (teamType && prev.length >= PLAYERS_REQUIRED[teamType]) return prev
       return [...prev, id]
     })
   }
@@ -162,14 +163,14 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
   }, [tournamentId, allowedTeamTypes, isEdit])
 
   const canSave =
-    !!tournamentId && !!teamType && selectedIds.length === required && !saving
+    !!tournamentId && !!teamType && selectedIds.length >= minRequired && minRequired > 0 && !saving
 
   const handleSave = async () => {
     setError('')
     if (!tournamentId) return setError('Select a tournament.')
     if (!teamType) return setError('Select a team type.')
-    if (selectedIds.length !== required) {
-      return setError(`Select exactly ${required} players for a ${teamTypeLabel(teamType)} team.`)
+    if (selectedIds.length < minRequired) {
+      return setError(`Select at least ${minRequired} players for a ${teamTypeLabel(teamType)} team. You can add more as substitutes.`)
     }
     setSaving(true)
     try {
@@ -293,7 +294,17 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
                   </div>
                 )
               }
-              return <GenderSegmentedControl value={genderCategory} onChange={setGenderCategory} />
+              return (
+                <GenderSegmentedControl
+                  value={genderCategory}
+                  onChange={setGenderCategory}
+                  hints={{
+                    male: 'Only male players can be picked for this team.',
+                    female: 'Only female players can be picked for this team.',
+                    both: 'Male and female players can be picked for this team.',
+                  }}
+                />
+              )
             })()}
           </div>
 
@@ -316,9 +327,10 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
                 Select Players <span className="text-red-500">*</span>
               </label>
               <span
-                className={`text-sm font-bold ${selectedIds.length === required && required > 0 ? 'text-green-700' : 'text-gray-600'}`}
+                className={`text-sm font-bold ${selectedIds.length >= minRequired && minRequired > 0 ? 'text-green-700' : 'text-gray-600'}`}
               >
-                Players Selected: {selectedIds.length} / Required: {required || '—'}
+                Players Selected: {selectedIds.length}
+                {minRequired > 0 && <span className="font-medium text-gray-500"> (min {minRequired})</span>}
               </span>
             </div>
 
@@ -408,8 +420,9 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
                 <p>
                   <span className="font-semibold">Team Type:</span> {teamTypeLabel(teamType)}
                 </p>
-                <p>
-                  <span className="font-semibold">Category:</span> {GENDER_CATEGORY_LABELS[genderCategory]}
+                <p className="flex items-center gap-2">
+                  <span className="font-semibold">Category:</span>
+                  <GenderCategoryBadge value={genderCategory} />
                 </p>
                 <p className="font-semibold pt-1">Players:</p>
                 <ol className="list-decimal list-inside space-y-0.5">

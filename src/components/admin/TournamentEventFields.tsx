@@ -68,10 +68,13 @@ export function EventTypeCards({
 export function GenderSegmentedControl({
   value,
   onChange,
+  hints,
 }: {
   value: GenderCategory
   onChange: (next: GenderCategory) => void
+  hints?: Record<GenderCategory, string>
 }) {
+  const hintText = (hints || GENDER_HINTS)[value]
   return (
     <div>
       <div
@@ -102,7 +105,7 @@ export function GenderSegmentedControl({
           )
         })}
       </div>
-      <p className="mt-1.5 text-xs text-gray-500">{GENDER_HINTS[value]}</p>
+      <p className="mt-1.5 text-xs text-gray-500">{hintText}</p>
     </div>
   )
 }

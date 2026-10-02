@@ -9,6 +9,7 @@ import { useDistricts } from '../../context/DistrictsContext'
 import { ListPagination } from '../../components/ListPagination'
 import { fieldClass, selectClass } from '../../lib/formStyles'
 import { eventTypeLabel, tournamentEventTypes, type EventType } from '../../lib/eventFormat'
+import { GenderCategoryBadge } from '../../components/GenderCategoryBadge'
 
 const squadLimitsForEvent = (eventType: EventType) => {
   const starters = ({ regu: 3, double: 2, quad: 4 }[eventType] ?? 3)
@@ -206,6 +207,7 @@ type Team = {
   name: string
   maxMembers: number
   teamType?: 'regu' | 'double' | 'quad'
+  genderCategory?: 'male' | 'female' | 'both'
   status?: 'pending' | 'approved' | 'rejected'
   district?: { _id: string; code: string; name: string } | null
   createdAt?: string
@@ -2541,7 +2543,12 @@ export function TournamentRegistrations() {
                               <span className="text-gray-400">—</span>
                             )}
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-700">{teamTypeLabel(team.teamType)}</td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            <div>{teamTypeLabel(team.teamType)}</div>
+                            <div className="mt-1">
+                              <GenderCategoryBadge value={team.genderCategory} />
+                            </div>
+                          </td>
                           <td className="px-6 py-4 text-sm text-gray-700">
                             <div className="font-semibold">{team.members.length}</div>
                             {team.members.length > 0 && (
@@ -2605,6 +2612,12 @@ export function TournamentRegistrations() {
                       <div>
                         <div className="text-xs font-semibold text-gray-500 uppercase">Team Type</div>
                         <div className="font-semibold text-gray-900">{teamTypeLabel(selectedTeam.teamType)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-gray-500 uppercase">Category</div>
+                        <div className="mt-1">
+                          <GenderCategoryBadge value={selectedTeam.genderCategory} />
+                        </div>
                       </div>
                       <div>
                         <div className="text-xs font-semibold text-gray-500 uppercase">District</div>
