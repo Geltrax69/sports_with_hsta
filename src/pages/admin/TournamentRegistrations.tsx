@@ -927,47 +927,62 @@ export function TournamentRegistrations() {
     }
   }, [matches, registrations, winnerDistricts, districts])
 
-  const getTournamentPlayersForDistrict = (districtId: string, query = '') => {
-    const q = query.trim().toLowerCase()
-    return registrations
-      .filter((r) => r.registerAs === 'player' && r.status === 'approved' && r.applicant)
-      .filter((r) => applicantMatchesDistrict(r.applicant!.district, districtId))
-      .map((r) => ({
-        _id: r.applicant!._id,
-        fullName: r.applicant!.fullName,
-        playerId: r.applicant!.playerId || r.userId || r.applicant!._id,
-        district: r.applicant!.district,
-        profilePhoto: r.applicant!.profilePhoto,
-      }))
-      .filter((p) => {
-        if (!q) return true
-        return (
-          p.fullName.toLowerCase().includes(q) ||
-          String(p.playerId || '').toLowerCase().includes(q)
-        )
-      })
-  }
-
   const isPlayerSelected = (side: 1 | 2, playerId: string) => {
     const squad = side === 1 ? wizard.simpleMatch.team1Players : wizard.simpleMatch.team2Players
     return squad.some((player) => player._id === playerId)
   }
 
-  const loadMatchPlayersForSide = (side: 1 | 2, districtId: string, query = '') => {
-    setActiveSearchSide(side)
-    setPlayerResults(districtId ? getTournamentPlayersForDistrict(districtId, query) : [])
+  // Every player available for manual add in Create Match: approved individual
+  // registrations plus members of registered (non-rejected) teams, deduplicated.
+  const getTournamentPlayers = (query = '') => {
+    const q = query.trim().toLowerCase()
+    const seen = new Set<string>()
+    const out: Player[] = []
+    const push = (p: Player) => {
+      if (!p?._id || seen.has(p._id)) return
+      seen.add(p._id)
+      out.push(p)
+    }
+    for (const r of registrations) {
+      if (r.registerAs !== 'player' || r.status !== 'approved' || !r.applicant) continue
+      push({
+        _id: r.applicant._id,
+        fullName: r.applicant.fullName,
+        playerId: r.applicant.playerId || r.userId || r.applicant._id,
+        district: r.applicant.district,
+        profilePhoto: r.applicant.profilePhoto,
+      })
+    }
+    for (const t of teams) {
+      if (t.status === 'rejected') continue
+      for (const m of t.members || []) {
+        push({
+          _id: m._id,
+          fullName: teamMemberName(m),
+          playerId: m.playerId,
+          profilePhoto: m.profilePhoto,
+        })
+      }
+    }
+    const filtered = q
+      ? out.filter(
+          (p) =>
+            p.fullName.toLowerCase().includes(q) ||
+            p.playerId.toLowerCase().includes(q),
+        )
+      : out
+    return filtered.sort((a, b) => a.fullName.localeCompare(b.fullName))
   }
 
-  // Filter tournament-registered players for the selected district
+  const loadMatchPlayersForSide = (side: 1 | 2, query = '') => {
+    setActiveSearchSide(side)
+    setPlayerResults(getTournamentPlayers(query))
+  }
+
+  // Filter tournament players for manual add
   const handlePlayerSearch = (query: string, side: 1 | 2) => {
     setPlayerSearch(query)
-    const districtId = side === 1 ? wizard.simpleMatch.team1District : wizard.simpleMatch.team2District
-    if (!districtId) {
-      setPlayerResults([])
-      setActiveSearchSide(null)
-      return
-    }
-    loadMatchPlayersForSide(side, districtId, query)
+    loadMatchPlayersForSide(side, query)
   }
 
   // Start Create Match Wizard
@@ -1014,11 +1029,6 @@ export function TournamentRegistrations() {
   }
 
   const addPlayerToTeam = (side: 1 | 2, player: Player) => {
-    const districtId = side === 1 ? wizard.simpleMatch.team1District : wizard.simpleMatch.team2District
-    if (!districtId) {
-      alert('Please select a district first')
-      return
-    }
     const squad = side === 1 ? wizard.simpleMatch.team1Players : wizard.simpleMatch.team2Players
     if (squad.some((p) => p._id === player._id)) return
 
@@ -1219,23 +1229,13 @@ export function TournamentRegistrations() {
     }))
   }
 
-  // District teams registered for this tournament, for one match side.
-  const teamsForMatchDistrict = (districtId: string): Team[] => {
-    if (!districtId) return []
-    const meta = getDistrictById(districtId)
-    const keys = new Set(
-      [districtId, meta?.id, meta?.code, meta?.name]
-        .filter(Boolean)
-        .map((s) => String(s).toLowerCase()),
-    )
-    return teams.filter((t) => {
-      const d = t.district
-      if (!d) return false
-      return [d._id, d.code, d.name]
-        .filter(Boolean)
-        .map((s) => String(s).toLowerCase())
-        .some((v) => keys.has(v))
-    })
+  // Registered (non-rejected) teams for this tournament, for the Create Match
+  // team picker. The other side's pick is excluded so a team can't face itself.
+  const matchRegisteredTeams = (side: 1 | 2): Team[] => {
+    const otherPick = matchTeamSel[side === 1 ? 2 : 1]
+    return teams
+      .filter((t) => t.status !== 'rejected' && t._id !== otherPick)
+      .sort((a, b) => a.name.localeCompare(b.name))
   }
 
   // Load a registered team's members into the match squad: first N as the
@@ -1267,44 +1267,34 @@ export function TournamentRegistrations() {
     }))
   }
 
+  // Picking a registered team sets the side's team name and district from the
+  // team and loads its players into the squad; clearing the pick resets the
+  // side. The admin can then rearrange playing / subs and set jersey numbers
+  // and positions before saving.
   const handleMatchTeamSelect = (side: 1 | 2, teamId: string) => {
     setMatchTeamSel((prev) => ({ ...prev, [side]: teamId }))
-    if (!teamId) return
-    const team = teams.find((t) => t._id === teamId)
-    if (team) loadTeamSquad(side, team)
-  }
-
-  const setTeamDistrict = (side: 1 | 2, districtId: string) => {
-    const district = getDistrictById(districtId)
-    const districtTeams = teamsForMatchDistrict(districtId)
+    const team = teamId ? teams.find((t) => t._id === teamId) : undefined
     setWizard((prev) => ({
       ...prev,
       simpleMatch: {
         ...prev.simpleMatch,
         ...(side === 1
           ? {
-              team1District: districtId,
-              team1Name: district?.name || prev.simpleMatch.team1Name,
+              team1Name: team?.name || 'Team A',
+              team1District: team?.district?.code || team?.district?.name || '',
               team1Players: [],
             }
           : {
-              team2District: districtId,
-              team2Name: district?.name || prev.simpleMatch.team2Name,
+              team2Name: team?.name || 'Team B',
+              team2District: team?.district?.code || team?.district?.name || '',
               team2Players: [],
             }),
       },
     }))
-    // If the district has exactly one registered team, connect it straight
-    // away; otherwise let the admin pick from the team dropdown.
-    if (districtTeams.length === 1) {
-      setMatchTeamSel((prev) => ({ ...prev, [side]: districtTeams[0]._id }))
-      loadTeamSquad(side, districtTeams[0])
-    } else {
-      setMatchTeamSel((prev) => ({ ...prev, [side]: '' }))
-    }
     setPlayerSearch('')
-    if (districtId) {
-      loadMatchPlayersForSide(side, districtId, '')
+    if (team) {
+      loadTeamSquad(side, team)
+      loadMatchPlayersForSide(side, '')
     } else {
       setPlayerResults([])
       setActiveSearchSide(null)
@@ -1368,12 +1358,12 @@ export function TournamentRegistrations() {
       alert('Please enter a match title')
       return
     }
-    if (!wizard.simpleMatch.team1Name.trim() || !wizard.simpleMatch.team2Name.trim()) {
-      alert('Team names are required')
+    if (!matchTeamSel[1] || !matchTeamSel[2]) {
+      alert('Please select a registered team for both sides')
       return
     }
-    if (!wizard.simpleMatch.team1District || !wizard.simpleMatch.team2District) {
-      alert('Please select a district for both teams')
+    if (!wizard.simpleMatch.team1Name.trim() || !wizard.simpleMatch.team2Name.trim()) {
+      alert('Team names are required')
       return
     }
 
@@ -1923,72 +1913,24 @@ export function TournamentRegistrations() {
                 </h3>
 
                 <div className="mb-4">
-                  <label className="block text-xs font-bold uppercase text-blue-800 mb-1">District</label>
+                  <label className="block text-xs font-bold uppercase text-blue-800 mb-1">Registered Team</label>
                   <select
-                    value={wizard.simpleMatch.team1District}
-                    onChange={(e) => setTeamDistrict(1, e.target.value)}
+                    value={matchTeamSel[1]}
+                    onChange={(e) => handleMatchTeamSelect(1, e.target.value)}
                     className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-gray-900"
                   >
-                    <option value="">Select district</option>
-                    {availableDistrictsForMatch.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
+                    <option value="">Select team…</option>
+                    {matchRegisteredTeams(1).map((t) => (
+                      <option key={t._id} value={t._id}>
+                        {t.name} · {teamTypeLabel(t.teamType)} ({(t.members || []).length} players)
                       </option>
                     ))}
                   </select>
-                </div>
-{wizard.simpleMatch.team2District && teamsForMatchDistrict(wizard.simpleMatch.team2District).length > 0 && (
-                  <div className="mb-4">
-                    <label className="block text-xs font-bold uppercase text-orange-800 mb-1">Registered Team</label>
-                    <select
-                      value={matchTeamSel[2]}
-                      onChange={(e) => handleMatchTeamSelect(2, e.target.value)}
-                      className="w-full px-3 py-2 border-2 border-orange-200 focus:border-orange-500 rounded-lg focus:outline-none bg-white text-gray-900"
-                    >
-                      <option value="">Select team…</option>
-                      {teamsForMatchDistrict(wizard.simpleMatch.team2District).map((t) => (
-                        <option key={t._id} value={t._id}>
-                          {t.name} · {teamTypeLabel(t.teamType)} ({(t.members || []).length} players)
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-1 text-[11px] text-orange-700">
-                      Pick a team to load its players — then set playing / subs below.
-                    </p>
-                  </div>
-                )}
-{wizard.simpleMatch.team1District && teamsForMatchDistrict(wizard.simpleMatch.team1District).length > 0 && (
-                  <div className="mb-4">
-                    <label className="block text-xs font-bold uppercase text-blue-800 mb-1">Registered Team</label>
-                    <select
-                      value={matchTeamSel[1]}
-                      onChange={(e) => handleMatchTeamSelect(1, e.target.value)}
-                      className="w-full px-3 py-2 border-2 border-blue-200 focus:border-blue-500 rounded-lg focus:outline-none bg-white text-gray-900"
-                    >
-                      <option value="">Select team…</option>
-                      {teamsForMatchDistrict(wizard.simpleMatch.team1District).map((t) => (
-                        <option key={t._id} value={t._id}>
-                          {t.name} · {teamTypeLabel(t.teamType)} ({(t.members || []).length} players)
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-1 text-[11px] text-blue-700">
-                      Pick a team to load its players — then set playing / subs below.
-                    </p>
-                  </div>
-                )}
-
-                <div className="mb-4">
-                  <label className="block text-xs font-bold uppercase text-blue-800 mb-1">Team Name</label>
-                  <input
-                    type="text"
-                    value={wizard.simpleMatch.team1Name}
-                    onChange={(e) => setWizard(prev => ({
-                      ...prev,
-                      simpleMatch: { ...prev.simpleMatch, team1Name: e.target.value }
-                    }))}
-                    className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 font-bold text-blue-900"
-                  />
+                  <p className="mt-1 text-[11px] text-blue-700">
+                    {matchTeamSel[1]
+                      ? 'Team name is taken from the registered team — adjust playing / subs below.'
+                      : 'Pick a registered team to load its players.'}
+                  </p>
                 </div>
 
                 <div className="mb-4">
@@ -2006,29 +1948,19 @@ export function TournamentRegistrations() {
                     type="text"
                     value={activeSearchSide === 1 ? playerSearch : ''}
                     onFocus={() => {
-                      if (wizard.simpleMatch.team1District) {
-                        loadMatchPlayersForSide(1, wizard.simpleMatch.team1District, playerSearch)
-                      }
+                      loadMatchPlayersForSide(1, playerSearch)
                     }}
                     onChange={(e) => handlePlayerSearch(e.target.value, 1)}
-                    placeholder={
-                      wizard.simpleMatch.team1District
-                        ? 'Filter tournament players (optional)…'
-                        : 'Select district first'
-                    }
-                    disabled={!wizard.simpleMatch.team1District}
-                    className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-gray-900 disabled:bg-gray-100"
+                    placeholder="Search tournament players to add…"
+                    className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-gray-900"
                   />
-                  {wizard.simpleMatch.team1District && (() => {
-                    const available = getTournamentPlayersForDistrict(
-                      wizard.simpleMatch.team1District,
-                      activeSearchSide === 1 ? playerSearch : '',
-                    )
+                  {activeSearchSide === 1 && (() => {
+                    const available = getTournamentPlayers(activeSearchSide === 1 ? playerSearch : '')
                     return (
                     <div className="mt-2 bg-white rounded-lg shadow-lg border border-gray-200 max-h-48 overflow-y-auto">
                         {available.length === 0 ? (
                           <p className="px-3 py-4 text-xs text-blue-700 italic text-center">
-                            No approved players registered for this district in this tournament.
+                            No players found in this tournament.
                           </p>
                         ) : (
                           available.map((pl) => {
@@ -2190,32 +2122,24 @@ export function TournamentRegistrations() {
                 </h3>
 
                 <div className="mb-4">
-                  <label className="block text-xs font-bold uppercase text-orange-800 mb-1">District</label>
+                  <label className="block text-xs font-bold uppercase text-orange-800 mb-1">Registered Team</label>
                   <select
-                    value={wizard.simpleMatch.team2District}
-                    onChange={(e) => setTeamDistrict(2, e.target.value)}
+                    value={matchTeamSel[2]}
+                    onChange={(e) => handleMatchTeamSelect(2, e.target.value)}
                     className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg focus:outline-none focus:border-orange-500 bg-white text-gray-900"
                   >
-                    <option value="">Select district</option>
-                    {availableDistrictsForMatch.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
+                    <option value="">Select team…</option>
+                    {matchRegisteredTeams(2).map((t) => (
+                      <option key={t._id} value={t._id}>
+                        {t.name} · {teamTypeLabel(t.teamType)} ({(t.members || []).length} players)
                       </option>
                     ))}
                   </select>
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-xs font-bold uppercase text-orange-800 mb-1">Team Name</label>
-                  <input
-                    type="text"
-                    value={wizard.simpleMatch.team2Name}
-                    onChange={(e) => setWizard(prev => ({
-                      ...prev,
-                      simpleMatch: { ...prev.simpleMatch, team2Name: e.target.value }
-                    }))}
-                    className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg focus:outline-none focus:border-orange-500 font-bold text-orange-900"
-                  />
+                  <p className="mt-1 text-[11px] text-orange-700">
+                    {matchTeamSel[2]
+                      ? 'Team name is taken from the registered team — adjust playing / subs below.'
+                      : 'Pick a registered team to load its players.'}
+                  </p>
                 </div>
 
                 <div className="mb-4">
@@ -2233,29 +2157,19 @@ export function TournamentRegistrations() {
                     type="text"
                     value={activeSearchSide === 2 ? playerSearch : ''}
                     onFocus={() => {
-                      if (wizard.simpleMatch.team2District) {
-                        loadMatchPlayersForSide(2, wizard.simpleMatch.team2District, playerSearch)
-                      }
+                      loadMatchPlayersForSide(2, playerSearch)
                     }}
                     onChange={(e) => handlePlayerSearch(e.target.value, 2)}
-                    placeholder={
-                      wizard.simpleMatch.team2District
-                        ? 'Filter tournament players (optional)…'
-                        : 'Select district first'
-                    }
-                    disabled={!wizard.simpleMatch.team2District}
-                    className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg focus:outline-none focus:border-orange-500 bg-white text-gray-900 disabled:bg-gray-100"
+                    placeholder="Search tournament players to add…"
+                    className="w-full px-3 py-2 border-2 border-orange-200 rounded-lg focus:outline-none focus:border-orange-500 bg-white text-gray-900"
                   />
-                  {wizard.simpleMatch.team2District && (() => {
-                    const available = getTournamentPlayersForDistrict(
-                      wizard.simpleMatch.team2District,
-                      activeSearchSide === 2 ? playerSearch : '',
-                    )
+                  {activeSearchSide === 2 && (() => {
+                    const available = getTournamentPlayers(activeSearchSide === 2 ? playerSearch : '')
                     return (
                       <div className="mt-2 bg-white rounded-lg shadow-lg border border-gray-200 max-h-48 overflow-y-auto">
                         {available.length === 0 ? (
                           <p className="px-3 py-4 text-xs text-orange-700 italic text-center">
-                            No approved players registered for this district in this tournament.
+                            No players found in this tournament.
                           </p>
                         ) : (
                           available.map((pl) => {
