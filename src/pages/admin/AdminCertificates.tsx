@@ -15,6 +15,14 @@ export function AdminCertificates() {
     const [loadingParticipants, setLoadingParticipants] = useState(false)
     const [participantTab, setParticipantTab] = useState<'all' | '1st' | '2nd' | '3rd' | 'participation' | 'player' | 'coach' | 'referee'>('all')
     const [winners, setTournamentWinners] = useState<{ first: string[], second: string[], third: string[] }>({ first: [], second: [], third: [] })
+
+    // Winners are stored as { role, refId, name, district } entries — the
+    // playable id is refId (w._id is only the subdocument's own id).
+    const winnerRefIds = (list: any): string[] =>
+        (Array.isArray(list) ? list : [])
+            .map((w: any) => (typeof w === 'string' ? w : w?.refId || w?._id || ''))
+            .filter(Boolean)
+            .map(String)
     const [position, setPosition] = useState<string>('1st Place')
     const [eventType, setEventType] = useState<string>('Regu')
     const [certificateIds, setCertificateIds] = useState<Record<string, string>>({})
@@ -290,9 +298,9 @@ export function AdminCertificates() {
                 // Set winners
                 if (tournament.winners) {
                     setTournamentWinners({
-                        first: Array.isArray(tournament.winners.first) ? tournament.winners.first.map((w: any) => typeof w === 'string' ? w : w._id) : [],
-                        second: Array.isArray(tournament.winners.second) ? tournament.winners.second.map((w: any) => typeof w === 'string' ? w : w._id) : [],
-                        third: Array.isArray(tournament.winners.third) ? tournament.winners.third.map((w: any) => typeof w === 'string' ? w : w._id) : []
+                        first: winnerRefIds(tournament.winners.first),
+                        second: winnerRefIds(tournament.winners.second),
+                        third: winnerRefIds(tournament.winners.third)
                     })
                 } else {
                     setTournamentWinners({ first: [], second: [], third: [] })
@@ -304,9 +312,9 @@ export function AdminCertificates() {
                         const res = await apiRequest<{ tournament: any }>(`/admin/tournaments/${tournamentId}`, { auth: true })
                         if (res.tournament?.winners) {
                             setTournamentWinners({
-                                first: Array.isArray(res.tournament.winners.first) ? res.tournament.winners.first.map((w: any) => typeof w === 'string' ? w : w._id) : [],
-                                second: Array.isArray(res.tournament.winners.second) ? res.tournament.winners.second.map((w: any) => typeof w === 'string' ? w : w._id) : [],
-                                third: Array.isArray(res.tournament.winners.third) ? res.tournament.winners.third.map((w: any) => typeof w === 'string' ? w : w._id) : []
+                                first: winnerRefIds(res.tournament.winners.first),
+                                second: winnerRefIds(res.tournament.winners.second),
+                                third: winnerRefIds(res.tournament.winners.third)
                             })
                         }
                     } catch (err) {
@@ -339,6 +347,51 @@ export function AdminCertificates() {
                     role: reg.registerAs,
                     registrationId: reg._id
                 }))
+
+            // Team-registered players (district teams): the main squad source
+            // for team tournaments. Merged in, deduped by player id, with the
+            // team name attached so the winners tabs show who won with which
+            // team. Full player details come from the team members populate.
+            try {
+                const teamRes = await apiRequest<{ teams: any[] }>(
+                    `/admin/teams?tournamentId=${tournamentId}`,
+                    { auth: true }
+                )
+                const byId = new Map(participantsList.map((p: any) => [String(p._id), p]))
+                for (const t of teamRes.teams || []) {
+                    if (t.status === 'rejected') continue
+                    const teamName = t.name || ''
+                    for (const m of t.members || []) {
+                        if (!m?._id) continue
+                        const id = String(m._id)
+                        const existing = byId.get(id)
+                        if (existing) {
+                            if (!existing.teamName && teamName) existing.teamName = teamName
+                            continue
+                        }
+                        const p = {
+                            _id: m._id,
+                            fullName: m.fullName || m.name || '',
+                            playerId: m.playerId || '',
+                            gender: m.gender || '',
+                            profilePhoto: m.profilePhoto || '',
+                            fatherName: m.fatherName || '',
+                            motherName: m.motherName || '',
+                            aadhaarNumber: m.aadhaarNumber || '',
+                            dateOfBirth: m.dateOfBirth || '',
+                            district: m.district || t.district?.name || t.district?.code || '',
+                            role: 'player',
+                            teamName,
+                            teamId: t._id,
+                            registrationId: `team:${t._id}`
+                        }
+                        byId.set(id, p)
+                        participantsList.push(p)
+                    }
+                }
+            } catch (teamErr) {
+                console.error('Error fetching tournament teams:', teamErr)
+            }
 
             setParticipants(participantsList)
             setCertificateIds(
@@ -590,6 +643,7 @@ export function AdminCertificates() {
                                                         <div className="flex-1 min-w-0">
                                                             <div className="font-medium text-gray-900 truncate">{participant.fullName}</div>
                                                             <div className="text-xs text-gray-500 capitalize">{participant.role}</div>
+                                                            {participant.teamName && <div className="text-xs text-purple-600 font-medium truncate">{participant.teamName}</div>}
                                                             {participant.district && <div className="text-xs text-gray-400 truncate">{participant.district}</div>}
                                                             <div className="mt-2">
                                                                 <label className="block text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-1">
