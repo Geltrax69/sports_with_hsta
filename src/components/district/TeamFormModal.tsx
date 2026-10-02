@@ -3,6 +3,33 @@ import { apiRequest } from '../../lib/api'
 import { tournamentEventTypes } from '../../lib/eventFormat'
 import { GenderSegmentedControl } from '../admin/TournamentEventFields'
 import { GenderCategoryBadge } from '../GenderCategoryBadge'
+
+/** Player photo with an initials fallback when missing or failing to load. */
+function PlayerAvatar({ photo, name }: { photo?: string; name: string }) {
+  const [failed, setFailed] = useState(false)
+  const initials = name
+    .split(' ')
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+  if (!photo || failed) {
+    return (
+      <span className="w-10 h-10 rounded-full bg-[#5a0a8f]/10 text-[#5a0a8f] flex items-center justify-center text-xs font-bold flex-shrink-0">
+        {initials || '•'}
+      </span>
+    )
+  }
+  return (
+    <img
+      src={photo}
+      alt={name}
+      className="w-10 h-10 rounded-full object-cover flex-shrink-0 bg-gray-100"
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
+  )
+}
 import {
   districtApi,
   teamTypeLabel,
@@ -357,12 +384,6 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
               ) : (
                 displayPlayers.map((p) => {
                   const selected = selectedIds.includes(p._id)
-                  const initials = p.fullName
-                    .split(' ')
-                    .map((w) => w[0])
-                    .slice(0, 2)
-                    .join('')
-                    .toUpperCase()
                   return (
                     <button
                       key={p._id}
@@ -379,18 +400,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
                       >
                         <span className="material-symbols-outlined text-sm">check</span>
                       </span>
-                      {p.profilePhoto ? (
-                        <img
-                          src={p.profilePhoto}
-                          alt={p.fullName}
-                          className="w-10 h-10 rounded-full object-cover flex-shrink-0 bg-gray-100"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <span className="w-10 h-10 rounded-full bg-[#5a0a8f]/10 text-[#5a0a8f] flex items-center justify-center text-xs font-bold flex-shrink-0">
-                          {initials || '•'}
-                        </span>
-                      )}
+                      <PlayerAvatar photo={p.profilePhoto} name={p.fullName} />
                       <span className="flex-1 min-w-0">
                         <span className="block font-medium text-gray-900 truncate">{p.fullName}</span>
                         <span className="block text-xs text-gray-500">
