@@ -1,174 +1,66 @@
 import React, { useRef, useState } from 'react'
 import { API_BASE_URL, getAuthToken } from '../../lib/api'
 
-// ─── Letterhead static data (mirrors the physical letterhead) ────────────────
-const ORG_NAME    = 'Haryana Sepak Takraw Association'
-const AFFILIATION = '(Affiliated to Sepak Takraw Federation of India)'
-const PAN_NO      = 'AAFAH1161F'
-const REGD_NO     = 'SNP00749'
-const OFFICE      = 'Yash College of Education, Rurkee, Rohtak, Haryana-124401'
-const EMAIL1      = 'haryanasepaktakrawassociation@gmail.com'
-const EMAIL2      = 'shamsher.saroha@gmail.com'
+// Overlay positions in PDF points (preview renders 1pt = 1px).
+// Keep in sync with back/src/utils/generateLetterheadPdf.js (LH).
+const LH = {
+  baseline: 216.4, fieldSize: 12, refX: 68, dateX: 484, dotsX: 478.7, dotsW: 96, paper: '#FBFBFB',
+  bodyX: 50, bodyY: 240, bodyW: 495, bodyBottom: 700,
+  sigX: 395, sigW: 150, sigY: 715, sigH: 55,
+}
 
-const PRESIDENT   = { title: 'President',         name: 'NIKHIL MADAAN',    lines: ['MLA, Sonepat', '9990499993'] }
-const TREASURER   = { title: 'Treasurer',          name: 'SHAILENDER SINGH', lines: ['9468155471'] }
-const GEN_SEC     = { title: 'General Secretary',  name: 'SHAMSHER SINGH',   lines: ['9255282117', '7015742935'] }
+// yyyy-mm-dd (from <input type="date">) → dd-mm-yyyy
+const formatDate = (iso: string) => iso ? iso.split('-').reverse().join('-') : ''
 
-const SIDEBAR = [
-  { role: 'Vice-President',   names: ['SURENDER HOODA', 'PRITAM SIWACH'] },
-  { role: 'Joint Secretary',  names: ['SHUBHAM SAROHA', 'MURTI DEVI'] },
-  { role: 'Executive Member', names: ['BHARAT', 'SUNIL', 'SHIVANI', 'ASHOK KUMAR'] },
-]
-
-// ─── Inline preview (HTML replica of the letterhead) ─────────────────────────
+// ─── Inline preview: scanned letterhead image with text overlaid ────────────
 function LetterheadPreview({
   refNo, dated, bodyContent, signaturePreview,
 }: {
   refNo: string; dated: string; bodyContent: string; signaturePreview: string | null
 }) {
+  const abs = (x: number, y: number, extra: React.CSSProperties = {}): React.CSSProperties =>
+    ({ position: 'absolute', left: x, top: y, ...extra })
+  const fieldTop = LH.baseline - 0.84 * LH.fieldSize
+  const fieldStyle: React.CSSProperties = {
+    fontSize: LH.fieldSize, lineHeight: `${LH.fieldSize}px`, fontWeight: 'bold', fontStyle: 'italic', whiteSpace: 'nowrap',
+  }
   return (
     <div
       id="letterhead-preview"
-      className="bg-white shadow-xl border border-gray-200 font-serif"
-      style={{ width: '595px', minHeight: '842px', fontSize: '10px', position: 'relative' }}
+      className="shadow-xl border border-gray-200 shrink-0"
+      style={{
+        width: 595, height: 842, position: 'relative', overflow: 'hidden',
+        fontFamily: '"Times New Roman", Times, serif', color: '#000',
+        backgroundImage: `url(${import.meta.env.BASE_URL}assets/images/letterhead.jpg)`,
+        backgroundSize: '100% 100%',
+      }}
     >
-      {/* ── Header (yellow gradient) ───────────────────────────────────────── */}
-      <div style={{
-        background: 'linear-gradient(to right, #7A4A00 0%, #9E6400 8%, #C27800 16%, #DC9200 26%, #EBA800 36%, #F7C832 48%, #FFD84F 58%, #FFF080 74%, #FFFDE7 100%)',
-        padding: '10px 20px 10px 20px',
-        display: 'flex', alignItems: 'center', gap: '16px',
-        minHeight: '100px',
-      }}>
-        {/* Logo — plain on gradient, matching physical letterhead */}
-        <img
-          src={`${import.meta.env.BASE_URL}assets/images/logo.png`}
-          alt="Logo"
-          style={{ width: '90px', height: '90px', objectFit: 'contain', flexShrink: 0 }}
-        />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: '26px', fontWeight: 'bold', color: '#8B0000', lineHeight: 1.1 }}>
-            {ORG_NAME}
-          </div>
-          {/* Affiliation: italic only, not bold — matches physical */}
-          <div style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: '12px', fontStyle: 'italic', fontWeight: 'normal', color: '#111', marginTop: '5px' }}>
-            {AFFILIATION}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '7px', fontFamily: 'Arial, Helvetica, sans-serif' }}>
-            <span style={{ fontWeight: 'bold', fontSize: '10px', color: '#111' }}>PAN No. {PAN_NO}</span>
-            <span style={{ fontWeight: 'bold', fontSize: '10px', color: '#111' }}>Regd. No. {REGD_NO}</span>
-          </div>
-        </div>
+      {/* line-height = font-size puts the Times baseline ~0.84em below the top */}
+      <div style={abs(LH.refX, fieldTop, fieldStyle)}>{refNo}</div>
+      {dated && (
+        <>
+          {/* mask the printed dots (they sit on the baseline only) */}
+          <div style={abs(LH.dotsX, LH.baseline - 3, { width: LH.dotsW, height: 5, background: LH.paper })} />
+          <div style={abs(LH.dateX, fieldTop, fieldStyle)}>{formatDate(dated)}</div>
+        </>
+      )}
+
+      <div style={abs(LH.bodyX, LH.bodyY, {
+        width: LH.bodyW, height: LH.bodyBottom - LH.bodyY, overflow: 'hidden',
+        fontSize: 12, fontWeight: 'bold', lineHeight: '17px', whiteSpace: 'pre-wrap', textAlign: 'justify',
+      })}>
+        {bodyContent || <span style={{ color: '#999' }}>Letter body will appear here…</span>}
       </div>
 
-      {/* ── Address bar ────────────────────────────────────────────────────── */}
-      <div style={{
-        background: '#FFF59D', padding: '5px 20px',
-        borderTop: '1.5px solid #C8A000', borderBottom: '1.5px solid #C8A000',
-        fontFamily: 'Arial, Helvetica, sans-serif',
-      }}>
-        <div style={{ fontSize: '8.5px', display: 'flex', gap: '6px' }}>
-          <span style={{ fontWeight: 'bold', flexShrink: 0 }}>H. Office :</span>
-          <span>{OFFICE}</span>
-        </div>
-        {/* Emails on separate lines, indented to align under address — matches physical */}
-        <div style={{ fontSize: '8.5px', display: 'flex', gap: '6px', marginTop: '1px' }}>
-          <span style={{ fontWeight: 'bold', flexShrink: 0 }}>Email :</span>
-          <div>
-            <div>{EMAIL1}</div>
-            <div>{EMAIL2}</div>
-          </div>
-        </div>
+      <div style={abs(LH.sigX, LH.sigY, { width: LH.sigW, height: LH.sigH, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' })}>
+        {signaturePreview && <img src={signaturePreview} alt="Signature" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />}
       </div>
-
-      {/* ── Officials row ──────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
-        borderBottom: '1.5px solid #000', fontFamily: 'Arial, sans-serif',
-      }}>
-        {[PRESIDENT, TREASURER, GEN_SEC].map((off, i) => (
-          <div key={i} style={{
-            padding: '6px 8px 6px 8px',
-            borderRight: i < 2 ? '0.5px solid #aaa' : undefined,
-            textAlign: i === 1 ? 'center' : i === 2 ? 'right' : 'left',
-          }}>
-            <div style={{ fontSize: '8px', fontWeight: 'bold', color: '#222' }}>{off.title} :</div>
-            <div style={{ fontSize: '10.5px', fontWeight: 'bold', color: '#8B0000', marginTop: '2px' }}>{off.name}</div>
-            {off.lines.map((l, li) => (
-              <div key={li} style={{ fontSize: '8px', color: '#444', marginTop: '1px' }}>{l}</div>
-            ))}
-          </div>
-        ))}
+      <div style={abs(LH.sigX, LH.sigY + LH.sigH + 4, {
+        width: LH.sigW, borderTop: '0.5px solid #000', paddingTop: 3,
+        fontSize: 10, fontWeight: 'bold', textAlign: 'center',
+      })}>
+        Authorised Signatory
       </div>
-
-      {/* ── Body (sidebar + content) ───────────────────────────────────────── */}
-      <div style={{ display: 'flex', minHeight: '540px', fontFamily: 'Arial, sans-serif' }}>
-        {/* Sidebar */}
-        <div style={{ width: '115px', borderRight: '0.8px solid #555', padding: '10px 6px', flexShrink: 0 }}>
-          {SIDEBAR.map((block, bi) => (
-            <div key={bi} style={{ marginBottom: '14px' }}>
-              <div style={{ fontSize: '7.5px', fontWeight: 'bold', color: '#222', marginBottom: '4px' }}>
-                {block.role} :
-              </div>
-              {block.names.map((n, ni) => (
-                <div key={ni} style={{ fontSize: '8.5px', fontWeight: 'bold', color: '#8B0000', marginBottom: '3px' }}>
-                  {n}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-
-        {/* Content */}
-        <div style={{ flex: 1, padding: '10px 14px 10px 10px', position: 'relative', minHeight: '480px' }}>
-          {/* Ref. No. + Dated row */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '18px' }}>
-            <div style={{ fontSize: '9px', fontStyle: 'italic' }}>
-              Ref. No.&nbsp;
-              <span style={{ display: 'inline-block', borderBottom: '0.5px solid #000', minWidth: '90px', color: '#000' }}>
-                {refNo || ' '}
-              </span>
-            </div>
-            <div style={{ fontSize: '9px', fontStyle: 'italic' }}>
-              Dated&nbsp;
-              <span style={{ display: 'inline-block', borderBottom: '0.5px solid #000', minWidth: '110px', color: '#000' }}>
-                {dated || ' '}
-              </span>
-            </div>
-          </div>
-
-          {/* Letter body */}
-          <div style={{
-            fontSize: '10px', lineHeight: '1.6', whiteSpace: 'pre-wrap',
-            color: '#111', textAlign: 'justify',
-          }}>
-            {bodyContent || <span style={{ color: '#aaa' }}>Letter body will appear here…</span>}
-          </div>
-
-          {/* Signature — bottom right */}
-          <div style={{
-            position: 'absolute', bottom: '12px', right: '14px',
-            display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
-          }}>
-            {signaturePreview && (
-              <img
-                src={signaturePreview}
-                alt="Signature"
-                style={{ maxHeight: '55px', maxWidth: '140px', marginBottom: '4px', objectFit: 'contain' }}
-              />
-            )}
-            <div style={{
-              borderTop: '0.5px solid #000', width: '160px',
-              paddingTop: '3px', fontSize: '8px', textAlign: 'center',
-            }}>
-              Authorised Signatory
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Bottom border lines ────────────────────────────────────────────── */}
-      <div style={{ height: '1px', background: '#E8A800', marginTop: '16px' }} />
-      <div style={{ height: '1px', background: '#8B0000', marginTop: '3px' }} />
     </div>
   )
 }
@@ -202,13 +94,14 @@ export function LetterheadPage() {
     if (sigInputRef.current) sigInputRef.current.value = ''
   }
 
-  const handleDownload = async () => {
+  // mode 'download' saves the file; 'print' opens the browser print dialog on the PDF.
+  const generatePdf = async (mode: 'download' | 'print') => {
     setLoading(true)
     setError('')
     try {
       const formData = new FormData()
       formData.append('refNo',       refNo)
-      formData.append('dated',       dated)
+      formData.append('dated',       formatDate(dated))
       formData.append('bodyContent', bodyContent)
       if (sigFile) formData.append('signature', sigFile)
 
@@ -224,8 +117,17 @@ export function LetterheadPage() {
         throw new Error(data?.error || `Server error ${res.status}`)
       }
 
-      const blob = await res.blob()
-      const url  = URL.createObjectURL(blob)
+      const url = URL.createObjectURL(await res.blob())
+      if (mode === 'print') {
+        const frame = document.createElement('iframe')
+        frame.style.display = 'none'
+        frame.src = url
+        frame.onload = () => frame.contentWindow?.print()
+        document.body.appendChild(frame)
+        // ponytail: frame + URL kept for the print dialog's lifetime; freed after a minute
+        setTimeout(() => { frame.remove(); URL.revokeObjectURL(url) }, 60_000)
+        return
+      }
       const a    = document.createElement('a')
       a.href     = url
       a.download = 'HSTA_Letterhead.pdf'
@@ -336,25 +238,30 @@ export function LetterheadPage() {
             </div>
           )}
 
-          {/* Download button */}
-          <button
-            type="button"
-            onClick={handleDownload}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2 bg-[#5a0a8f] hover:bg-[#400466] disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-purple-900/20 transition-all text-sm"
-          >
-            {loading ? (
-              <>
-                <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
-                Generating PDF…
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined text-[18px]">download</span>
-                Download Letterhead PDF
-              </>
-            )}
-          </button>
+          {/* Download / Print */}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => generatePdf('download')}
+              disabled={loading}
+              className="flex items-center justify-center gap-2 bg-[#5a0a8f] hover:bg-[#400466] disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-purple-900/20 transition-all text-sm"
+            >
+              <span className={`material-symbols-outlined text-[18px] ${loading ? 'animate-spin' : ''}`}>{loading ? 'progress_activity' : 'download'}</span>
+              {loading ? 'Generating PDF…' : 'Download PDF'}
+            </button>
+            <button
+              type="button"
+              onClick={() => generatePdf('print')}
+              disabled={loading}
+              className="flex items-center justify-center gap-2 border-2 border-[#5a0a8f] text-[#5a0a8f] hover:bg-purple-50 disabled:opacity-60 disabled:cursor-not-allowed font-bold py-3 px-6 rounded-xl transition-all text-sm"
+            >
+              {/* ponytail: inline SVG — "print" isn't in the self-hosted icon font subset */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M19 8H5a3 3 0 0 0-3 3v6h4v4h12v-4h4v-6a3 3 0 0 0-3-3zm-3 11H8v-5h8v5zm3-7a1 1 0 1 1 0-2 1 1 0 0 1 0 2zM18 3H6v4h12V3z"/>
+              </svg>
+              Print
+            </button>
+          </div>
         </div>
 
         {/* ── Right: live preview ───────────────────────────────────────────── */}
