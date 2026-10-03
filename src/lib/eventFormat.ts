@@ -44,3 +44,18 @@ export const roundsForEvent = (eventType?: string) => ROUNDS_PER_EVENT[normalize
 /** Round names for a match, e.g. quad -> ['Quad 1', 'Quad 2', 'Quad 3'] */
 export const roundNamesForEvent = (eventType?: string) =>
   Array.from({ length: roundsForEvent(eventType) }, (_, i) => `${eventTypeLabel(eventType)} ${i + 1}`)
+
+// Sepak takraw set rule (mirrors the scoreboard's Go setWon): first to 15 wins,
+// but once both teams reach 14-14 (deuce) the set goes to whoever hits 17 first.
+export const SET_TARGET = 15
+export const SET_DEUCE_AT = 14
+export const SET_CAP = 17
+
+export const isDeuce = (a: number, b: number) => a >= SET_DEUCE_AT && b >= SET_DEUCE_AT
+
+export const setWinnerByRule = (a: number, b: number): 'team1' | 'team2' | null => {
+  const won = (x: number, y: number) => x >= SET_CAP || (x >= SET_TARGET && y < SET_DEUCE_AT)
+  if (won(a, b)) return 'team1'
+  if (won(b, a)) return 'team2'
+  return null
+}

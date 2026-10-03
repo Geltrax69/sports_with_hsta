@@ -21,3 +21,15 @@ assert.deepEqual(reconciled[0], saved[0])
 assert.equal(reconciled[2].reguName, 'Quad 3')
 
 console.log('eventFormat (web): all checks passed')
+
+// Set rule: 15 wins before deuce; after 14-14 first to 17.
+import { setWinnerByRule, isDeuce } from '../src/lib/eventFormat'
+assert.equal(setWinnerByRule(15, 13), 'team1')
+assert.equal(setWinnerByRule(13, 15), 'team2')
+assert.equal(setWinnerByRule(15, 14), null)
+assert.equal(setWinnerByRule(16, 14), null)
+assert.equal(setWinnerByRule(17, 16), 'team1')
+assert.equal(setWinnerByRule(14, 17), 'team2')
+assert.equal(isDeuce(14, 14), true)
+assert.equal(isDeuce(14, 13), false)
+console.log('eventFormat tests passed')

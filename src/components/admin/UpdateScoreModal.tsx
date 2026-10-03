@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiRequest } from '../../lib/api'
-import { eventTypeLabel, roundNamesForEvent } from '../../lib/eventFormat'
+import { eventTypeLabel, roundNamesForEvent, setWinnerByRule, isDeuce, SET_CAP } from '../../lib/eventFormat'
 
 type Tournament = {
     _id: string
@@ -746,6 +746,8 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
         const score = s === 'team1' ? activeSet.team1Score : activeSet.team2Score
         const timeouts = (s === 'team1' ? activeSet.team1Timeouts : activeSet.team2Timeouts) || []
         const subsUsed = substitutions.filter((sub) => sub.team === s && sub.reguName === roundLabel).length
+        // Set already decided by the 15 / deuce-to-17 rule → no more points.
+        const ruleWinner = setWinnerByRule(activeSet.team1Score, activeSet.team2Score)
 
         return (
             <div className="flex min-w-0 flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
@@ -772,12 +774,23 @@ export function UpdateScoreModal({ isOpen, onClose, preSelectedTournamentId, pre
                     <button
                         type="button"
                         onClick={() => updateSetPoint(s, 1)}
+                        disabled={!!ruleWinner}
                         aria-label={`Add a point for ${teamName(s)}`}
-                        className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-white shadow-sm transition-transform active:scale-95 ${side[s].solid} ${focusRing}`}
+                        className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-white shadow-sm transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 ${side[s].solid} ${focusRing}`}
                     >
                         <span className="material-symbols-outlined text-3xl">add</span>
                     </button>
                 </div>
+
+                {ruleWinner === s ? (
+                    <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
+                        {teamName(s)} has won set {activeSet.setNumber} — award it below.
+                    </p>
+                ) : !ruleWinner && isDeuce(activeSet.team1Score, activeSet.team2Score) ? (
+                    <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                        Deuce — first to {SET_CAP} wins the set.
+                    </p>
+                ) : null}
 
                 <div className="flex flex-wrap items-center gap-2">
                     {confirmable(`set:${s}`, () => declareSetWinner(s), {
