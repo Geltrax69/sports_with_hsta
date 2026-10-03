@@ -204,6 +204,7 @@ type Team = {
   genderCategory?: 'male' | 'female' | 'both'
   status?: 'pending' | 'approved' | 'rejected'
   district?: { _id: string; code: string; name: string } | null
+  createdByModel?: 'Admin' | 'District'
   createdAt?: string
   members: {
     _id: string
@@ -1150,7 +1151,9 @@ export function TournamentRegistrations() {
   }, [matches])
 
   const registeredTeams = useMemo(
-    () => teams.filter((t) => !matchSnapshotTeamIds.has(t._id)),
+    // Older matches saved admin-made squad copies; hide those. District
+    // registrations stay listed even when a match references them.
+    () => teams.filter((t) => t.createdByModel === 'District' || !matchSnapshotTeamIds.has(t._id)),
     [teams, matchSnapshotTeamIds],
   )
 
@@ -1313,38 +1316,15 @@ export function TournamentRegistrations() {
 
     setSavingMatch(true)
     try {
-      // 1. Create Team 1
-      const team1Res = await apiRequest<{ team: Team }>(`/admin/teams`, {
-        method: 'POST',
-        auth: true,
-        body: JSON.stringify({
-          tournamentId,
-          name: wizard.simpleMatch.team1Name,
-          maxMembers: 50, // Default generous limit
-          memberIds: wizard.simpleMatch.team1Players.map(p => p._id),
-        }),
-      })
-
-      // 2. Create Team 2
-      const team2Res = await apiRequest<{ team: Team }>(`/admin/teams`, {
-        method: 'POST',
-        auth: true,
-        body: JSON.stringify({
-          tournamentId,
-          name: wizard.simpleMatch.team2Name,
-          maxMembers: 50,
-          memberIds: wizard.simpleMatch.team2Players.map(p => p._id),
-        }),
-      })
-
-      // 3. Create Match with all new fields
+      // The match references the registered teams directly (no per-match team
+      // copies); the chosen squad is stored on the match as team1/team2Players.
       await apiRequest<{ match: Match }>(`/admin/matches`, {
         method: 'POST',
         auth: true,
         body: JSON.stringify({
           tournamentId,
-          team1: team1Res.team._id,
-          team2: team2Res.team._id,
+          team1: matchTeamSel[1],
+          team2: matchTeamSel[2],
           eventType: matchEventType,
           matchNo: wizard.simpleMatch.matchNo || '',
           round: wizard.simpleMatch.round || '',
