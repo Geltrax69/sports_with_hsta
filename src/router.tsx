@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 
 import { Layout } from './components/Layout'
 import { MaintenanceNotice } from './components/MaintenanceNotice'
+import { RouteError } from './components/RouteErrorBoundary'
 import { AdminLayout } from './components/admin/AdminLayout'
 import { ProtectedRoute } from './components/admin/ProtectedRoute'
 import { CoachLayout } from './components/coach/CoachLayout'
@@ -112,6 +113,7 @@ export const appRouter = createBrowserRouter(
     {
       path: '/',
       element: <Layout />,
+      errorElement: <RouteError />,
       children: [
         { index: true,                             element: <SuspenseOutlet><HomePage /></SuspenseOutlet> },
         { path: 'about',                           element: <SuspenseOutlet><AboutPage /></SuspenseOutlet> },
@@ -156,6 +158,7 @@ export const appRouter = createBrowserRouter(
     {
       path: '/admin',
       element: <ProtectedRoute requiredRole="admin" />,
+      errorElement: <RouteError />,
       children: [
         {
           element: <AdminLayout />,
@@ -217,6 +220,7 @@ export const appRouter = createBrowserRouter(
     {
       path: '/player',
       element: <ProtectedRoute requiredRole="player" />,
+      errorElement: <RouteError />,
       children: [
         {
           element: <PlayerLayout />,
@@ -236,6 +240,7 @@ export const appRouter = createBrowserRouter(
     {
       path: '/coach',
       element: <ProtectedRoute requiredRole="coach" />,
+      errorElement: <RouteError />,
       children: [
         {
           element: <CoachLayout />,
@@ -255,6 +260,7 @@ export const appRouter = createBrowserRouter(
     {
       path: '/referee',
       element: <ProtectedRoute requiredRole="referee" />,
+      errorElement: <RouteError />,
       children: [
         {
           element: <RefereeLayout />,
@@ -274,6 +280,7 @@ export const appRouter = createBrowserRouter(
     {
       path: '/district',
       element: <ProtectedRoute requiredRole="district" />,
+      errorElement: <RouteError />,
       children: [
         {
           element: <DistrictLayout />,
