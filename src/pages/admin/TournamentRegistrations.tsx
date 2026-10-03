@@ -207,6 +207,7 @@ type Team = {
   coach?: { _id: string; fullName: string; coachId?: string } | null
   referee?: { _id: string; fullName: string; refereeId?: string } | null
   manager?: string
+  isDraft?: boolean // saved by the district, not confirmed yet
   createdByModel?: 'Admin' | 'District'
   createdAt?: string
   members: {
@@ -1179,7 +1180,8 @@ export function TournamentRegistrations() {
   const matchRegisteredTeams = (side: 1 | 2): Team[] => {
     const otherPick = matchTeamSel[side === 1 ? 2 : 1]
     return registeredTeams
-      .filter((t) => t.status !== 'rejected' && t._id !== otherPick)
+      // Only confirmed teams can be put into a match.
+      .filter((t) => t.status !== 'rejected' && !t.isDraft && t._id !== otherPick)
       .sort((a, b) => a.name.localeCompare(b.name))
   }
 
@@ -2534,6 +2536,11 @@ export function TournamentRegistrations() {
                             )}
                           </td>
                           <td className="px-6 py-4">
+                            {team.isDraft ? (
+                              <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800" title="Saved by the district, not confirmed yet">
+                                Draft
+                              </span>
+                            ) : (
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold capitalize ${
                                 team.status === 'approved'
@@ -2545,6 +2552,7 @@ export function TournamentRegistrations() {
                             >
                               {team.status || 'pending'}
                             </span>
+                            )}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-500">
                             {team.createdAt ? new Date(team.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}

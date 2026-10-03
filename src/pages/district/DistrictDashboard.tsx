@@ -36,6 +36,7 @@ export function DistrictDashboard() {
   }, [])
 
   const pendingTeams = teams.filter((t) => t.status === 'pending').length
+  const draftTeams = teams.filter((t) => t.isDraft).length
 
   const stats = [
     { label: 'My Teams', value: teams.length, icon: 'groups', color: 'text-[#5a0a8f]' },
@@ -54,6 +55,18 @@ export function DistrictDashboard() {
           Manage your district's teams and register them into open tournaments.
         </p>
       </div>
+
+      {draftTeams > 0 && (
+        <Link
+          to="/district/teams"
+          className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex flex-wrap items-center justify-between gap-3 hover:bg-amber-100 transition-colors"
+        >
+          <span className="text-sm text-amber-900">
+            <b>{draftTeams} saved team{draftTeams > 1 ? 's' : ''} not confirmed yet.</b> Confirm them in My Teams — full and final.
+          </span>
+          <span className="text-sm font-bold text-[#5a0a8f]">Confirm now →</span>
+        </Link>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">

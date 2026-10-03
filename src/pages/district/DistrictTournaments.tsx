@@ -44,7 +44,7 @@ export function DistrictTournaments() {
   const handleSaved = (team: DistrictTeam) => {
     savedNames.current = [...savedNames.current, `“${team.name}”`]
     const names = savedNames.current
-    setNotice(`${names.length > 1 ? 'Teams' : 'Team'} ${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0]} registered for ${team.tournament?.title || 'the tournament'}.`)
+    setNotice(`${names.length > 1 ? 'Teams' : 'Team'} ${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0]} saved for ${team.tournament?.title || 'the tournament'} — confirm in My Teams to make it final.`)
     window.setTimeout(() => setNotice(''), 5000)
   }
 

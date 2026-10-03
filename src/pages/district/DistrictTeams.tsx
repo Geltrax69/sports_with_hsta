@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { districtApi, teamTypeLabel, type DistrictTeam } from '../../lib/districtApi'
 import { TeamFormModal } from '../../components/district/TeamFormModal'
 import { GenderCategoryBadge } from '../../components/GenderCategoryBadge'
@@ -45,7 +45,46 @@ export function DistrictTeams() {
     void load()
   }, [])
 
-  const handleSaved = (team: DistrictTeam) => setTeams((prev) => [team, ...prev])
+  // Saving a slot again replaces its draft, so swap by id.
+  const handleSaved = (team: DistrictTeam) =>
+    setTeams((prev) => [team, ...prev.filter((t) => t._id !== team._id)])
+
+  // ── Confirm drafts (full and final) ─────────────────────────────────────────
+  const drafts = teams.filter((t) => t.isDraft)
+  const [confirmIds, setConfirmIds] = useState<string[] | null>(null)
+  const [confirmBusy, setConfirmBusy] = useState(false)
+  const busyRef = useRef(false) // blocks double clicks before re-render
+  const toConfirm = teams.filter((t) => confirmIds?.includes(t._id))
+
+  const confirmTeams = async () => {
+    if (!confirmIds?.length || busyRef.current) return
+    busyRef.current = true
+    setConfirmBusy(true)
+    try {
+      const res = await districtApi.confirmTeams(confirmIds)
+      const byId = new Map(res.teams.map((t) => [t._id, t]))
+      setTeams((prev) => prev.map((t) => byId.get(t._id) ?? t))
+      setConfirmIds(null)
+      setNotice(`${res.teams.length > 1 ? `${res.teams.length} teams` : `“${res.teams[0]?.name}”`} confirmed — full and final.`)
+      window.setTimeout(() => setNotice(''), 6000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to confirm. Please try again.')
+    } finally {
+      busyRef.current = false
+      setConfirmBusy(false)
+    }
+  }
+
+  const discardDraft = async (team: DistrictTeam) => {
+    if (!window.confirm(`Discard the draft “${team.name}”?`)) return
+    try {
+      await districtApi.deleteDraft(team._id)
+      setTeams((prev) => prev.filter((t) => t._id !== team._id))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to discard the draft.')
+    }
+  }
+  const [notice, setNotice] = useState('')
 
   return (
     <div>
@@ -55,7 +94,7 @@ export function DistrictTeams() {
           <p className="text-gray-600">Teams created by your district for tournament entries.</p>
           <p className="text-sm text-gray-500 mt-1 flex items-center gap-1.5">
             <span className="material-symbols-outlined text-base">lock</span>
-            Registered teams are final and can only be viewed. Contact the HSTA admin for any correction.
+            Confirmed teams are final and can only be viewed. Contact the HSTA admin for any correction.
           </p>
         </div>
         <button
@@ -66,6 +105,29 @@ export function DistrictTeams() {
           New Team
         </button>
       </div>
+
+      {notice && (
+        <div role="status" className="mb-6 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 flex items-center gap-2">
+          <span className="material-symbols-outlined text-green-600">check_circle</span>
+          {notice}
+        </div>
+      )}
+
+      {drafts.length > 0 && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm text-amber-900">
+            <b>{drafts.length} saved team{drafts.length > 1 ? 's' : ''} waiting for confirmation.</b> Teams count
+            only after you confirm them — once confirmed they're full and final.
+          </div>
+          <button
+            type="button"
+            onClick={() => setConfirmIds(drafts.map((t) => t._id))}
+            className="px-5 py-2 bg-[#5a0a8f] hover:bg-[#400466] text-white rounded-lg font-bold text-sm"
+          >
+            Review &amp; confirm {drafts.length > 1 ? `all ${drafts.length}` : ''}
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
@@ -121,9 +183,15 @@ export function DistrictTeams() {
                       <span className="text-gray-400"> / {team.maxMembers}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold capitalize ${statusStyle(team.status)}`}>
-                        {team.status}
-                      </span>
+                      {team.isDraft ? (
+                        <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                          Draft · not confirmed
+                        </span>
+                      ) : (
+                        <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold capitalize ${statusStyle(team.status)}`}>
+                          {team.status === 'approved' ? 'Confirmed' : team.status}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">{formatDate(team.createdAt)}</td>
                     <td className="px-6 py-4">
@@ -134,6 +202,22 @@ export function DistrictTeams() {
                         >
                           View
                         </button>
+                        {team.isDraft && (
+                          <>
+                            <button
+                              onClick={() => setConfirmIds([team._id])}
+                              className="text-green-700 hover:underline text-sm font-bold"
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              onClick={() => discardDraft(team)}
+                              className="text-red-600 hover:underline text-sm font-medium"
+                            >
+                              Discard
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -225,6 +309,57 @@ export function DistrictTeams() {
                   ))}
                 </ol>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Final confirmation */}
+      {confirmIds && toConfirm.length > 0 && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div role="alertdialog" aria-labelledby="confirm-final-title" className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6">
+            <h2 id="confirm-final-title" className="text-xl font-bold text-gray-900">
+              Please confirm {toConfirm.length > 1 ? `these ${toConfirm.length} teams` : 'this team'}
+            </h2>
+            <ul className="mt-4 space-y-2 text-sm text-gray-700">
+              {toConfirm.map((t) => (
+                <li key={t._id} className="p-3 bg-gray-50 rounded-lg">
+                  <div className="font-semibold text-gray-900">{t.name}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {[
+                      t.tournament?.title,
+                      `${t.members.length} players`,
+                      t.coach && `Coach: ${t.coach.fullName}`,
+                      t.referee && `Referee: ${t.referee.fullName}`,
+                      t.manager && `Manager: ${t.manager}`,
+                    ].filter(Boolean).join(' · ')}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-900">
+              <b>Full and final:</b> once confirmed, {toConfirm.length > 1 ? 'these teams' : 'this team'} can't be
+              edited, replaced or deleted for this tournament. Contact the HSTA admin for any correction.
+            </p>
+            <div className="flex items-center justify-end gap-3 mt-5">
+              <button
+                type="button"
+                onClick={() => setConfirmIds(null)}
+                disabled={confirmBusy}
+                className="px-5 py-2.5 border-2 border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmTeams}
+                disabled={confirmBusy}
+                aria-busy={confirmBusy}
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#5a0a8f] hover:bg-[#400466] disabled:opacity-60 text-white rounded-lg font-bold"
+              >
+                {confirmBusy && <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden="true" />}
+                {confirmBusy ? 'Confirming…' : 'Confirm — full and final'}
+              </button>
             </div>
           </div>
         </div>
