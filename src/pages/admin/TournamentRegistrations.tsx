@@ -205,6 +205,7 @@ type Team = {
   status?: 'pending' | 'approved' | 'rejected'
   district?: { _id: string; code: string; name: string } | null
   coach?: { _id: string; fullName: string } | null
+  manager?: string
   createdByModel?: 'Admin' | 'District'
   createdAt?: string
   members: {
@@ -1215,12 +1216,14 @@ export function TournamentRegistrations() {
               team1Players: [],
               // The district's team coach fills in; the admin can still change it.
               ...(team?.coach ? { team1Coach: { email: '', ...team.coach }, team1CoachName: team.coach.fullName } : {}),
+              ...(team?.manager ? { team1Manager: team.manager } : {}),
             }
           : {
               team2Name: team?.name || 'Team B',
               team2District: team?.district?.code || team?.district?.name || '',
               team2Players: [],
               ...(team?.coach ? { team2Coach: { email: '', ...team.coach }, team2CoachName: team.coach.fullName } : {}),
+              ...(team?.manager ? { team2Manager: team.manager } : {}),
             }),
       },
     }))

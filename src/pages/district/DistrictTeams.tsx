@@ -117,7 +117,15 @@ export function DistrictTeams() {
                   <tr key={team._id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-semibold text-gray-900">{team.name}</div>
-                      {team.coach && <div className="text-xs text-gray-500 mt-0.5">Coach: {team.coach.fullName}</div>}
+                      {(team.coach || team.referee || team.manager) && (
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {[
+                            team.coach && `Coach: ${team.coach.fullName}`,
+                            team.referee && `Referee: ${team.referee.fullName}`,
+                            team.manager && `Manager: ${team.manager}`,
+                          ].filter(Boolean).join(' · ')}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       <div>{teamTypeLabel(team.teamType)}</div>
@@ -206,6 +214,18 @@ export function DistrictTeams() {
                 <div>
                   <div className="text-xs font-semibold text-gray-500 uppercase">Tournament</div>
                   <div className="font-semibold text-gray-900">{viewingTeam.tournament?.title || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase">Referee</div>
+                  <div className="font-semibold text-gray-900">
+                    {viewingTeam.referee
+                      ? `${viewingTeam.referee.fullName}${viewingTeam.referee.refereeId ? ` (${viewingTeam.referee.refereeId})` : ''}`
+                      : '—'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase">Manager</div>
+                  <div className="font-semibold text-gray-900">{viewingTeam.manager || '—'}</div>
                 </div>
                 <div>
                   <div className="text-xs font-semibold text-gray-500 uppercase">Coach</div>
