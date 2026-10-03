@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useRouteError } from 'react-router-dom'
+import { isStaleChunkError, reloadForNewBuild } from '../lib/staleBuild'
 
 type Props = {
   children: ReactNode
@@ -20,6 +21,8 @@ export class RouteErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    // Site was updated while this tab was open: reload to get the new version.
+    if (isStaleChunkError(error) && reloadForNewBuild()) return
     console.error('[RouteErrorBoundary]', error, info.componentStack)
   }
 
@@ -37,8 +40,9 @@ export class RouteErrorBoundary extends Component<Props, State> {
               {this.props.title || 'This page could not be displayed'}
             </h2>
             <p className="text-sm text-gray-600">
-              A rendering error occurred. This is often caused by a hooks mismatch after navigation, or
-              unexpected data from the API.
+              {isStaleChunkError(this.state.error)
+                ? 'The website was updated while this page was open. Reload the page to get the latest version.'
+                : 'A rendering error occurred. This is often caused by a hooks mismatch after navigation, or unexpected data from the API.'}
             </p>
             <p className="text-xs font-mono text-red-700 bg-red-50 border border-red-100 rounded-lg p-3 break-all">
               {this.state.error.message}
@@ -72,4 +76,24 @@ export class RouteErrorBoundary extends Component<Props, State> {
 
     return this.props.children
   }
+}
+
+/** Router errorElement: same message + auto-reload for a stale build. */
+export function RouteError() {
+  const error = useRouteError() as Error
+  if (isStaleChunkError(error)) reloadForNewBuild()
+  return <RouteErrorBoundaryView error={error} />
+}
+
+function Thrower({ error }: { error: Error }): never {
+  throw error
+}
+
+// Reuse the boundary's fallback UI by rendering it in its error state.
+function RouteErrorBoundaryView({ error }: { error: Error }) {
+  return (
+    <RouteErrorBoundary>
+      <Thrower error={error} />
+    </RouteErrorBoundary>
+  )
 }

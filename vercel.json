@@ -1,18 +1,28 @@
 {
     "rewrites": [
         {
-            "source": "/(.*)",
+            "source": "/((?!static/|fonts/|assets/).*)",
             "destination": "/index.html"
         }
     ],
     "headers": [
         {
             "source": "/static/(.*)",
-            "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=31536000, immutable"
+                }
+            ]
         },
         {
             "source": "/(fonts|assets)/(.*)",
-            "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600, stale-while-revalidate=604800" }]
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=3600, stale-while-revalidate=604800"
+                }
+            ]
         }
     ]
 }
