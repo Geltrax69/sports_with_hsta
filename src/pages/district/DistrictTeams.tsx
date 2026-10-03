@@ -25,7 +25,6 @@ export function DistrictTeams() {
   const [teams, setTeams] = useState<DistrictTeam[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
-  const [editingTeam, setEditingTeam] = useState<DistrictTeam | null>(null)
   const [viewingTeam, setViewingTeam] = useState<DistrictTeam | null>(null)
   const [error, setError] = useState('')
 
@@ -46,25 +45,7 @@ export function DistrictTeams() {
     void load()
   }, [])
 
-  const handleSaved = (team: DistrictTeam) => {
-    setTeams((prev) => {
-      const exists = prev.some((t) => t._id === team._id)
-      return exists ? prev.map((t) => (t._id === team._id ? team : t)) : [team, ...prev]
-    })
-    setEditingTeam(null)
-  }
-
-  const handleDelete = async (team: DistrictTeam) => {
-    if (!window.confirm(`Delete team “${team.name}”? This cannot be undone.`)) return
-    try {
-      await districtApi.deleteTeam(team._id)
-      setTeams((prev) => prev.filter((t) => t._id !== team._id))
-    } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'Failed to delete the team.')
-    }
-  }
-
-  const editable = (team: DistrictTeam) => team.status === 'pending' || team.status === 'approved'
+  const handleSaved = (team: DistrictTeam) => setTeams((prev) => [team, ...prev])
 
   return (
     <div>
@@ -72,12 +53,13 @@ export function DistrictTeams() {
         <div>
           <h1 className="text-3xl md:text-4xl font-black text-gray-900 mb-2">My Teams</h1>
           <p className="text-gray-600">Teams created by your district for tournament entries.</p>
+          <p className="text-sm text-gray-500 mt-1 flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-base">lock</span>
+            Registered teams are final and can only be viewed. Contact the HSTA admin for any correction.
+          </p>
         </div>
         <button
-          onClick={() => {
-            setEditingTeam(null)
-            setModalOpen(true)
-          }}
+          onClick={() => setModalOpen(true)}
           className="flex items-center gap-2 bg-[#5a0a8f] hover:bg-[#400466] text-white px-5 py-2.5 rounded-lg font-bold transition-colors"
         >
           <span className="material-symbols-outlined">add</span>
@@ -152,25 +134,6 @@ export function DistrictTeams() {
                         >
                           View
                         </button>
-                        {editable(team) && (
-                          <>
-                            <button
-                              onClick={() => {
-                                setEditingTeam(team)
-                                setModalOpen(true)
-                              }}
-                              className="text-[#5a0a8f] hover:underline text-sm font-medium"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDelete(team)}
-                              className="text-red-600 hover:underline text-sm font-medium"
-                            >
-                              Delete
-                            </button>
-                          </>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -267,15 +230,7 @@ export function DistrictTeams() {
         </div>
       )}
 
-      <TeamFormModal
-        open={modalOpen}
-        editingTeam={editingTeam}
-        onClose={() => {
-          setModalOpen(false)
-          setEditingTeam(null)
-        }}
-        onSaved={handleSaved}
-      />
+      <TeamFormModal open={modalOpen} onClose={() => setModalOpen(false)} onSaved={handleSaved} />
     </div>
   )
 }

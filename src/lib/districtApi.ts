@@ -156,16 +156,4 @@ export const districtApi = {
       body: JSON.stringify(payload),
     }),
 
-  updateTeam: (
-    id: string,
-    payload: { name?: string; teamType?: TeamType; genderCategory?: GenderCategory; memberIds?: string[]; coachId?: string | null; refereeId?: string | null; manager?: string },
-  ) =>
-    apiRequest<{ team: DistrictTeam }>(`/district/teams/${id}`, {
-      method: 'PATCH',
-      auth: true,
-      body: JSON.stringify(payload),
-    }),
-
-  deleteTeam: (id: string) =>
-    apiRequest<{ success: boolean }>(`/district/teams/${id}`, { method: 'DELETE', auth: true }),
 }
