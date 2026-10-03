@@ -1,20 +1,42 @@
 import { Link } from 'react-router-dom'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useSiteContent } from '../../content/SiteContentContext'
 import type { NewsItem } from '../../content/types'
 import { apiRequest } from '../../lib/api'
 import { getSignedUrlForImage } from '../../lib/images'
 import { processImageFile } from '../../lib/imageCompression'
 
-function uid(prefix: string) {
-  return `${prefix}_${Math.random().toString(36).slice(2, 9)}_${Date.now().toString(36)}`
-}
-
 export function NewsManagement() {
   const { content, setContent } = useSiteContent()
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingNews, setEditingNews] = useState<NewsItem | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  // News now lives on the server so guests see the same articles as the admin.
+  // The local SiteContent cache is refreshed from the API on every visit.
+  useEffect(() => {
+    const controller = new AbortController()
+    setLoading(true)
+    setLoadError(null)
+    apiRequest<{ news: NewsItem[] }>('/news', { signal: controller.signal })
+      .then((res) => {
+        if (controller.signal.aborted) return
+        const news = Array.isArray(res.news) ? res.news : []
+        setContent({ ...content, news })
+        setLoading(false)
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return
+        setLoadError(err instanceof Error ? err.message : 'Failed to load news')
+        setLoading(false)
+      })
+    return () => controller.abort()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const [formData, setFormData] = useState({
     title: '',
@@ -106,7 +128,7 @@ export function NewsManagement() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!formData.imageUrl) {
@@ -114,24 +136,49 @@ export function NewsManagement() {
       return
     }
 
-    if (editingNews) {
-      setContent({
-        ...content,
-        news: content.news.map((n) => (n.id === editingNews.id ? { ...n, ...formData } : n)),
-      })
-    } else {
-      const newNews: NewsItem = {
-        id: uid('news'),
-        ...formData,
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const payload = {
+        title: formData.title,
+        badge: formData.badge,
+        date: formData.date || undefined,
+        dateText: formData.dateText,
+        excerpt: formData.excerpt,
+        article: formData.article,
+        imageUrl: formData.imageUrl,
+        pinned: formData.pinned,
+        featured: formData.featured,
       }
-      setContent({
-        ...content,
-        news: [newNews, ...content.news],
-      })
-    }
+      if (editingNews) {
+        const res = await apiRequest<{ news: NewsItem }>(`/news/${editingNews.id}`, {
+          method: 'PATCH',
+          auth: true,
+          body: JSON.stringify(payload),
+        })
+        setContent({
+          ...content,
+          news: content.news.map((n) => (n.id === editingNews.id ? res.news : n)),
+        })
+      } else {
+        const res = await apiRequest<{ news: NewsItem }>('/news', {
+          method: 'POST',
+          auth: true,
+          body: JSON.stringify(payload),
+        })
+        setContent({
+          ...content,
+          news: [res.news, ...content.news],
+        })
+      }
 
-    setShowAddModal(false)
-    setEditingNews(null)
+      setShowAddModal(false)
+      setEditingNews(null)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save news')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleDelete = async (id: string) => {
@@ -139,44 +186,62 @@ export function NewsManagement() {
       return
     }
 
-    const newsItem = content.news.find((n) => n.id === id)
-    
-    // Delete from AWS if image exists
-    if (newsItem?.imageUrl) {
-      try {
-        await apiRequest('/uploads/images', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: newsItem.imageUrl }),
-          auth: true,
-        })
-      } catch (err) {
-        console.warn('Failed to delete image from AWS:', err)
-        // Continue with deletion even if AWS delete fails
-      }
+    try {
+      // The server also removes the article's image from storage (best-effort).
+      await apiRequest(`/news/${id}`, { method: 'DELETE', auth: true })
+      setContent({
+        ...content,
+        news: content.news.filter((n) => n.id !== id),
+      })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete news')
     }
-
-    setContent({
-      ...content,
-      news: content.news.filter((n) => n.id !== id),
-    })
   }
 
-  const toggleFeatured = (id: string) => {
-    setContent({
-      ...content,
-      news: content.news.map((n) => ({
-        ...n,
-        featured: n.id === id ? !n.featured : false, // Only one can be featured
-      })),
-    })
+  const toggleFeatured = async (id: string) => {
+    const item = content.news.find((n) => n.id === id)
+    if (!item) return
+    const nextFeatured = !item.featured
+    try {
+      // Only one article is featured at a time.
+      const updates: Promise<unknown>[] = content.news
+        .filter((n) => n.featured && n.id !== id)
+        .map((n) => apiRequest(`/news/${n.id}`, { method: 'PATCH', auth: true, body: JSON.stringify({ featured: false }) }))
+      const res = await apiRequest<{ news: NewsItem }>(`/news/${id}`, {
+        method: 'PATCH',
+        auth: true,
+        body: JSON.stringify({ featured: nextFeatured }),
+      })
+      await Promise.all(updates)
+      setContent({
+        ...content,
+        news: content.news.map((n) => {
+          if (n.id === id) return res.news
+          if (n.featured && nextFeatured) return { ...n, featured: false }
+          return n
+        }),
+      })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update news')
+    }
   }
 
-  const togglePinned = (id: string) => {
-    setContent({
-      ...content,
-      news: content.news.map((n) => (n.id === id ? { ...n, pinned: !n.pinned } : n)),
-    })
+  const togglePinned = async (id: string) => {
+    const item = content.news.find((n) => n.id === id)
+    if (!item) return
+    try {
+      const res = await apiRequest<{ news: NewsItem }>(`/news/${id}`, {
+        method: 'PATCH',
+        auth: true,
+        body: JSON.stringify({ pinned: !item.pinned }),
+      })
+      setContent({
+        ...content,
+        news: content.news.map((n) => (n.id === id ? res.news : n)),
+      })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update news')
+    }
   }
 
   return (
@@ -238,7 +303,19 @@ export function NewsManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredNews.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    Loading news…
+                  </td>
+                </tr>
+              ) : loadError ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-red-600">
+                    {loadError}
+                  </td>
+                </tr>
+              ) : filteredNews.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                     No news items found. Click "Add New News" to create one.
@@ -539,11 +616,15 @@ export function NewsManagement() {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-[#5a0a8f] hover:bg-[#400466] text-white rounded-lg font-bold transition-colors"
+                  disabled={saving}
+                  className="px-6 py-2.5 bg-[#5a0a8f] hover:bg-[#400466] text-white rounded-lg font-bold transition-colors disabled:opacity-60"
                 >
-                  {editingNews ? 'Update News' : 'Add News'}
+                  {saving ? 'Saving…' : editingNews ? 'Update News' : 'Add News'}
                 </button>
               </div>
+              {saveError && (
+                <p className="text-sm font-medium text-red-600">{saveError}</p>
+              )}
             </form>
           </div>
         </div>

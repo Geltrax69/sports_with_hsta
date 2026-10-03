@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { DEFAULT_SITE_CONTENT } from './defaultContent'
 import type { NewsItem, SiteContent, TournamentItem } from './types'
+import { apiRequest } from '../lib/api'
 
 const STORAGE_KEY = 'stfi.siteContent.v1'
 
@@ -38,6 +39,27 @@ const SiteContentContext = createContext<SiteContentContextValue | null>(null)
 
 export function SiteContentProvider({ children }: { children: React.ReactNode }) {
   const [content, setContentState] = useState<SiteContent>(() => loadFromStorage())
+
+  // News is the server's system of record now: refresh from the API on every
+  // visit so guests see the same articles as the admin. The localStorage copy
+  // stays as an offline fallback only.
+  useEffect(() => {
+    const controller = new AbortController()
+    apiRequest<{ news: NewsItem[] }>('/news', { signal: controller.signal })
+      .then((res) => {
+        if (controller.signal.aborted) return
+        const news = Array.isArray(res.news) ? res.news : []
+        setContentState((prev) => {
+          const next = { ...prev, news }
+          saveToStorage(next)
+          return next
+        })
+      })
+      .catch(() => {
+        // Offline or server error: keep the cached copy.
+      })
+    return () => controller.abort()
+  }, [])
 
   const setContent = useCallback((next: SiteContent) => {
     setContentState(next)
