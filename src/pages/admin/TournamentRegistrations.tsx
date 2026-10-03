@@ -423,6 +423,11 @@ export function TournamentRegistrations() {
 
   const teamMemberName = (m: Team['members'][number]) => m.fullName || m.name || '—'
 
+  // Teams tab filters: event (Regu / Doubles / Quad) and category.
+  const [teamEventTab, setTeamEventTab] = useState<'all' | EventType>('all')
+  const [teamGenderTab, setTeamGenderTab] = useState<'all' | 'male' | 'female' | 'mixed'>('all')
+  const teamGender = (t: Team) => (t.genderCategory === 'male' || t.genderCategory === 'female' ? t.genderCategory : 'mixed')
+
   const [winners, setWinners] = useState<{
     first: WinnerEntry[]
     second: WinnerEntry[]
@@ -1159,6 +1164,15 @@ export function TournamentRegistrations() {
     () => teams.filter((t) => t.createdByModel === 'District' || !matchSnapshotTeamIds.has(t._id)),
     [teams, matchSnapshotTeamIds],
   )
+
+  const teamEventTabs = useMemo(() => {
+    const types = new Set<string>(tournamentEventTypes(tournament ?? undefined))
+    registeredTeams.forEach((t) => t.teamType && types.add(t.teamType))
+    return (['regu', 'double', 'quad'] as EventType[]).filter((e) => types.has(e))
+  }, [tournament, registeredTeams])
+  const teamsInEvent = registeredTeams.filter((t) => teamEventTab === 'all' || t.teamType === teamEventTab)
+  const teamGenderTabs = (['male', 'female', 'mixed'] as const).filter((g) => registeredTeams.some((t) => teamGender(t) === g))
+  const visibleTeams = teamsInEvent.filter((t) => teamGenderTab === 'all' || teamGender(t) === teamGenderTab)
 
   // Registered (non-rejected) teams for this tournament, for the Create Match
   // team picker. The other side's pick is excluded so a team can't face itself.
@@ -2415,6 +2429,51 @@ export function TournamentRegistrations() {
 
         {activeTab === 'teams' && (
           <div className="space-y-4">
+            {/* Filters: event tabs, then category */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filter teams by event">
+                {(['all', ...teamEventTabs] as const).map((e) => {
+                  const count = e === 'all' ? registeredTeams.length : registeredTeams.filter((t) => t.teamType === e).length
+                  const active = teamEventTab === e
+                  return (
+                    <button
+                      key={e}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setTeamEventTab(e)}
+                      className={`px-4 py-2 rounded-lg border-2 text-sm font-bold transition-colors ${
+                        active ? 'border-[#5a0a8f] bg-[#5a0a8f] text-white' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      {e === 'all' ? 'All events' : teamTypeLabel(e)}
+                      <span className={`ml-2 text-xs ${active ? 'text-white/80' : 'text-gray-400'}`}>{count}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              {teamGenderTabs.length > 1 && (
+                <div className="flex rounded-lg border border-gray-300 overflow-hidden" role="group" aria-label="Filter teams by category">
+                  {(['all', ...teamGenderTabs] as const).map((g) => {
+                    const count = g === 'all' ? teamsInEvent.length : teamsInEvent.filter((t) => teamGender(t) === g).length
+                    return (
+                      <button
+                        key={g}
+                        type="button"
+                        aria-pressed={teamGenderTab === g}
+                        onClick={() => setTeamGenderTab(g)}
+                        className={`px-3 py-2 text-xs font-bold capitalize transition-colors ${
+                          teamGenderTab === g ? 'bg-[#5a0a8f] text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        {g === 'all' ? 'All' : g} <span className="opacity-70">{count}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -2428,14 +2487,14 @@ export function TournamentRegistrations() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {registeredTeams.length === 0 ? (
+                    {visibleTeams.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                          No teams yet for this tournament.
+                          {registeredTeams.length === 0 ? 'No teams yet for this tournament.' : 'No teams match this filter.'}
                         </td>
                       </tr>
                     ) : (
-                      registeredTeams.map((team) => (
+                      visibleTeams.map((team) => (
                         <tr key={team._id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-6 py-4">
                             <div className="font-semibold text-gray-900">{team.name}</div>
