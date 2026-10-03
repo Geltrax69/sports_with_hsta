@@ -188,7 +188,11 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
   const activeTournament: TournamentOption | undefined =
     tournament?._id === tournamentId
       ? tournament
-      : tournaments.find((t) => t._id === tournamentId)
+      : tournaments.find((t) => t._id === tournamentId) ??
+        // Editing from My Teams: the tournament list isn't loaded, but the team
+        // carries its tournament (events + categories), so Mixed etc. only
+        // show when the tournament offers them.
+        (editingTeam?.tournament?._id === tournamentId ? (editingTeam.tournament as TournamentOption) : undefined)
 
   // Team types the active tournament allows. Districts pick one when the
   // tournament mixes events; a single-event tournament locks its type.
