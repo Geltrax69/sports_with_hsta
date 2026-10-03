@@ -204,7 +204,8 @@ type Team = {
   genderCategory?: 'male' | 'female' | 'both'
   status?: 'pending' | 'approved' | 'rejected'
   district?: { _id: string; code: string; name: string } | null
-  coach?: { _id: string; fullName: string } | null
+  coach?: { _id: string; fullName: string; coachId?: string } | null
+  referee?: { _id: string; fullName: string; refereeId?: string } | null
   manager?: string
   createdByModel?: 'Admin' | 'District'
   createdAt?: string
@@ -2436,7 +2437,19 @@ export function TournamentRegistrations() {
                     ) : (
                       registeredTeams.map((team) => (
                         <tr key={team._id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 font-semibold text-gray-900">{team.name}</td>
+                          <td className="px-6 py-4">
+                            <div className="font-semibold text-gray-900">{team.name}</div>
+                            {/* Staff the district picked for this team */}
+                            {(team.coach || team.referee || team.manager) && (
+                              <div className="text-xs text-gray-500 mt-0.5">
+                                {[
+                                  team.coach && `Coach: ${team.coach.fullName}`,
+                                  team.referee && `Referee: ${team.referee.fullName}`,
+                                  team.manager && `Manager: ${team.manager}`,
+                                ].filter(Boolean).join(' · ')}
+                              </div>
+                            )}
+                          </td>
                           <td className="px-6 py-4 text-sm text-gray-700">
                             {team.district ? (
                               <span className="inline-flex items-center gap-1.5">
@@ -2538,6 +2551,26 @@ export function TournamentRegistrations() {
                         <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-bold capitalize bg-gray-100 text-gray-700">
                           {selectedTeam.status || 'pending'}
                         </span>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-gray-500 uppercase">Team Coach</div>
+                        <div className="font-semibold text-gray-900">
+                          {selectedTeam.coach
+                            ? `${selectedTeam.coach.fullName}${selectedTeam.coach.coachId ? ` (${selectedTeam.coach.coachId})` : ''}`
+                            : '—'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-gray-500 uppercase">Team Referee</div>
+                        <div className="font-semibold text-gray-900">
+                          {selectedTeam.referee
+                            ? `${selectedTeam.referee.fullName}${selectedTeam.referee.refereeId ? ` (${selectedTeam.referee.refereeId})` : ''}`
+                            : '—'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-gray-500 uppercase">Team Manager</div>
+                        <div className="font-semibold text-gray-900">{selectedTeam.manager || '—'}</div>
                       </div>
                       <div>
                         <div className="text-xs font-semibold text-gray-500 uppercase">Created By</div>
