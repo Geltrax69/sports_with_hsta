@@ -16,6 +16,7 @@ import {
   TEAM_TYPES,
   isTournamentOpen,
   GENDER_CATEGORY_LABELS,
+  type DistrictCoach,
   type DistrictPlayer,
   type DistrictTeam,
   type GenderCategory,
@@ -57,8 +58,16 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
   const selectedIds = useMemo(() => selectedByCat[selKey] || [], [selectedByCat, selKey])
   // Editing one team: switching type/category carries its picks along.
   const moveEditPicks = (nextKey: string) => {
-    if (isEdit) setSelectedByCat((prev) => ({ [nextKey]: prev[selKey] || [] }))
+    if (!isEdit) return
+    setSelectedByCat((prev) => ({ [nextKey]: prev[selKey] || [] }))
+    setCoachByKey((prev) => ({ [nextKey]: prev[selKey] || '' }))
   }
+
+  // Team coach per team (same key as the player picks). Optional; one coach
+  // may be picked for several teams (e.g. Regu and Doubles).
+  const [coaches, setCoaches] = useState<DistrictCoach[]>([])
+  const [coachByKey, setCoachByKey] = useState<Record<string, string>>({})
+  const coachName = (id?: string) => coaches.find((c) => c._id === id)?.fullName
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -126,7 +135,9 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
       const cat = normalizeTeamGenderCategory(editingTeam.genderCategory)
       setGenderCategory(cat)
       setTeamName(editingTeam.name || '')
-      setSelectedByCat({ [`${editingTeam.teamType || ''}|${cat}`]: (editingTeam.members || []).map((m) => m._id) })
+      const key = `${editingTeam.teamType || ''}|${cat}`
+      setSelectedByCat({ [key]: (editingTeam.members || []).map((m) => m._id) })
+      setCoachByKey({ [key]: editingTeam.coach?._id || '' })
     } else {
       setTournamentId(tournament?._id || '')
       setTeamType(tournament?.eventType && TEAM_TYPES.some((t) => t.value === tournament.eventType)
@@ -135,9 +146,19 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
       const cats = tournamentGenderCategories(tournament || {})
       setGenderCategory(cats.length === 1 ? cats[0] : cats.includes('male') ? 'male' : cats[0])
       setTeamName('')
-      setSelectedByCat({})
+      setSelectedByCat({}); setCoachByKey({})
     }
   }, [open, editingTeam, tournament])
+
+  // ── Load district coaches (team coach picker) ──────────────────────────────
+  useEffect(() => {
+    if (!open) return
+    let alive = true
+    districtApi.listCoaches()
+      .then((res) => { if (alive) setCoaches(res.coaches || []) })
+      .catch(() => { if (alive) setCoaches([]) })
+    return () => { alive = false }
+  }, [open])
 
   // ── Load district players for selection ─────────────────────────────────────
   useEffect(() => {
@@ -221,7 +242,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
       if (allowedGenders.includes(prev)) return prev
       return allowedGenders.includes('male') ? 'male' : allowedGenders[0]
     })
-    setSelectedByCat({})
+    setSelectedByCat({}); setCoachByKey({})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournamentId, allowedTeamTypes, isEdit])
 
@@ -249,6 +270,8 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
           genderCategory: t.category,
           name: name ? (pendingTeams.length > 1 ? `${name} (${pendingLabel(t)})` : name) : undefined,
           memberIds: t.ids,
+          // Edit sends null to clear; create omits an unset coach.
+          coachId: coachByKey[t.key] || (isEdit ? null : undefined),
         }
         const result = isEdit && editingTeam
           ? await districtApi.updateTeam(editingTeam._id, payload)
@@ -402,6 +425,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
                   >
                     {pendingLabel(t)} team: {t.ids.length} player{t.ids.length === 1 ? '' : 's'}
                     {t.ids.length < t.min ? ` (need ${t.min})` : ' ✓'}
+                    {coachName(coachByKey[t.key]) ? ` · Coach: ${coachName(coachByKey[t.key])}` : ''}
                   </span>
                 ))}
               </div>
@@ -418,6 +442,34 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
               placeholder="Defaults to “District Name + Team Type”"
               className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900"
             />
+          </div>
+
+          {/* Team coach */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-900 mb-2">
+              Team Coach (optional)
+              {!isEdit && teamType && (allowedGenders.length > 1 || allowedTeamTypes.length > 1) && (
+                <span className="font-normal text-gray-500"> — for the {pendingLabel({ type: teamType, category: genderCategory })} team</span>
+              )}
+            </label>
+            <select
+              value={coachByKey[selKey] || ''}
+              onChange={(e) => setCoachByKey((prev) => ({ ...prev, [selKey]: e.target.value }))}
+              disabled={!teamType}
+              className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white disabled:bg-gray-50"
+            >
+              <option value="">No coach</option>
+              {coaches.map((c) => (
+                <option key={c._id} value={c._id}>
+                  {c.fullName}{c.coachId ? ` (${c.coachId})` : ''}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              {coaches.length === 0
+                ? 'No approved coaches in your district yet.'
+                : 'Approved coaches from your district. The same coach can coach more than one team.'}
+            </p>
           </div>
 
           {/* Player selection */}

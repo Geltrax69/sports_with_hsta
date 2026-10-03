@@ -115,7 +115,10 @@ export function DistrictTeams() {
               ) : (
                 teams.map((team) => (
                   <tr key={team._id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 font-semibold text-gray-900">{team.name}</td>
+                    <td className="px-6 py-4">
+                      <div className="font-semibold text-gray-900">{team.name}</div>
+                      {team.coach && <div className="text-xs text-gray-500 mt-0.5">Coach: {team.coach.fullName}</div>}
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       <div>{teamTypeLabel(team.teamType)}</div>
                       <div className="mt-1">
@@ -203,6 +206,14 @@ export function DistrictTeams() {
                 <div>
                   <div className="text-xs font-semibold text-gray-500 uppercase">Tournament</div>
                   <div className="font-semibold text-gray-900">{viewingTeam.tournament?.title || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase">Coach</div>
+                  <div className="font-semibold text-gray-900">
+                    {viewingTeam.coach
+                      ? `${viewingTeam.coach.fullName}${viewingTeam.coach.coachId ? ` (${viewingTeam.coach.coachId})` : ''}`
+                      : '—'}
+                  </div>
                 </div>
                 <div>
                   <div className="text-xs font-semibold text-gray-500 uppercase">Status</div>

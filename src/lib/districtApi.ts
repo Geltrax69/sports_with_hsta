@@ -90,6 +90,14 @@ export type DistrictPlayer = {
   profilePhoto?: string
 }
 
+export type DistrictCoach = {
+  _id: string
+  fullName: string
+  coachId?: string
+  gender?: string
+  profilePhoto?: string
+}
+
 export type DistrictTeamMember = {
   _id: string
   fullName: string
@@ -106,6 +114,7 @@ export type DistrictTeam = {
   status: 'pending' | 'approved' | 'rejected'
   maxMembers: number
   members: DistrictTeamMember[]
+  coach?: DistrictCoach | null
   district?: { _id: string; code: string; name: string }
   tournament?: { _id: string; title: string; eventType?: string; eventTypes?: string[]; status?: string; genderCategory?: GenderCategory; genderCategories?: string[] }
   createdAt: string
@@ -122,11 +131,13 @@ export const districtApi = {
     })
   },
 
+  listCoaches: () => apiRequest<{ coaches: DistrictCoach[] }>('/district/coaches', { auth: true }),
+
   listTeams: () => apiRequest<{ teams: DistrictTeam[] }>('/district/teams', { auth: true }),
 
   getTeam: (id: string) => apiRequest<{ team: DistrictTeam }>(`/district/teams/${id}`, { auth: true }),
 
-  createTeam: (payload: { tournamentId: string; teamType: TeamType; genderCategory?: GenderCategory; name?: string; memberIds: string[] }) =>
+  createTeam: (payload: { tournamentId: string; teamType: TeamType; genderCategory?: GenderCategory; name?: string; memberIds: string[]; coachId?: string | null }) =>
     apiRequest<{ team: DistrictTeam }>('/district/teams', {
       method: 'POST',
       auth: true,
@@ -135,7 +146,7 @@ export const districtApi = {
 
   updateTeam: (
     id: string,
-    payload: { name?: string; teamType?: TeamType; genderCategory?: GenderCategory; memberIds?: string[] },
+    payload: { name?: string; teamType?: TeamType; genderCategory?: GenderCategory; memberIds?: string[]; coachId?: string | null },
   ) =>
     apiRequest<{ team: DistrictTeam }>(`/district/teams/${id}`, {
       method: 'PATCH',
