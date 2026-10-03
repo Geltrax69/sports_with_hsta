@@ -24,18 +24,18 @@ export function teamGenderCategoryLabel(value: unknown): string {
 }
 
 export const TEAM_TYPES: { value: TeamType; label: string; playersRequired: number }[] = [
-  { value: 'regu', label: 'Regu', playersRequired: 3 },
-  { value: 'double', label: 'Doubles', playersRequired: 2 },
-  { value: 'quad', label: 'Quad', playersRequired: 4 },
+  { value: 'regu', label: 'Regu', playersRequired: 5 },
+  { value: 'double', label: 'Doubles', playersRequired: 3 },
+  { value: 'quad', label: 'Quad', playersRequired: 6 },
 ]
 
 // Minimum players per team type. Must stay in sync with TEAM_TYPE_ROSTER
 // (sports-backend/src/controllers/districtTeamController.js), which enforces
 // it as a minimum — districts may register larger squads.
 export const MIN_PLAYERS_REQUIRED: Record<TeamType, number> = {
-  regu: 3,
-  double: 2,
-  quad: 4,
+  regu: 5,
+  double: 3,
+  quad: 6,
 }
 
 export const teamTypeLabel = (teamType?: string): string => {
@@ -98,6 +98,14 @@ export type DistrictCoach = {
   profilePhoto?: string
 }
 
+export type DistrictReferee = {
+  _id: string
+  fullName: string
+  refereeId?: string
+  gender?: string
+  profilePhoto?: string
+}
+
 export type DistrictTeamMember = {
   _id: string
   fullName: string
@@ -115,6 +123,8 @@ export type DistrictTeam = {
   maxMembers: number
   members: DistrictTeamMember[]
   coach?: DistrictCoach | null
+  referee?: DistrictReferee | null
+  manager?: string
   district?: { _id: string; code: string; name: string }
   tournament?: { _id: string; title: string; eventType?: string; eventTypes?: string[]; status?: string; genderCategory?: GenderCategory; genderCategories?: string[] }
   createdAt: string
@@ -133,11 +143,13 @@ export const districtApi = {
 
   listCoaches: () => apiRequest<{ coaches: DistrictCoach[] }>('/district/coaches', { auth: true }),
 
+  listReferees: () => apiRequest<{ referees: DistrictReferee[] }>('/district/referees', { auth: true }),
+
   listTeams: () => apiRequest<{ teams: DistrictTeam[] }>('/district/teams', { auth: true }),
 
   getTeam: (id: string) => apiRequest<{ team: DistrictTeam }>(`/district/teams/${id}`, { auth: true }),
 
-  createTeam: (payload: { tournamentId: string; teamType: TeamType; genderCategory?: GenderCategory; name?: string; memberIds: string[]; coachId?: string | null }) =>
+  createTeam: (payload: { tournamentId: string; teamType: TeamType; genderCategory?: GenderCategory; name?: string; memberIds: string[]; coachId?: string | null; refereeId?: string | null; manager?: string }) =>
     apiRequest<{ team: DistrictTeam }>('/district/teams', {
       method: 'POST',
       auth: true,
@@ -146,7 +158,7 @@ export const districtApi = {
 
   updateTeam: (
     id: string,
-    payload: { name?: string; teamType?: TeamType; genderCategory?: GenderCategory; memberIds?: string[]; coachId?: string | null },
+    payload: { name?: string; teamType?: TeamType; genderCategory?: GenderCategory; memberIds?: string[]; coachId?: string | null; refereeId?: string | null; manager?: string },
   ) =>
     apiRequest<{ team: DistrictTeam }>(`/district/teams/${id}`, {
       method: 'PATCH',

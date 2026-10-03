@@ -17,6 +17,7 @@ import {
   isTournamentOpen,
   GENDER_CATEGORY_LABELS,
   type DistrictCoach,
+  type DistrictReferee,
   type DistrictPlayer,
   type DistrictTeam,
   type GenderCategory,
@@ -61,6 +62,8 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
     if (!isEdit) return
     setSelectedByCat((prev) => ({ [nextKey]: prev[selKey] || [] }))
     setCoachByKey((prev) => ({ [nextKey]: prev[selKey] || '' }))
+    setRefereeByKey((prev) => ({ [nextKey]: prev[selKey] || '' }))
+    setManagerByKey((prev) => ({ [nextKey]: prev[selKey] || '' }))
   }
 
   // Team coach per team (same key as the player picks). Optional; one coach
@@ -68,6 +71,12 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
   const [coaches, setCoaches] = useState<DistrictCoach[]>([])
   const [coachByKey, setCoachByKey] = useState<Record<string, string>>({})
   const coachName = (id?: string) => coaches.find((c) => c._id === id)?.fullName
+  // Team referee (district's approved referees) and manager (typed name),
+  // one each per team, kept per team like the coach.
+  const [referees, setReferees] = useState<DistrictReferee[]>([])
+  const [refereeByKey, setRefereeByKey] = useState<Record<string, string>>({})
+  const [managerByKey, setManagerByKey] = useState<Record<string, string>>({})
+  const refereeName = (id?: string) => referees.find((r) => r._id === id)?.fullName
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -138,6 +147,8 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
       const key = `${editingTeam.teamType || ''}|${cat}`
       setSelectedByCat({ [key]: (editingTeam.members || []).map((m) => m._id) })
       setCoachByKey({ [key]: editingTeam.coach?._id || '' })
+      setRefereeByKey({ [key]: editingTeam.referee?._id || '' })
+      setManagerByKey({ [key]: editingTeam.manager || '' })
     } else {
       setTournamentId(tournament?._id || '')
       setTeamType(tournament?.eventType && TEAM_TYPES.some((t) => t.value === tournament.eventType)
@@ -146,7 +157,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
       const cats = tournamentGenderCategories(tournament || {})
       setGenderCategory(cats.length === 1 ? cats[0] : cats.includes('male') ? 'male' : cats[0])
       setTeamName('')
-      setSelectedByCat({}); setCoachByKey({})
+      setSelectedByCat({}); setCoachByKey({}); setRefereeByKey({}); setManagerByKey({})
     }
   }, [open, editingTeam, tournament])
 
@@ -157,6 +168,9 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
     districtApi.listCoaches()
       .then((res) => { if (alive) setCoaches(res.coaches || []) })
       .catch(() => { if (alive) setCoaches([]) })
+    districtApi.listReferees()
+      .then((res) => { if (alive) setReferees(res.referees || []) })
+      .catch(() => { if (alive) setReferees([]) })
     return () => { alive = false }
   }, [open])
 
@@ -242,7 +256,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
       if (allowedGenders.includes(prev)) return prev
       return allowedGenders.includes('male') ? 'male' : allowedGenders[0]
     })
-    setSelectedByCat({}); setCoachByKey({})
+    setSelectedByCat({}); setCoachByKey({}); setRefereeByKey({}); setManagerByKey({})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournamentId, allowedTeamTypes, isEdit])
 
@@ -272,6 +286,8 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
           memberIds: t.ids,
           // Edit sends null to clear; create omits an unset coach.
           coachId: coachByKey[t.key] || (isEdit ? null : undefined),
+          refereeId: refereeByKey[t.key] || (isEdit ? null : undefined),
+          manager: (managerByKey[t.key] || '').trim() || (isEdit ? '' : undefined),
         }
         const result = isEdit && editingTeam
           ? await districtApi.updateTeam(editingTeam._id, payload)
@@ -372,7 +388,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
                     }`}
                   >
                     <div className={`font-bold ${active ? 'text-[#5a0a8f]' : 'text-gray-900'}`}>{t.label}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">{t.playersRequired} players</div>
+                    <div className="text-xs text-gray-500 mt-0.5">min {t.playersRequired} players</div>
                   </button>
                 )
               })}
@@ -426,6 +442,8 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
                     {pendingLabel(t)} team: {t.ids.length} player{t.ids.length === 1 ? '' : 's'}
                     {t.ids.length < t.min ? ` (need ${t.min})` : ' ✓'}
                     {coachName(coachByKey[t.key]) ? ` · Coach: ${coachName(coachByKey[t.key])}` : ''}
+                    {refereeName(refereeByKey[t.key]) ? ` · Referee: ${refereeName(refereeByKey[t.key])}` : ''}
+                    {managerByKey[t.key]?.trim() ? ` · Manager: ${managerByKey[t.key].trim()}` : ''}
                   </span>
                 ))}
               </div>
@@ -470,6 +488,41 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
                 ? 'No approved coaches in your district yet.'
                 : 'Approved coaches from your district. The same coach can coach more than one team.'}
             </p>
+          </div>
+
+          {/* Team referee + manager */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">Team Referee (optional)</label>
+              <select
+                value={refereeByKey[selKey] || ''}
+                onChange={(e) => setRefereeByKey((prev) => ({ ...prev, [selKey]: e.target.value }))}
+                disabled={!teamType}
+                className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 bg-white disabled:bg-gray-50"
+              >
+                <option value="">No referee</option>
+                {referees.map((r) => (
+                  <option key={r._id} value={r._id}>
+                    {r.fullName}{r.refereeId ? ` (${r.refereeId})` : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                {referees.length === 0 ? 'No approved referees in your district yet.' : 'Approved referees from your district.'}
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">Team Manager (optional)</label>
+              <input
+                type="text"
+                value={managerByKey[selKey] || ''}
+                onChange={(e) => setManagerByKey((prev) => ({ ...prev, [selKey]: e.target.value }))}
+                disabled={!teamType}
+                maxLength={120}
+                placeholder="Manager's full name"
+                className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900 disabled:bg-gray-50"
+              />
+            </div>
           </div>
 
           {/* Player selection */}
