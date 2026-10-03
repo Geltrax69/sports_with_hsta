@@ -3,7 +3,6 @@ import { apiRequest } from '../../lib/api'
 import { tournamentEventTypes } from '../../lib/eventFormat'
 import {
   GENDER_OPTIONS,
-  normalizeTeamGenderCategory,
   tournamentGenderCategories,
 } from '../../lib/tournamentFormOptions'
 import { GenderSegmentedControl } from '../admin/TournamentEventFields'
@@ -31,12 +30,11 @@ type Props = {
   onSaved: (team: DistrictTeam) => void
   /** Pre-selected tournament (e.g. "Create Team" from the tournaments page). */
   tournament?: TournamentOption | null
-  /** When set, the modal edits this team instead of creating one. */
-  editingTeam?: DistrictTeam | null
 }
 
-export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam }: Props) {
-  const isEdit = !!editingTeam
+// Registering is final: the district confirms, and the teams can't be edited
+// or deleted afterwards (the backend rejects it) — only viewed.
+export function TeamFormModal({ open, onClose, onSaved, tournament }: Props) {
 
   const [tournaments, setTournaments] = useState<TournamentOption[]>([])
   const [loadingTournaments, setLoadingTournaments] = useState(false)
@@ -57,14 +55,8 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
   const [selectedByCat, setSelectedByCat] = useState<Record<string, string[]>>({})
   const selKey = `${teamType}|${genderCategory}`
   const selectedIds = useMemo(() => selectedByCat[selKey] || [], [selectedByCat, selKey])
-  // Editing one team: switching type/category carries its picks along.
-  const moveEditPicks = (nextKey: string) => {
-    if (!isEdit) return
-    setSelectedByCat((prev) => ({ [nextKey]: prev[selKey] || [] }))
-    setCoachByKey((prev) => ({ [nextKey]: prev[selKey] || '' }))
-    setRefereeByKey((prev) => ({ [nextKey]: prev[selKey] || '' }))
-    setManagerByKey((prev) => ({ [nextKey]: prev[selKey] || '' }))
-  }
+  // Save first shows a confirmation step listing every team.
+  const [confirming, setConfirming] = useState(false)
 
   // Team coach per team (same key as the player picks). Optional; one coach
   // may be picked for several teams (e.g. Regu and Doubles).
@@ -88,15 +80,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
     setGenderFilter(genderCategory === 'male' ? 'male' : genderCategory === 'female' ? 'female' : 'all')
   }, [genderCategory])
 
-  // In edit mode the previously selected members must stay visible even if
-  // they are missing from the loaded player list.
-  const displayPlayers = useMemo(() => {
-    const ids = new Set(players.map((p) => p._id))
-    const missing: DistrictPlayer[] = (editingTeam?.members || [])
-      .filter((m) => !ids.has(m._id))
-      .map((m) => ({ _id: m._id, fullName: m.fullName, playerId: m.playerId, gender: m.gender, profilePhoto: m.profilePhoto }))
-    return [...missing, ...players]
-  }, [players, editingTeam])
+  const displayPlayers = players
 
   // Gender filter for the picker; already-selected players always stay visible.
   // A Male only / Female only team can never take the other gender, so those
@@ -117,7 +101,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
 
   // ── Load open tournaments (create mode, no pre-selected tournament) ────────
   useEffect(() => {
-    if (!open || isEdit || tournament) return
+    if (!open || tournament) return
     const controller = new AbortController()
     setLoadingTournaments(true)
     apiRequest<{ tournaments: TournamentOption[] }>('/tournaments', { signal: controller.signal })
@@ -131,35 +115,23 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
         if (!controller.signal.aborted) setLoadingTournaments(false)
       })
     return () => controller.abort()
-  }, [open, isEdit, tournament])
+  }, [open, tournament])
 
   // ── Initialize form state when opened ───────────────────────────────────────
   useEffect(() => {
     if (!open) return
     setError('')
     setSearch('')
-    if (editingTeam) {
-      setTournamentId(editingTeam.tournament?._id || '')
-      setTeamType((editingTeam.teamType as TeamType) || '')
-      const cat = normalizeTeamGenderCategory(editingTeam.genderCategory)
-      setGenderCategory(cat)
-      setTeamName(editingTeam.name || '')
-      const key = `${editingTeam.teamType || ''}|${cat}`
-      setSelectedByCat({ [key]: (editingTeam.members || []).map((m) => m._id) })
-      setCoachByKey({ [key]: editingTeam.coach?._id || '' })
-      setRefereeByKey({ [key]: editingTeam.referee?._id || '' })
-      setManagerByKey({ [key]: editingTeam.manager || '' })
-    } else {
-      setTournamentId(tournament?._id || '')
-      setTeamType(tournament?.eventType && TEAM_TYPES.some((t) => t.value === tournament.eventType)
-        ? (tournament.eventType as TeamType)
-        : '')
-      const cats = tournamentGenderCategories(tournament || {})
-      setGenderCategory(cats.length === 1 ? cats[0] : cats.includes('male') ? 'male' : cats[0])
-      setTeamName('')
-      setSelectedByCat({}); setCoachByKey({}); setRefereeByKey({}); setManagerByKey({})
-    }
-  }, [open, editingTeam, tournament])
+    setConfirming(false)
+    setTournamentId(tournament?._id || '')
+    setTeamType(tournament?.eventType && TEAM_TYPES.some((t) => t.value === tournament.eventType)
+      ? (tournament.eventType as TeamType)
+      : '')
+    const cats = tournamentGenderCategories(tournament || {})
+    setGenderCategory(cats.length === 1 ? cats[0] : cats.includes('male') ? 'male' : cats[0])
+    setTeamName('')
+    setSelectedByCat({}); setCoachByKey({}); setRefereeByKey({}); setManagerByKey({})
+  }, [open, tournament])
 
   // ── Load district coaches (team coach picker) ──────────────────────────────
   useEffect(() => {
@@ -223,11 +195,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
   const activeTournament: TournamentOption | undefined =
     tournament?._id === tournamentId
       ? tournament
-      : tournaments.find((t) => t._id === tournamentId) ??
-        // Editing from My Teams: the tournament list isn't loaded, but the team
-        // carries its tournament (events + categories), so Mixed etc. only
-        // show when the tournament offers them.
-        (editingTeam?.tournament?._id === tournamentId ? (editingTeam.tournament as TournamentOption) : undefined)
+      : tournaments.find((t) => t._id === tournamentId)
 
   // Team types the active tournament allows. Districts pick one when the
   // tournament mixes events; a single-event tournament locks its type.
@@ -246,7 +214,6 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
 
   // Reset the picked team type when the tournament (or its events) change.
   useEffect(() => {
-    if (isEdit) return
     setTeamType((prev) => {
       if (prev && allowedTeamTypes.some((t) => t.value === prev)) return prev
       return allowedTeamTypes.length === 1 ? allowedTeamTypes[0].value : ''
@@ -258,7 +225,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
     })
     setSelectedByCat({}); setCoachByKey({}); setRefereeByKey({}); setManagerByKey({})
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tournamentId, allowedTeamTypes, isEdit])
+  }, [tournamentId, allowedTeamTypes])
 
   const canSave =
     !!tournamentId && !saving && pendingTeams.length > 0 && pendingTeams.every((t) => t.ids.length >= t.min)
@@ -272,6 +239,11 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
       const which = pendingTeams.length > 1 ? ` (${pendingLabel(short)} team)` : ''
       return setError(`Select at least ${short.min} players for a ${teamTypeLabel(short.type)} team${which}. You can add more as substitutes.`)
     }
+    setConfirming(true)
+  }
+
+  const confirmSave = async () => {
+    setError('')
     setSaving(true)
     // Saved one by one; a saved team is dropped from the form so a retry after
     // an error doesn't create it twice.
@@ -284,14 +256,11 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
           genderCategory: t.category,
           name: name ? (pendingTeams.length > 1 ? `${name} (${pendingLabel(t)})` : name) : undefined,
           memberIds: t.ids,
-          // Edit sends null to clear; create omits an unset coach.
-          coachId: coachByKey[t.key] || (isEdit ? null : undefined),
-          refereeId: refereeByKey[t.key] || (isEdit ? null : undefined),
-          manager: (managerByKey[t.key] || '').trim() || (isEdit ? '' : undefined),
+          coachId: coachByKey[t.key] || undefined,
+          refereeId: refereeByKey[t.key] || undefined,
+          manager: (managerByKey[t.key] || '').trim() || undefined,
         }
-        const result = isEdit && editingTeam
-          ? await districtApi.updateTeam(editingTeam._id, payload)
-          : await districtApi.createTeam(payload)
+        const result = await districtApi.createTeam(payload)
         onSaved(result.team)
         setSelectedByCat((prev) => {
           const next = { ...prev }
@@ -301,6 +270,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
       }
       onClose()
     } catch (err) {
+      setConfirming(false)
       setError(err instanceof Error ? err.message : 'Failed to save the team. Please try again.')
     } finally {
       setSaving(false)
@@ -315,7 +285,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
         {/* Header */}
         <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white">
           <h2 className="text-2xl font-bold text-gray-900">
-            {isEdit ? 'Edit Team' : 'Create Team'}
+            Create Team
           </h2>
           <button
             onClick={onClose}
@@ -338,9 +308,9 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
             <label className="block text-sm font-semibold text-gray-900 mb-2">
               Tournament <span className="text-red-500">*</span>
             </label>
-            {isEdit || tournament ? (
+            {tournament ? (
               <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 font-medium">
-                {tournament?.title || editingTeam?.tournament?.title || '—'}
+                {tournament.title}
               </div>
             ) : (
               <select
@@ -378,7 +348,6 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
                     type="button"
                     onClick={() => {
                       // Picks are kept per type, so switching back restores them.
-                      moveEditPicks(`${t.value}|${genderCategory}`)
                       setTeamType(t.value)
                     }}
                     className={`px-4 py-3 rounded-lg border-2 transition-colors text-left ${
@@ -414,21 +383,20 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
                 <GenderSegmentedControl
                   value={genderCategory}
                   onChange={(next) => {
-                    moveEditPicks(`${teamType}|${next}`)
                     setGenderCategory(next)
                   }}
                   options={options}
                 />
               )
             })()}
-            {!isEdit && (allowedGenders.length > 1 || allowedTeamTypes.length > 1) && (
+            {(allowedGenders.length > 1 || allowedTeamTypes.length > 1) && (
               <p className="text-xs text-gray-500 mt-2">
                 Registering more than one team? Pick players under each team type and category —
                 each one with players becomes its own team when you save. A player can be in
                 more than one team (e.g. Regu and Doubles).
               </p>
             )}
-            {!isEdit && pendingTeams.length > 0 && (
+            {pendingTeams.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {pendingTeams.map((t) => (
                   <span
@@ -466,7 +434,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
           <div>
             <label className="block text-sm font-semibold text-gray-900 mb-2">
               Team Coach (optional)
-              {!isEdit && teamType && (allowedGenders.length > 1 || allowedTeamTypes.length > 1) && (
+              {teamType && (allowedGenders.length > 1 || allowedTeamTypes.length > 1) && (
                 <span className="font-normal text-gray-500"> — for the {pendingLabel({ type: teamType, category: genderCategory })} team</span>
               )}
             </label>
@@ -645,22 +613,65 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 sticky bottom-0 bg-white">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2.5 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!canSave}
-            className="px-6 py-2.5 bg-[#5a0a8f] hover:bg-[#400466] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-bold transition-colors"
-          >
-            {saving ? 'Saving…' : isEdit ? 'Save Changes' : pendingTeams.length > 1 ? `Save ${pendingTeams.length} Teams` : 'Save Team'}
-          </button>
+        <div className="p-6 border-t border-gray-200 sticky bottom-0 bg-white">
+          {confirming ? (
+            <div role="alertdialog" aria-labelledby="confirm-team-title">
+              <h3 id="confirm-team-title" className="text-base font-bold text-gray-900">
+                Please confirm that you want to create {pendingTeams.length > 1 ? `these ${pendingTeams.length} teams` : 'this team'} for {activeTournament?.title || 'this tournament'}.
+              </h3>
+              <ul className="mt-3 space-y-1.5 text-sm text-gray-700">
+                {pendingTeams.map((t) => (
+                  <li key={t.key} className="flex flex-wrap gap-x-2">
+                    <span className="font-semibold text-gray-900">{pendingLabel(t)} team</span>
+                    <span>· {t.ids.length} players</span>
+                    {coachName(coachByKey[t.key]) && <span>· Coach: {coachName(coachByKey[t.key])}</span>}
+                    {refereeName(refereeByKey[t.key]) && <span>· Referee: {refereeName(refereeByKey[t.key])}</span>}
+                    {managerByKey[t.key]?.trim() && <span>· Manager: {managerByKey[t.key].trim()}</span>}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-900">
+                Once confirmed, the team{pendingTeams.length > 1 ? 's' : ''} can't be edited or deleted — you'll only be able to view {pendingTeams.length > 1 ? 'them' : 'it'}. Contact the HSTA admin for any correction.
+              </p>
+              <div className="flex items-center justify-end gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setConfirming(false)}
+                  disabled={saving}
+                  className="px-5 py-2.5 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium disabled:opacity-50"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmSave}
+                  disabled={saving}
+                  autoFocus
+                  className="px-6 py-2.5 bg-[#5a0a8f] hover:bg-[#400466] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-bold transition-colors"
+                >
+                  {saving ? 'Registering…' : 'Confirm'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-5 py-2.5 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={!canSave}
+                className="px-6 py-2.5 bg-[#5a0a8f] hover:bg-[#400466] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-bold transition-colors"
+              >
+                {pendingTeams.length > 1 ? `Save ${pendingTeams.length} Teams` : 'Save Team'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
