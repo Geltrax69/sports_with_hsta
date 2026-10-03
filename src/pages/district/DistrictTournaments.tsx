@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { apiRequest } from '../../lib/api'
 import { isTournamentOpen, type DistrictTeam, type TournamentOption } from '../../lib/districtApi'
 import { eventTypesLabel, tournamentEventTypes } from '../../lib/eventFormat'
@@ -31,13 +31,20 @@ export function DistrictTournaments() {
     return () => controller.abort()
   }, [])
 
+  // Names saved in the current modal session (one save can register a Male
+  // and a Female team together).
+  const savedNames = useRef<string[]>([])
+
   const openCreate = (t: TournamentOption) => {
+    savedNames.current = []
     setActiveTournament(t)
     setModalOpen(true)
   }
 
   const handleSaved = (team: DistrictTeam) => {
-    setNotice(`Team “${team.name}” registered for ${team.tournament?.title || 'the tournament'}.`)
+    savedNames.current = [...savedNames.current, `“${team.name}”`]
+    const names = savedNames.current
+    setNotice(`${names.length > 1 ? 'Teams' : 'Team'} ${names.join(' and ')} registered for ${team.tournament?.title || 'the tournament'}.`)
     window.setTimeout(() => setNotice(''), 5000)
   }
 

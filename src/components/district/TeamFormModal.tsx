@@ -48,7 +48,10 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
   const [loadingPlayers, setLoadingPlayers] = useState(false)
   const [search, setSearch] = useState('')
   const [genderFilter, setGenderFilter] = useState<'all' | 'male' | 'female'>('all')
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  // Players picked per team category. In create mode a district can fill
+  // Male only and Female only (and Mixed) in one go and save one team each.
+  const [selectedByCat, setSelectedByCat] = useState<Partial<Record<GenderCategory, string[]>>>({})
+  const selectedIds = useMemo(() => selectedByCat[genderCategory] || [], [selectedByCat, genderCategory])
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -71,12 +74,16 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
   }, [players, editingTeam])
 
   // Gender filter for the picker; already-selected players always stay visible.
+  // A Male only / Female only team can never take the other gender, so those
+  // players are hidden (the backend rejects them anyway).
   const filteredPlayers = useMemo(() => {
-    if (genderFilter === 'all') return displayPlayers
-    return displayPlayers.filter(
-      (p) => selectedIds.includes(p._id) || (p.gender || '').toLowerCase() === genderFilter,
-    )
-  }, [displayPlayers, genderFilter, selectedIds])
+    const g = (p: DistrictPlayer) => (p.gender || '').toLowerCase()
+    const eligible = genderCategory === 'mixed'
+      ? displayPlayers
+      : displayPlayers.filter((p) => !g(p) || g(p) === genderCategory || selectedIds.includes(p._id))
+    if (genderFilter === 'all') return eligible
+    return eligible.filter((p) => selectedIds.includes(p._id) || g(p) === genderFilter)
+  }, [displayPlayers, genderFilter, selectedIds, genderCategory])
 
   const selectedPlayers = useMemo(
     () => selectedIds.map((id) => displayPlayers.find((p) => p._id === id)).filter(Boolean) as DistrictPlayer[],
@@ -109,9 +116,10 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
     if (editingTeam) {
       setTournamentId(editingTeam.tournament?._id || '')
       setTeamType((editingTeam.teamType as TeamType) || '')
-      setGenderCategory(normalizeTeamGenderCategory(editingTeam.genderCategory))
+      const cat = normalizeTeamGenderCategory(editingTeam.genderCategory)
+      setGenderCategory(cat)
       setTeamName(editingTeam.name || '')
-      setSelectedIds((editingTeam.members || []).map((m) => m._id))
+      setSelectedByCat({ [cat]: (editingTeam.members || []).map((m) => m._id) })
     } else {
       setTournamentId(tournament?._id || '')
       setTeamType(tournament?.eventType && TEAM_TYPES.some((t) => t.value === tournament.eventType)
@@ -120,7 +128,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
       const cats = tournamentGenderCategories(tournament || {})
       setGenderCategory(cats.length === 1 ? cats[0] : cats.includes('male') ? 'male' : cats[0])
       setTeamName('')
-      setSelectedIds([])
+      setSelectedByCat({})
     }
   }, [open, editingTeam, tournament])
 
@@ -150,11 +158,17 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
 
   const togglePlayer = (id: string) => {
     // No upper cap: districts may register larger squads (incl. substitutes).
-    setSelectedIds((prev) => {
-      if (prev.includes(id)) return prev.filter((x) => x !== id)
-      return [...prev, id]
+    setSelectedByCat((prev) => {
+      const cur = prev[genderCategory] || []
+      return { ...prev, [genderCategory]: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] }
     })
   }
+
+  // Teams this save will create: every category with players picked.
+  const pendingTeams = useMemo(
+    () => (Object.entries(selectedByCat) as [GenderCategory, string[]][]).filter(([, ids]) => ids.length > 0),
+    [selectedByCat],
+  )
 
   const activeTournament: TournamentOption | undefined =
     tournament?._id === tournamentId
@@ -188,33 +202,46 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
       if (allowedGenders.includes(prev)) return prev
       return allowedGenders.includes('male') ? 'male' : allowedGenders[0]
     })
-    setSelectedIds([])
+    setSelectedByCat({})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournamentId, allowedTeamTypes, isEdit])
 
   const canSave =
-    !!tournamentId && !!teamType && selectedIds.length >= minRequired && minRequired > 0 && !saving
+    !!tournamentId && !!teamType && minRequired > 0 && !saving &&
+    pendingTeams.length > 0 && pendingTeams.every(([, ids]) => ids.length >= minRequired)
 
   const handleSave = async () => {
     setError('')
     if (!tournamentId) return setError('Select a tournament.')
     if (!teamType) return setError('Select a team type.')
-    if (selectedIds.length < minRequired) {
-      return setError(`Select at least ${minRequired} players for a ${teamTypeLabel(teamType)} team. You can add more as substitutes.`)
+    const short = pendingTeams.find(([, ids]) => ids.length < minRequired)
+    if (short || pendingTeams.length === 0) {
+      const which = short && pendingTeams.length > 1 ? ` (${GENDER_CATEGORY_LABELS[short[0]]} team)` : ''
+      return setError(`Select at least ${minRequired} players for a ${teamTypeLabel(teamType)} team${which}. You can add more as substitutes.`)
     }
     setSaving(true)
+    // Saved one by one; a saved team is dropped from the form so a retry after
+    // an error doesn't create it twice.
     try {
-      const payload = {
-        tournamentId,
-        teamType: teamType as TeamType,
-        genderCategory,
-        name: teamName.trim() || undefined,
-        memberIds: selectedIds,
+      for (const [category, memberIds] of pendingTeams) {
+        const name = teamName.trim()
+        const payload = {
+          tournamentId,
+          teamType: teamType as TeamType,
+          genderCategory: category,
+          name: name ? (pendingTeams.length > 1 ? `${name} (${GENDER_CATEGORY_LABELS[category]})` : name) : undefined,
+          memberIds,
+        }
+        const result = isEdit && editingTeam
+          ? await districtApi.updateTeam(editingTeam._id, payload)
+          : await districtApi.createTeam(payload)
+        onSaved(result.team)
+        setSelectedByCat((prev) => {
+          const next = { ...prev }
+          delete next[category]
+          return next
+        })
       }
-      const result = isEdit && editingTeam
-        ? await districtApi.updateTeam(editingTeam._id, payload)
-        : await districtApi.createTeam(payload)
-      onSaved(result.team)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save the team. Please try again.')
@@ -294,7 +321,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
                     type="button"
                     onClick={() => {
                       setTeamType(t.value)
-                      setSelectedIds([])
+                      setSelectedByCat({})
                     }}
                     className={`px-4 py-3 rounded-lg border-2 transition-colors text-left ${
                       active
@@ -326,11 +353,40 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
               }
               const options = GENDER_OPTIONS.filter((o) => allowedGenders.includes(o.value))
               return (
-                <GenderSegmentedControl
-                  value={genderCategory}
-                  onChange={setGenderCategory}
-                  options={options}
-                />
+                <>
+                  <GenderSegmentedControl
+                    value={genderCategory}
+                    onChange={(next) => {
+                      // Editing one team: its picks move with the category.
+                      if (isEdit) setSelectedByCat((prev) => ({ [next]: prev[genderCategory] || [] }))
+                      setGenderCategory(next)
+                    }}
+                    options={options}
+                  />
+                  {!isEdit && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      Registering more than one category? Pick players under each one — every
+                      category with players becomes its own team when you save.
+                    </p>
+                  )}
+                  {!isEdit && pendingTeams.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {pendingTeams.map(([cat, ids]) => (
+                        <span
+                          key={cat}
+                          className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
+                            ids.length >= minRequired
+                              ? 'bg-green-50 border-green-200 text-green-800'
+                              : 'bg-amber-50 border-amber-200 text-amber-800'
+                          }`}
+                        >
+                          {GENDER_CATEGORY_LABELS[cat]} team: {ids.length} player{ids.length === 1 ? '' : 's'}
+                          {ids.length < minRequired ? ` (need ${minRequired})` : ' ✓'}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </>
               )
             })()}
           </div>
@@ -481,7 +537,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
             disabled={!canSave}
             className="px-6 py-2.5 bg-[#5a0a8f] hover:bg-[#400466] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-bold transition-colors"
           >
-            {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Save Team'}
+            {saving ? 'Saving…' : isEdit ? 'Save Changes' : pendingTeams.length > 1 ? `Save ${pendingTeams.length} Teams` : 'Save Team'}
           </button>
         </div>
       </div>
