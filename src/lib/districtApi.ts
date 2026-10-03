@@ -124,6 +124,9 @@ export type DistrictTeam = {
   members: DistrictTeamMember[]
   coach?: DistrictCoach | null
   referee?: DistrictReferee | null
+  /** Saved but not confirmed yet; confirming makes it final. */
+  isDraft?: boolean
+  confirmedAt?: string | null
   manager?: string
   district?: { _id: string; code: string; name: string }
   tournament?: { _id: string; title: string; eventType?: string; eventTypes?: string[]; status?: string; genderCategory?: GenderCategory; genderCategories?: string[] }
@@ -156,4 +159,15 @@ export const districtApi = {
       body: JSON.stringify(payload),
     }),
 
+  /** Confirm saved drafts — full and final. */
+  confirmTeams: (teamIds: string[]) =>
+    apiRequest<{ teams: DistrictTeam[] }>('/district/teams/confirm', {
+      method: 'POST',
+      auth: true,
+      body: JSON.stringify({ teamIds }),
+    }),
+
+  /** Discard a draft (confirmed teams can't be deleted). */
+  deleteDraft: (id: string) =>
+    apiRequest<{ success: boolean }>(`/district/teams/${id}`, { method: 'DELETE', auth: true }),
 }

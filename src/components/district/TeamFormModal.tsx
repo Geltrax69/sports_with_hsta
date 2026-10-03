@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { apiRequest } from '../../lib/api'
 import { tournamentEventTypes } from '../../lib/eventFormat'
 import {
@@ -55,8 +56,12 @@ export function TeamFormModal({ open, onClose, onSaved, tournament }: Props) {
   const [selectedByCat, setSelectedByCat] = useState<Record<string, string[]>>({})
   const selKey = `${teamType}|${genderCategory}`
   const selectedIds = useMemo(() => selectedByCat[selKey] || [], [selectedByCat, selKey])
-  // Save first shows a confirmation step listing every team.
-  const [confirming, setConfirming] = useState(false)
+  // Save stores the teams as drafts; the district then confirms them (full
+  // and final) from My Teams. savedTeams drives the success panel.
+  const [savedTeams, setSavedTeams] = useState<DistrictTeam[] | null>(null)
+  const savingRef = useRef(false) // blocks double-submit before React re-renders
+  // District's existing teams, to flag slots already confirmed / saved as draft.
+  const [existingTeams, setExistingTeams] = useState<DistrictTeam[]>([])
 
   // Team coach per team (same key as the player picks). Optional; one coach
   // may be picked for several teams (e.g. Regu and Doubles).
@@ -122,7 +127,8 @@ export function TeamFormModal({ open, onClose, onSaved, tournament }: Props) {
     if (!open) return
     setError('')
     setSearch('')
-    setConfirming(false)
+    setSavedTeams(null)
+    districtApi.listTeams().then((res) => setExistingTeams(res.teams || [])).catch(() => setExistingTeams([]))
     setTournamentId(tournament?._id || '')
     setTeamType(tournament?.eventType && TEAM_TYPES.some((t) => t.value === tournament.eventType)
       ? (tournament.eventType as TeamType)
@@ -227,8 +233,22 @@ export function TeamFormModal({ open, onClose, onSaved, tournament }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournamentId, allowedTeamTypes])
 
+  // Existing team in a slot (this tournament + type + category), if any.
+  const slotTeam = (key: string) => {
+    const [type, category] = key.split('|')
+    return existingTeams.find((t) =>
+      t.tournament?._id === tournamentId && t.teamType === type &&
+      (t.genderCategory || 'mixed') === category)
+  }
+  const isConfirmedSlot = (key: string) => {
+    const t = slotTeam(key)
+    return !!t && !t.isDraft
+  }
+  const currentSlot = teamType ? slotTeam(selKey) : undefined
+
   const canSave =
-    !!tournamentId && !saving && pendingTeams.length > 0 && pendingTeams.every((t) => t.ids.length >= t.min)
+    !!tournamentId && !saving && pendingTeams.length > 0 &&
+    pendingTeams.every((t) => t.ids.length >= t.min && !isConfirmedSlot(t.key))
 
   const handleSave = async () => {
     setError('')
@@ -239,12 +259,12 @@ export function TeamFormModal({ open, onClose, onSaved, tournament }: Props) {
       const which = pendingTeams.length > 1 ? ` (${pendingLabel(short)} team)` : ''
       return setError(`Select at least ${short.min} players for a ${teamTypeLabel(short.type)} team${which}. You can add more as substitutes.`)
     }
-    setConfirming(true)
-  }
-
-  const confirmSave = async () => {
-    setError('')
+    const locked = pendingTeams.find((t) => isConfirmedSlot(t.key))
+    if (locked) return setError(`Your ${pendingLabel(locked)} team is already confirmed for this tournament.`)
+    if (savingRef.current) return
+    savingRef.current = true
     setSaving(true)
+    const saved: DistrictTeam[] = []
     // Saved one by one; a saved team is dropped from the form so a retry after
     // an error doesn't create it twice.
     try {
@@ -261,6 +281,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament }: Props) {
           manager: (managerByKey[t.key] || '').trim() || undefined,
         }
         const result = await districtApi.createTeam(payload)
+        saved.push(result.team)
         onSaved(result.team)
         setSelectedByCat((prev) => {
           const next = { ...prev }
@@ -268,11 +289,13 @@ export function TeamFormModal({ open, onClose, onSaved, tournament }: Props) {
           return next
         })
       }
-      onClose()
+      setSavedTeams(saved)
     } catch (err) {
-      setConfirming(false)
+      // Keep what did save visible; the rest stays in the form to retry.
+      if (saved.length) setSavedTeams(saved)
       setError(err instanceof Error ? err.message : 'Failed to save the team. Please try again.')
     } finally {
+      savingRef.current = false
       setSaving(false)
     }
   }
@@ -429,6 +452,14 @@ export function TeamFormModal({ open, onClose, onSaved, tournament }: Props) {
               className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5a0a8f] focus:border-[#5a0a8f] outline-none text-gray-900"
             />
           </div>
+
+          {currentSlot && (
+            <div className={`p-3 rounded-lg border text-sm ${currentSlot.isDraft ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-red-50 border-red-200 text-red-800'}`}>
+              {currentSlot.isDraft
+                ? <>You already saved <b>{currentSlot.name}</b> for this slot (not confirmed yet). Saving again replaces it.</>
+                : <>Your <b>{pendingLabel({ type: teamType as TeamType, category: genderCategory })}</b> team (<b>{currentSlot.name}</b>) is already confirmed for this tournament — it can't be changed or registered again.</>}
+            </div>
+          )}
 
           {/* Team coach */}
           <div>
@@ -614,43 +645,39 @@ export function TeamFormModal({ open, onClose, onSaved, tournament }: Props) {
 
         {/* Footer */}
         <div className="p-6 border-t border-gray-200 sticky bottom-0 bg-white">
-          {confirming ? (
-            <div role="alertdialog" aria-labelledby="confirm-team-title">
-              <h3 id="confirm-team-title" className="text-base font-bold text-gray-900">
-                Please confirm that you want to create {pendingTeams.length > 1 ? `these ${pendingTeams.length} teams` : 'this team'} for {activeTournament?.title || 'this tournament'}.
+          {savedTeams && savedTeams.length > 0 ? (
+            <div role="status">
+              <h3 className="flex items-center gap-2 text-base font-bold text-green-800">
+                <span className="material-symbols-outlined text-green-600">check_circle</span>
+                Saved successfully
               </h3>
-              <ul className="mt-3 space-y-1.5 text-sm text-gray-700">
-                {pendingTeams.map((t) => (
-                  <li key={t.key} className="flex flex-wrap gap-x-2">
-                    <span className="font-semibold text-gray-900">{pendingLabel(t)} team</span>
-                    <span>· {t.ids.length} players</span>
-                    {coachName(coachByKey[t.key]) && <span>· Coach: {coachName(coachByKey[t.key])}</span>}
-                    {refereeName(refereeByKey[t.key]) && <span>· Referee: {refereeName(refereeByKey[t.key])}</span>}
-                    {managerByKey[t.key]?.trim() && <span>· Manager: {managerByKey[t.key].trim()}</span>}
+              <ul className="mt-2 space-y-1 text-sm text-gray-700">
+                {savedTeams.map((t) => (
+                  <li key={t._id}>
+                    <span className="font-semibold text-gray-900">{t.name}</span> · {t.members.length} players
                   </li>
                 ))}
               </ul>
               <p className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-900">
-                Once confirmed, the team{pendingTeams.length > 1 ? 's' : ''} can't be edited or deleted — you'll only be able to view {pendingTeams.length > 1 ? 'them' : 'it'}. Contact the HSTA admin for any correction.
+                {savedTeams.length > 1 ? 'These teams are' : 'This team is'} saved as a draft. Go to <b>My Teams</b> and
+                confirm {savedTeams.length > 1 ? 'them' : 'it'} — once confirmed it's <b>full and final</b> and can't be
+                changed for this tournament.
               </p>
               <div className="flex items-center justify-end gap-3 mt-4">
                 <button
                   type="button"
-                  onClick={() => setConfirming(false)}
-                  disabled={saving}
-                  className="px-5 py-2.5 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium disabled:opacity-50"
+                  onClick={onClose}
+                  className="px-5 py-2.5 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium"
                 >
-                  Back
+                  Close
                 </button>
-                <button
-                  type="button"
-                  onClick={confirmSave}
-                  disabled={saving}
-                  autoFocus
-                  className="px-6 py-2.5 bg-[#5a0a8f] hover:bg-[#400466] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-bold transition-colors"
+                <Link
+                  to="/district/teams"
+                  onClick={onClose}
+                  className="px-6 py-2.5 bg-[#5a0a8f] hover:bg-[#400466] text-white rounded-lg font-bold transition-colors"
                 >
-                  {saving ? 'Registering…' : 'Confirm'}
-                </button>
+                  Confirm in My Teams
+                </Link>
               </div>
             </div>
           ) : (
@@ -658,7 +685,8 @@ export function TeamFormModal({ open, onClose, onSaved, tournament }: Props) {
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-2.5 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium"
+                disabled={saving}
+                className="px-5 py-2.5 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -666,9 +694,11 @@ export function TeamFormModal({ open, onClose, onSaved, tournament }: Props) {
                 type="button"
                 onClick={handleSave}
                 disabled={!canSave}
-                className="px-6 py-2.5 bg-[#5a0a8f] hover:bg-[#400466] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-bold transition-colors"
+                aria-busy={saving}
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#5a0a8f] hover:bg-[#400466] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-bold transition-colors"
               >
-                {pendingTeams.length > 1 ? `Save ${pendingTeams.length} Teams` : 'Save Team'}
+                {saving && <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden="true" />}
+                {saving ? 'Saving…' : pendingTeams.length > 1 ? `Save ${pendingTeams.length} Teams` : 'Save Team'}
               </button>
             </div>
           )}
