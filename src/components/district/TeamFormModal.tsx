@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiRequest } from '../../lib/api'
 import { tournamentEventTypes } from '../../lib/eventFormat'
+import {
+  GENDER_OPTIONS,
+  normalizeTeamGenderCategory,
+  tournamentGenderCategories,
+} from '../../lib/tournamentFormOptions'
 import { GenderSegmentedControl } from '../admin/TournamentEventFields'
 import { GenderCategoryBadge } from '../GenderCategoryBadge'
 import { PlayerAvatar } from '../PlayerAvatar'
@@ -36,7 +41,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
 
   const [tournamentId, setTournamentId] = useState('')
   const [teamType, setTeamType] = useState<TeamType | ''>('')
-  const [genderCategory, setGenderCategory] = useState<GenderCategory>('both')
+  const [genderCategory, setGenderCategory] = useState<GenderCategory>('mixed')
   const [teamName, setTeamName] = useState('')
 
   const [players, setPlayers] = useState<DistrictPlayer[]>([])
@@ -104,7 +109,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
     if (editingTeam) {
       setTournamentId(editingTeam.tournament?._id || '')
       setTeamType((editingTeam.teamType as TeamType) || '')
-      setGenderCategory(editingTeam.genderCategory || 'both')
+      setGenderCategory(normalizeTeamGenderCategory(editingTeam.genderCategory))
       setTeamName(editingTeam.name || '')
       setSelectedIds((editingTeam.members || []).map((m) => m._id))
     } else {
@@ -112,8 +117,8 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
       setTeamType(tournament?.eventType && TEAM_TYPES.some((t) => t.value === tournament.eventType)
         ? (tournament.eventType as TeamType)
         : '')
-      const tg = tournament?.genderCategory
-      setGenderCategory(tg === 'male' || tg === 'female' ? tg : 'both')
+      const cats = tournamentGenderCategories(tournament || {})
+      setGenderCategory(cats.length === 1 ? cats[0] : cats.includes('male') ? 'male' : cats[0])
       setTeamName('')
       setSelectedIds([])
     }
@@ -163,6 +168,14 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
     [activeTournament],
   )
 
+  // Participation categories the active tournament offers. A district may
+  // register one team per category per event type (e.g. a male Regu team and
+  // a female Regu team).
+  const allowedGenders = useMemo(
+    () => tournamentGenderCategories(activeTournament || {}),
+    [activeTournament],
+  )
+
   // Reset the picked team type when the tournament (or its events) change.
   useEffect(() => {
     if (isEdit) return
@@ -171,8 +184,10 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
       return allowedTeamTypes.length === 1 ? allowedTeamTypes[0].value : ''
     })
     // Keep the team category inside the tournament's participation.
-    const tg = activeTournament?.genderCategory
-    if (tg === 'male' || tg === 'female') setGenderCategory(tg)
+    setGenderCategory((prev) => {
+      if (allowedGenders.includes(prev)) return prev
+      return allowedGenders.includes('male') ? 'male' : allowedGenders[0]
+    })
     setSelectedIds([])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournamentId, allowedTeamTypes, isEdit])
@@ -301,23 +316,20 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
               Team Category <span className="text-red-500">*</span>
             </label>
             {(() => {
-              const tg = activeTournament?.genderCategory
-              if (tg === 'male' || tg === 'female') {
+              if (allowedGenders.length === 1) {
+                const only = allowedGenders[0]
                 return (
                   <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 font-medium">
-                    {GENDER_CATEGORY_LABELS[tg]} <span className="text-gray-500 font-normal">— set by the tournament</span>
+                    {GENDER_CATEGORY_LABELS[only]} <span className="text-gray-500 font-normal">— set by the tournament</span>
                   </div>
                 )
               }
+              const options = GENDER_OPTIONS.filter((o) => allowedGenders.includes(o.value))
               return (
                 <GenderSegmentedControl
                   value={genderCategory}
                   onChange={setGenderCategory}
-                  hints={{
-                    male: 'Only male players can be picked for this team.',
-                    female: 'Only female players can be picked for this team.',
-                    both: 'Male and female players can be picked for this team.',
-                  }}
+                  options={options}
                 />
               )
             })()}

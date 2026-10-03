@@ -6,10 +6,10 @@ import { apiRequest } from '../../lib/api'
 import { DatePickerField } from '../../components/DatePickerField'
 import {
   EVENT_OPTIONS,
-  GENDER_OPTIONS,
+  genderCategoriesLabel,
   type GenderCategory,
 } from '../../lib/tournamentFormOptions'
-import { EventTypeCards, GenderSegmentedControl } from '../../components/admin/TournamentEventFields'
+import { EventTypeCards, GenderCategoryCards } from '../../components/admin/TournamentEventFields'
 import { eventTypesLabel, type EventType } from '../../lib/eventFormat'
 
 const inputClass =
@@ -87,7 +87,7 @@ export function CreateTournament() {
 
   const [customTournamentType, setCustomTournamentType] = useState('')
   const [eventTypes, setEventTypes] = useState<EventType[]>(['regu'])
-  const [genderCategory, setGenderCategory] = useState<GenderCategory>('both')
+  const [genderCategories, setGenderCategories] = useState<GenderCategory[]>(['male', 'female', 'mixed'])
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -174,7 +174,8 @@ export function CreateTournament() {
       if (formData.venueName.trim()) fd.append('venueName', formData.venueName.trim())
       if (formData.city.trim()) fd.append('city', formData.city.trim())
       if (formData.pincode.trim()) fd.append('pincode', formData.pincode.trim())
-      fd.append('genderCategory', genderCategory)
+      // Multi-category participation; the backend syncs the legacy single `genderCategory`.
+      fd.append('genderCategories', JSON.stringify(genderCategories))
       // Multi-event support; the backend keeps the first as the primary `eventType`.
       fd.append('eventTypes', JSON.stringify(eventTypes))
       fd.append('eventType', eventTypes[0])
@@ -215,7 +216,7 @@ export function CreateTournament() {
     },
     {
       label: 'Categories',
-      value: GENDER_OPTIONS.find((o) => o.value === genderCategory)?.label,
+      value: genderCategoriesLabel(genderCategories),
     },
     {
       label: 'Schedule',
@@ -462,8 +463,8 @@ export function CreateTournament() {
                   />
                 </Field>
 
-                <Field label="Who Can Participate" required>
-                  <GenderSegmentedControl value={genderCategory} onChange={setGenderCategory} />
+                <Field label="Who Can Participate" required hint="Select all categories contested — districts can register one team per category per event type.">
+                  <GenderCategoryCards value={genderCategories} onChange={setGenderCategories} />
                 </Field>
               </Section>
 
@@ -652,8 +653,7 @@ export function CreateTournament() {
                   <span className="font-bold text-gray-900">
                     {eventTypesLabel({ eventTypes })}
                   </span>{' '}
-                  · {GENDER_OPTIONS.find((o) => o.value === genderCategory)?.label} · Districts will
-                  register one team per event type ({eventTypes.map((t) => EVENT_OPTIONS.find((o) => o.value === t)?.hint).join(', ')}).
+                  · {genderCategoriesLabel(genderCategories)} · Districts can register one team per category per event type ({eventTypes.map((t) => EVENT_OPTIONS.find((o) => o.value === t)?.hint).join(', ')}).
                 </p>
               </div>
             </motion.div>

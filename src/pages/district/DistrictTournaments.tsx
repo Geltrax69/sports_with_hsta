@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { apiRequest } from '../../lib/api'
 import { isTournamentOpen, type DistrictTeam, type TournamentOption } from '../../lib/districtApi'
 import { eventTypesLabel, tournamentEventTypes } from '../../lib/eventFormat'
+import { genderCategoriesLabel, tournamentGenderCategories } from '../../lib/tournamentFormOptions'
 import { TeamFormModal } from '../../components/district/TeamFormModal'
 
 const formatDate = (value?: string) => {
@@ -103,6 +104,12 @@ export function DistrictTournaments() {
                     <span className="material-symbols-outlined text-base text-gray-400">sports</span>
                     <span>
                       Event{tournamentEventTypes(t).length > 1 ? 's' : ''}: {eventTypesLabel(t)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base text-gray-400">wc</span>
+                    <span>
+                      Categor{tournamentGenderCategories(t).length > 1 ? 'ies' : 'y'}: {genderCategoriesLabel(tournamentGenderCategories(t))}
                     </span>
                   </div>
                   {t.registrationCloses && (

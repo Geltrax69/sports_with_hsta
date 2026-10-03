@@ -10,6 +10,7 @@ import { ListPagination } from '../../components/ListPagination'
 import { fieldClass, selectClass } from '../../lib/formStyles'
 import { eventTypeLabel, tournamentEventTypes, type EventType } from '../../lib/eventFormat'
 import { GenderCategoryBadge } from '../../components/GenderCategoryBadge'
+import { teamGenderCategoryLabel } from '../../lib/districtApi'
 
 const squadLimitsForEvent = (eventType: EventType) => {
   const starters = ({ regu: 3, double: 2, quad: 4 }[eventType] ?? 3)
@@ -1834,7 +1835,7 @@ export function TournamentRegistrations() {
                     <option value="">Select team…</option>
                     {matchRegisteredTeams(1).map((t) => (
                       <option key={t._id} value={t._id}>
-                        {t.name} · {teamTypeLabel(t.teamType)} ({(t.members || []).length} players)
+                        {t.name} · {teamTypeLabel(t.teamType)} · {teamGenderCategoryLabel(t.genderCategory)} ({(t.members || []).length} players)
                       </option>
                     ))}
                   </select>
@@ -1992,7 +1993,7 @@ export function TournamentRegistrations() {
                     <option value="">Select team…</option>
                     {matchRegisteredTeams(2).map((t) => (
                       <option key={t._id} value={t._id}>
-                        {t.name} · {teamTypeLabel(t.teamType)} ({(t.members || []).length} players)
+                        {t.name} · {teamTypeLabel(t.teamType)} · {teamGenderCategoryLabel(t.genderCategory)} ({(t.members || []).length} players)
                       </option>
                     ))}
                   </select>

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { apiRequest } from '../../lib/api'
+import { genderCategoriesLabel, tournamentGenderCategories } from '../../lib/tournamentFormOptions'
 import { PlayerIDCard } from '../../components/player/PlayerIDCard'
 
 type Tournament = {
@@ -12,7 +13,8 @@ type Tournament = {
   venueName?: string
   city?: string
   status?: string
-  genderCategory?: 'male' | 'female' | 'both'
+  genderCategory?: string
+  genderCategories?: string[]
   imageUrl?: string
 }
 
@@ -383,15 +385,9 @@ export function PlayerDashboard() {
                         </div>
 
                         <div className="flex flex-wrap gap-2 mb-3">
-                          {t.genderCategory && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">
-                              {t.genderCategory === 'both'
-                                ? 'Male & Female'
-                                : t.genderCategory === 'male'
-                                  ? 'Male'
-                                  : 'Female'}
-                            </span>
-                          )}
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">
+                            {genderCategoriesLabel(tournamentGenderCategories(t))}
+                          </span>
                         </div>
 
                         <div className="space-y-1.5">

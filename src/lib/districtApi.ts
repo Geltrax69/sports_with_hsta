@@ -2,12 +2,25 @@ import { apiRequest } from './api'
 
 export type TeamType = 'regu' | 'double' | 'quad'
 
-export type GenderCategory = 'male' | 'female' | 'both'
+export type GenderCategory = 'male' | 'female' | 'mixed'
 
 export const GENDER_CATEGORY_LABELS: Record<GenderCategory, string> = {
   male: 'Male',
   female: 'Female',
-  both: 'Male & Female',
+  mixed: 'Mixed',
+}
+
+/** Legacy backend team value 'both' means 'mixed'. */
+export function normalizeTeamGenderCategory(value: unknown): GenderCategory {
+  const v = String(value || '').trim().toLowerCase()
+  if (v === 'male') return 'male'
+  if (v === 'female') return 'female'
+  return 'mixed'
+}
+
+/** Display label for a team category, tolerant of the legacy 'both' value. */
+export function teamGenderCategoryLabel(value: unknown): string {
+  return GENDER_CATEGORY_LABELS[normalizeTeamGenderCategory(value)]
 }
 
 export const TEAM_TYPES: { value: TeamType; label: string; playersRequired: number }[] = [
@@ -45,6 +58,8 @@ export type TournamentOption = {
   registrationCloses?: string
   imageUrl?: string
   genderCategory?: GenderCategory
+  /** Full set of participation categories when the tournament offers several. */
+  genderCategories?: string[]
 }
 
 /** Mirrors the backend's registration-open check for tournaments. */
@@ -92,7 +107,7 @@ export type DistrictTeam = {
   maxMembers: number
   members: DistrictTeamMember[]
   district?: { _id: string; code: string; name: string }
-  tournament?: { _id: string; title: string; eventType?: string; eventTypes?: string[]; status?: string; genderCategory?: GenderCategory }
+  tournament?: { _id: string; title: string; eventType?: string; eventTypes?: string[]; status?: string; genderCategory?: GenderCategory; genderCategories?: string[] }
   createdAt: string
   updatedAt: string
 }

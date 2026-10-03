@@ -5,8 +5,8 @@ import { apiRequest } from '../../lib/api'
 import { DatePickerField } from '../../components/DatePickerField'
 import { Autocomplete, TextField, Chip } from '@mui/material'
 import { tournamentEventTypes, type EventType } from '../../lib/eventFormat'
-import { type GenderCategory } from '../../lib/tournamentFormOptions'
-import { EventTypeCards, GenderSegmentedControl } from '../../components/admin/TournamentEventFields'
+import { tournamentGenderCategories, type GenderCategory } from '../../lib/tournamentFormOptions'
+import { EventTypeCards, GenderCategoryCards } from '../../components/admin/TournamentEventFields'
 
 type Player = {
   _id: string
@@ -37,7 +37,8 @@ type AdminTournament = {
   venueName?: string
   city?: string
   pincode?: string
-  genderCategory?: 'male' | 'female' | 'both'
+  genderCategory?: string
+  genderCategories?: string[]
   imageUrl?: string
 
   status?: string
@@ -96,7 +97,7 @@ export function EditTournament() {
   const [eventTypes, setEventTypes] = useState<EventType[]>(['regu'])
   const [eventsError, setEventsError] = useState<string | null>(null)
 
-  const [genderCategory, setGenderCategory] = useState<GenderCategory>('both')
+  const [genderCategories, setGenderCategories] = useState<GenderCategory[]>(['male', 'female', 'mixed'])
 
   const [customTournamentType, setCustomTournamentType] = useState('')
 
@@ -159,7 +160,7 @@ export function EditTournament() {
 
         setCustomTournamentType(isPreset ? '' : type)
 
-        setGenderCategory(t.genderCategory || 'both')
+        setGenderCategories(tournamentGenderCategories(t))
 
         if (t.winners) {
           setWinners({
@@ -251,7 +252,8 @@ export function EditTournament() {
       fd.append('venueName', formData.venueName)
       fd.append('city', formData.city)
       fd.append('pincode', formData.pincode)
-      fd.append('genderCategory', genderCategory)
+      // Multi-category participation; the backend syncs the legacy single `genderCategory`.
+      fd.append('genderCategories', JSON.stringify(genderCategories))
       fd.append('eventTypes', JSON.stringify(eventTypes))
       fd.append('eventType', eventTypes[0])
       fd.append('winners', JSON.stringify({
@@ -412,7 +414,7 @@ export function EditTournament() {
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Who Can Participate <span className="text-red-500">*</span>
                 </label>
-                <GenderSegmentedControl value={genderCategory} onChange={setGenderCategory} />
+                <GenderCategoryCards value={genderCategories} onChange={setGenderCategories} />
               </div>
 
               <div>

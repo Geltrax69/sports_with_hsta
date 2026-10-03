@@ -2,7 +2,10 @@ import {
   EVENT_OPTIONS,
   GENDER_HINTS,
   GENDER_OPTIONS,
+  PARTICIPATION_OPTIONS,
+  genderCategoriesLabel,
   toggleEventTypeValue,
+  toggleGenderCategoryValue,
   type GenderCategory,
 } from '../../lib/tournamentFormOptions'
 import type { EventType } from '../../lib/eventFormat'
@@ -64,25 +67,29 @@ export function EventTypeCards({
   )
 }
 
-/** Segmented control for who can participate. */
+/** Segmented control for a single gender category (e.g. a team's category). */
 export function GenderSegmentedControl({
   value,
   onChange,
   hints,
+  options,
 }: {
   value: GenderCategory
   onChange: (next: GenderCategory) => void
   hints?: Record<GenderCategory, string>
+  /** Limit the offered choices (defaults to all). */
+  options?: { value: GenderCategory; label: string; icon: string }[]
 }) {
   const hintText = (hints || GENDER_HINTS)[value]
+  const opts = options || GENDER_OPTIONS
   return (
     <div>
       <div
-        className="grid grid-cols-3 gap-1.5 rounded-2xl border border-gray-200 bg-gray-100 p-1.5"
+        className={`grid gap-1.5 rounded-2xl border border-gray-200 bg-gray-100 p-1.5 ${opts.length > 2 ? 'grid-cols-3' : 'grid-cols-2'}`}
         role="radiogroup"
         aria-label="Gender categories"
       >
-        {GENDER_OPTIONS.map((opt) => {
+        {opts.map((opt) => {
           const selected = value === opt.value
           return (
             <button
@@ -106,6 +113,66 @@ export function GenderSegmentedControl({
         })}
       </div>
       <p className="mt-1.5 text-xs text-gray-500">{hintText}</p>
+    </div>
+  )
+}
+
+/** Multi-select cards for tournament participation (Male / Female / Mixed). */
+export function GenderCategoryCards({
+  value,
+  onChange,
+  error,
+}: {
+  value: GenderCategory[]
+  onChange: (next: GenderCategory[]) => void
+  error?: string | null
+}) {
+  return (
+    <div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3" role="group" aria-label="Participation categories">
+        {PARTICIPATION_OPTIONS.map((opt) => {
+          const selected = value.includes(opt.value)
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => onChange(toggleGenderCategoryValue(value, opt.value))}
+              className={`relative flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-[border-color,background-color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5a0a8f] focus-visible:ring-offset-2 active:scale-[0.98] ${
+                selected
+                  ? 'border-[#5a0a8f] bg-[#5a0a8f]/[0.05] shadow-[0_2px_12px_-4px_rgba(90,10,143,0.25)]'
+                  : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <span
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-[background-color,border-color] duration-200 ${
+                  selected ? 'border-[#5a0a8f] bg-[#5a0a8f]' : 'border-gray-300 bg-white'
+                }`}
+              >
+                <span
+                  className={`material-symbols-outlined text-sm font-bold text-white transition-[opacity,transform] duration-200 ${
+                    selected ? 'scale-100 opacity-100' : 'scale-50 opacity-0'
+                  }`}
+                >
+                  check
+                </span>
+              </span>
+              <span>
+                <span
+                  className={`block text-[15px] font-bold ${selected ? 'text-[#5a0a8f]' : 'text-gray-900'}`}
+                >
+                  {opt.label}
+                </span>
+                <span className="block text-xs text-gray-500">{opt.hint}</span>
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      <p className="mt-1.5 text-xs text-gray-500">
+        {genderCategoriesLabel(value)} will be contested - districts can register one team per category per event type.
+      </p>
+      {error && <p className="mt-1.5 text-xs font-medium text-red-600">{error}</p>}
     </div>
   )
 }

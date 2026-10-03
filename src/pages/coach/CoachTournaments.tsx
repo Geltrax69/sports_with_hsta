@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiRequest } from '../../lib/api'
+import { genderCategoriesLabel, tournamentGenderCategories } from '../../lib/tournamentFormOptions'
 
 type Tournament = {
   _id: string
@@ -9,7 +10,8 @@ type Tournament = {
   venueName?: string
   city?: string
   status?: string
-  genderCategory?: 'male' | 'female' | 'both'
+  genderCategory?: string
+  genderCategories?: string[]
   imageUrl?: string
   description?: string
 }
@@ -191,12 +193,10 @@ export function CoachTournaments() {
                         {t.venueName}, {t.city}
                       </div>
                     )}
-                    {t.genderCategory && (
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <span className="material-symbols-outlined text-sm">wc</span>
-                        <span className="capitalize">{t.genderCategory}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <span className="material-symbols-outlined text-sm">wc</span>
+                      <span>{genderCategoriesLabel(tournamentGenderCategories(t))}</span>
+                    </div>
                   </div>
 
                   <div className="mb-4">

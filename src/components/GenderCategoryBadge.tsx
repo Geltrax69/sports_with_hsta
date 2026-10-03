@@ -1,6 +1,6 @@
-import { GENDER_CATEGORY_LABELS, type GenderCategory } from '../lib/districtApi'
+import { GENDER_CATEGORY_LABELS, normalizeTeamGenderCategory } from '../lib/districtApi'
 
-const STYLES: Record<GenderCategory, { badge: string; icon: string; label: string }> = {
+const STYLES = {
   male: {
     badge: 'bg-blue-100 text-blue-800 border-blue-200',
     icon: 'male',
@@ -11,10 +11,10 @@ const STYLES: Record<GenderCategory, { badge: string; icon: string; label: strin
     icon: 'female',
     label: GENDER_CATEGORY_LABELS.female,
   },
-  both: {
+  mixed: {
     badge: 'bg-purple-100 text-purple-800 border-purple-200',
     icon: 'groups',
-    label: GENDER_CATEGORY_LABELS.both,
+    label: GENDER_CATEGORY_LABELS.mixed,
   },
 }
 
@@ -23,10 +23,10 @@ export function GenderCategoryBadge({
   value,
   className = '',
 }: {
-  value?: GenderCategory | string | null
+  value?: string | null
   className?: string
 }) {
-  const key: GenderCategory = value === 'male' || value === 'female' ? value : 'both'
+  const key = normalizeTeamGenderCategory(value)
   const s = STYLES[key]
   return (
     <span
