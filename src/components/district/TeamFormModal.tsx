@@ -48,10 +48,17 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
   const [loadingPlayers, setLoadingPlayers] = useState(false)
   const [search, setSearch] = useState('')
   const [genderFilter, setGenderFilter] = useState<'all' | 'male' | 'female'>('all')
-  // Players picked per team category. In create mode a district can fill
-  // Male only and Female only (and Mixed) in one go and save one team each.
-  const [selectedByCat, setSelectedByCat] = useState<Partial<Record<GenderCategory, string[]>>>({})
-  const selectedIds = useMemo(() => selectedByCat[genderCategory] || [], [selectedByCat, genderCategory])
+  // Players picked per team (event type + category), keyed "regu|male". In
+  // create mode a district can fill Regu Male, Regu Female, Doubles Male…
+  // in one go and save one team each. A player may be in several of them
+  // (e.g. the same player in the Regu and the Doubles team).
+  const [selectedByCat, setSelectedByCat] = useState<Record<string, string[]>>({})
+  const selKey = `${teamType}|${genderCategory}`
+  const selectedIds = useMemo(() => selectedByCat[selKey] || [], [selectedByCat, selKey])
+  // Editing one team: switching type/category carries its picks along.
+  const moveEditPicks = (nextKey: string) => {
+    if (isEdit) setSelectedByCat((prev) => ({ [nextKey]: prev[selKey] || [] }))
+  }
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -119,7 +126,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
       const cat = normalizeTeamGenderCategory(editingTeam.genderCategory)
       setGenderCategory(cat)
       setTeamName(editingTeam.name || '')
-      setSelectedByCat({ [cat]: (editingTeam.members || []).map((m) => m._id) })
+      setSelectedByCat({ [`${editingTeam.teamType || ''}|${cat}`]: (editingTeam.members || []).map((m) => m._id) })
     } else {
       setTournamentId(tournament?._id || '')
       setTeamType(tournament?.eventType && TEAM_TYPES.some((t) => t.value === tournament.eventType)
@@ -159,16 +166,24 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
   const togglePlayer = (id: string) => {
     // No upper cap: districts may register larger squads (incl. substitutes).
     setSelectedByCat((prev) => {
-      const cur = prev[genderCategory] || []
-      return { ...prev, [genderCategory]: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] }
+      const cur = prev[selKey] || []
+      return { ...prev, [selKey]: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] }
     })
   }
 
-  // Teams this save will create: every category with players picked.
+  // Teams this save will create: every type + category with players picked.
   const pendingTeams = useMemo(
-    () => (Object.entries(selectedByCat) as [GenderCategory, string[]][]).filter(([, ids]) => ids.length > 0),
+    () => Object.entries(selectedByCat)
+      .filter(([, ids]) => ids.length > 0)
+      .map(([key, ids]) => {
+        const [type, category] = key.split('|') as [TeamType, GenderCategory]
+        return { key, type, category, ids, min: MIN_PLAYERS_REQUIRED[type] ?? 0 }
+      })
+      .filter((t) => t.min > 0),
     [selectedByCat],
   )
+  const pendingLabel = (t: { type: TeamType; category: GenderCategory }) =>
+    allowedGenders.length > 1 ? `${teamTypeLabel(t.type)} ${GENDER_CATEGORY_LABELS[t.category]}` : teamTypeLabel(t.type)
 
   const activeTournament: TournamentOption | undefined =
     tournament?._id === tournamentId
@@ -207,30 +222,29 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
   }, [tournamentId, allowedTeamTypes, isEdit])
 
   const canSave =
-    !!tournamentId && !!teamType && minRequired > 0 && !saving &&
-    pendingTeams.length > 0 && pendingTeams.every(([, ids]) => ids.length >= minRequired)
+    !!tournamentId && !saving && pendingTeams.length > 0 && pendingTeams.every((t) => t.ids.length >= t.min)
 
   const handleSave = async () => {
     setError('')
     if (!tournamentId) return setError('Select a tournament.')
-    if (!teamType) return setError('Select a team type.')
-    const short = pendingTeams.find(([, ids]) => ids.length < minRequired)
-    if (short || pendingTeams.length === 0) {
-      const which = short && pendingTeams.length > 1 ? ` (${GENDER_CATEGORY_LABELS[short[0]]} team)` : ''
-      return setError(`Select at least ${minRequired} players for a ${teamTypeLabel(teamType)} team${which}. You can add more as substitutes.`)
+    if (pendingTeams.length === 0) return setError(teamType ? `Select at least ${minRequired} players.` : 'Select a team type.')
+    const short = pendingTeams.find((t) => t.ids.length < t.min)
+    if (short) {
+      const which = pendingTeams.length > 1 ? ` (${pendingLabel(short)} team)` : ''
+      return setError(`Select at least ${short.min} players for a ${teamTypeLabel(short.type)} team${which}. You can add more as substitutes.`)
     }
     setSaving(true)
     // Saved one by one; a saved team is dropped from the form so a retry after
     // an error doesn't create it twice.
     try {
-      for (const [category, memberIds] of pendingTeams) {
+      for (const t of pendingTeams) {
         const name = teamName.trim()
         const payload = {
           tournamentId,
-          teamType: teamType as TeamType,
-          genderCategory: category,
-          name: name ? (pendingTeams.length > 1 ? `${name} (${GENDER_CATEGORY_LABELS[category]})` : name) : undefined,
-          memberIds,
+          teamType: t.type,
+          genderCategory: t.category,
+          name: name ? (pendingTeams.length > 1 ? `${name} (${pendingLabel(t)})` : name) : undefined,
+          memberIds: t.ids,
         }
         const result = isEdit && editingTeam
           ? await districtApi.updateTeam(editingTeam._id, payload)
@@ -238,7 +252,7 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
         onSaved(result.team)
         setSelectedByCat((prev) => {
           const next = { ...prev }
-          delete next[category]
+          delete next[t.key]
           return next
         })
       }
@@ -320,8 +334,9 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
                     key={t.value}
                     type="button"
                     onClick={() => {
+                      // Picks are kept per type, so switching back restores them.
+                      moveEditPicks(`${t.value}|${genderCategory}`)
                       setTeamType(t.value)
-                      setSelectedByCat({})
                     }}
                     className={`px-4 py-3 rounded-lg border-2 transition-colors text-left ${
                       active
@@ -353,42 +368,40 @@ export function TeamFormModal({ open, onClose, onSaved, tournament, editingTeam 
               }
               const options = GENDER_OPTIONS.filter((o) => allowedGenders.includes(o.value))
               return (
-                <>
-                  <GenderSegmentedControl
-                    value={genderCategory}
-                    onChange={(next) => {
-                      // Editing one team: its picks move with the category.
-                      if (isEdit) setSelectedByCat((prev) => ({ [next]: prev[genderCategory] || [] }))
-                      setGenderCategory(next)
-                    }}
-                    options={options}
-                  />
-                  {!isEdit && (
-                    <p className="text-xs text-gray-500 mt-2">
-                      Registering more than one category? Pick players under each one — every
-                      category with players becomes its own team when you save.
-                    </p>
-                  )}
-                  {!isEdit && pendingTeams.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {pendingTeams.map(([cat, ids]) => (
-                        <span
-                          key={cat}
-                          className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
-                            ids.length >= minRequired
-                              ? 'bg-green-50 border-green-200 text-green-800'
-                              : 'bg-amber-50 border-amber-200 text-amber-800'
-                          }`}
-                        >
-                          {GENDER_CATEGORY_LABELS[cat]} team: {ids.length} player{ids.length === 1 ? '' : 's'}
-                          {ids.length < minRequired ? ` (need ${minRequired})` : ' ✓'}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </>
+                <GenderSegmentedControl
+                  value={genderCategory}
+                  onChange={(next) => {
+                    moveEditPicks(`${teamType}|${next}`)
+                    setGenderCategory(next)
+                  }}
+                  options={options}
+                />
               )
             })()}
+            {!isEdit && (allowedGenders.length > 1 || allowedTeamTypes.length > 1) && (
+              <p className="text-xs text-gray-500 mt-2">
+                Registering more than one team? Pick players under each team type and category —
+                each one with players becomes its own team when you save. A player can be in
+                more than one team (e.g. Regu and Doubles).
+              </p>
+            )}
+            {!isEdit && pendingTeams.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {pendingTeams.map((t) => (
+                  <span
+                    key={t.key}
+                    className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
+                      t.ids.length >= t.min
+                        ? 'bg-green-50 border-green-200 text-green-800'
+                        : 'bg-amber-50 border-amber-200 text-amber-800'
+                    }`}
+                  >
+                    {pendingLabel(t)} team: {t.ids.length} player{t.ids.length === 1 ? '' : 's'}
+                    {t.ids.length < t.min ? ` (need ${t.min})` : ' ✓'}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Team name */}
